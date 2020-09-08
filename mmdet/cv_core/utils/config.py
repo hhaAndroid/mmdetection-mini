@@ -373,6 +373,7 @@ class Config:
     def __iter__(self):
         return iter(self._cfg_dict)
 
+    # 以下两个方法用于解决picker可以dump，但是无法Load进来的Bug
     def __getstate__(self):
         return (self._cfg_dict, self._filename, self._text)
 
