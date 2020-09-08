@@ -6,11 +6,11 @@ from .logger import (LoggerHook,TextLoggerHook)
 from .lr_updater import LrUpdaterHook
 from .memory import EmptyCacheHook
 from .momentum_updater import MomentumUpdaterHook
-from .optimizer import Fp16OptimizerHook, OptimizerHook
+from .optimizer import  OptimizerHook
 
 
 __all__ = [
     'HOOKS', 'Hook', 'CheckpointHook', 'LrUpdaterHook',
-    'OptimizerHook', 'Fp16OptimizerHook', 'IterTimerHook',
+    'OptimizerHook', 'IterTimerHook',
     'EmptyCacheHook', 'LoggerHook', 'TextLoggerHook', 'MomentumUpdaterHook'
 ]

@@ -78,11 +78,11 @@ class Config:
         [0, 1]
         >>> cfg = Config.fromfile('tests/data/config/a.py')
         >>> cfg.filename
-        "/home/kchen/projects/mmcv/tests/data/config/a.py"
+        "/home/kchen/projects/mmdet.cv_core/tests/data/config/a.py"
         >>> cfg.item4
         'test'
         >>> cfg
-        "Config [path: /home/kchen/projects/mmcv/tests/data/config/a.py]: "
+        "Config [path: /home/kchen/projects/mmdet.cv_core/tests/data/config/a.py]: "
         "{'item1': [1, 2], 'item2': {'a': 0}, 'item3': True, 'item4': 'test'}"
     """
 
@@ -151,8 +151,8 @@ class Config:
                 # delete imported module
                 del sys.modules[temp_module_name]
             elif filename.endswith(('.yml', '.yaml', '.json')):
-                import mmcv
-                cfg_dict = mmcv.load(temp_config_file.name)
+                import mmdet.cv_core
+                cfg_dict = mmdet.cv_core.load(temp_config_file.name)
             # close temp file
             temp_config_file.close()
 
@@ -391,12 +391,12 @@ class Config:
                 with open(file, 'w') as f:
                     f.write(self.pretty_text)
         else:
-            import mmcv
+            import mmdet.cv_core
             if file is None:
                 file_format = self.filename.split('.')[-1]
-                return mmcv.dump(cfg_dict, file_format=file_format)
+                return mmdet.cv_core.dump(cfg_dict, file_format=file_format)
             else:
-                mmcv.dump(cfg_dict, file)
+                mmdet.cv_core.dump(cfg_dict, file)
 
     def merge_from_dict(self, options):
         """Merge list into cfg_dict.

@@ -5,7 +5,7 @@ import warnings
 
 import torch
 
-import mmcv
+from mmdet import cv_core
 from .base_runner import BaseRunner
 from .checkpoint import save_checkpoint
 from .utils import get_host_info
@@ -86,7 +86,7 @@ class EpochBasedRunner(BaseRunner):
             max_epochs (int): Total training epochs.
         """
         assert isinstance(data_loaders, list)
-        assert mmcv.is_list_of(workflow, tuple)
+        assert cv_core.is_list_of(workflow, tuple)
         assert len(data_loaders) == len(workflow)
 
         self._max_epochs = max_epochs
@@ -162,7 +162,7 @@ class EpochBasedRunner(BaseRunner):
         # in some environments, `os.symlink` is not supported, you may need to
         # set `create_symlink` to False
         if create_symlink:
-            mmcv.symlink(filename, osp.join(out_dir, 'latest.pth'))
+            cv_core.symlink(filename, osp.join(out_dir, 'latest.pth'))
 
 
 class Runner(EpochBasedRunner):

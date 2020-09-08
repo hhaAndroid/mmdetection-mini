@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import torch
 
-from mmcv.utils import deprecated_api_warning
+from mmdet.cv_core.utils import deprecated_api_warning
 from ..utils import ext_loader
 
 ext_module = ext_loader.load_ext('_ext', ['nms', 'softnms', 'nms_match'])

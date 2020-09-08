@@ -7,7 +7,7 @@ from abc import ABCMeta, abstractmethod
 import torch
 from torch.optim import Optimizer
 
-
+from mmdet import cv_core
 from .checkpoint import load_checkpoint
 from .hooks import HOOKS, Hook, IterTimerHook
 from .log_buffer import LogBuffer
@@ -58,10 +58,7 @@ class BaseRunner(metaclass=ABCMeta):
                           'train_step() and val_step() in the model instead.')
             # raise an error is `batch_processor` is not None and
             # `model.train_step()` exists.
-            if is_module_wrapper(model):
-                _model = model.module
-            else:
-                _model = model
+            _model = model
             if hasattr(_model, 'train_step') or hasattr(_model, 'val_step'):
                 raise RuntimeError(
                     'batch_processor and model.train_step()/model.val_step() '
@@ -98,9 +95,9 @@ class BaseRunner(metaclass=ABCMeta):
         self.meta = meta
 
         # create work_dir
-        if mmcv.is_str(work_dir):
+        if cv_core.is_str(work_dir):
             self.work_dir = osp.abspath(work_dir)
-            mmcv.mkdir_or_exist(self.work_dir)
+            cv_core.mkdir_or_exist(self.work_dir)
         elif work_dir is None:
             self.work_dir = None
         else:
@@ -112,7 +109,6 @@ class BaseRunner(metaclass=ABCMeta):
         else:
             self._model_name = self.model.__class__.__name__
 
-        self._rank, self._world_size = get_dist_info()
         self.timestamp = get_time_str()
         self.mode = None
         self._hooks = []
@@ -128,17 +124,6 @@ class BaseRunner(metaclass=ABCMeta):
     def model_name(self):
         """str: Name of the model, usually the module class name."""
         return self._model_name
-
-    @property
-    def rank(self):
-        """int: Rank of current process. (distributed training)"""
-        return self._rank
-
-    @property
-    def world_size(self):
-        """int: Number of processes participating in the job.
-        (distributed training)"""
-        return self._world_size
 
     @property
     def hooks(self):
@@ -282,7 +267,7 @@ class BaseRunner(metaclass=ABCMeta):
         """
         hook_cfg = hook_cfg.copy()
         priority = hook_cfg.pop('priority', 'NORMAL')
-        hook = mmcv.build_from_cfg(hook_cfg, HOOKS)
+        hook = cv_core.build_from_cfg(hook_cfg, HOOKS)
         self.register_hook(hook, priority=priority)
 
     def call_hook(self, fn_name):
@@ -337,7 +322,7 @@ class BaseRunner(metaclass=ABCMeta):
                 policy_type = policy_type.title()
             hook_type = policy_type + 'LrUpdaterHook'
             lr_config['type'] = hook_type
-            hook = mmcv.build_from_cfg(lr_config, HOOKS)
+            hook = cv_core.build_from_cfg(lr_config, HOOKS)
         else:
             hook = lr_config
         self.register_hook(hook)
@@ -358,7 +343,7 @@ class BaseRunner(metaclass=ABCMeta):
                 policy_type = policy_type.title()
             hook_type = policy_type + 'MomentumUpdaterHook'
             momentum_config['type'] = hook_type
-            hook = mmcv.build_from_cfg(momentum_config, HOOKS)
+            hook = cv_core.build_from_cfg(momentum_config, HOOKS)
         else:
             hook = momentum_config
         self.register_hook(hook)
@@ -368,7 +353,7 @@ class BaseRunner(metaclass=ABCMeta):
             return
         if isinstance(optimizer_config, dict):
             optimizer_config.setdefault('type', 'OptimizerHook')
-            hook = mmcv.build_from_cfg(optimizer_config, HOOKS)
+            hook = cv_core.build_from_cfg(optimizer_config, HOOKS)
         else:
             hook = optimizer_config
         self.register_hook(hook)
@@ -378,7 +363,7 @@ class BaseRunner(metaclass=ABCMeta):
             return
         if isinstance(checkpoint_config, dict):
             checkpoint_config.setdefault('type', 'CheckpointHook')
-            hook = mmcv.build_from_cfg(checkpoint_config, HOOKS)
+            hook = cv_core.build_from_cfg(checkpoint_config, HOOKS)
         else:
             hook = checkpoint_config
         self.register_hook(hook)
@@ -388,7 +373,7 @@ class BaseRunner(metaclass=ABCMeta):
             return
         log_interval = log_config['interval']
         for info in log_config['hooks']:
-            logger_hook = mmcv.build_from_cfg(
+            logger_hook = cv_core.build_from_cfg(
                 info, HOOKS, default_args=dict(interval=log_interval))
             self.register_hook(logger_hook, priority='VERY_LOW')
 

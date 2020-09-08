@@ -63,7 +63,7 @@ def imresize(img,
         out (ndarray): The output destination.
         backend (str | None): The image resize backend type. Options are `cv2`,
             `pillow`, `None`. If backend is None, the global imread_backend
-            specified by ``mmcv.use_backend()`` will be used. Default: None.
+            specified by ``mmdet.cv_core.use_backend()`` will be used. Default: None.
 
     Returns:
         tuple | ndarray: (`resized_img`, `w_scale`, `h_scale`) or

@@ -9,7 +9,7 @@ from socket import gethostname
 import numpy as np
 import torch
 
-import mmcv
+from mmdet import cv_core
 
 
 def get_host_info():
@@ -41,7 +41,7 @@ def obj_from_dict(info, parent=None, default_args=None):
     assert isinstance(default_args, dict) or default_args is None
     args = info.copy()
     obj_type = args.pop('type')
-    if mmcv.is_str(obj_type):
+    if cv_core.is_str(obj_type):
         if parent is not None:
             obj_type = getattr(parent, obj_type)
         else:
@@ -55,7 +55,7 @@ def obj_from_dict(info, parent=None, default_args=None):
     return obj_type(**args)
 
 
-def set_random_seed(seed, deterministic=False, use_rank_shift=False):
+def set_random_seed(seed, deterministic=False):
     """Set random seed.
 
     Args:
@@ -67,9 +67,6 @@ def set_random_seed(seed, deterministic=False, use_rank_shift=False):
         rank_shift (bool): Whether to add rank number to the random seed to
             have different random seed in different threads. Default: False.
     """
-    if use_rank_shift:
-        rank, _ = mmcv.runner.get_dist_info()
-        seed += rank
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)

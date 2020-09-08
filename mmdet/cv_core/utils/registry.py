@@ -142,7 +142,7 @@ def build_from_cfg(cfg, registry, default_args=None):
         raise KeyError(
             f'the cfg dict must contain the key "type", but got {cfg}')
     if not isinstance(registry, Registry):
-        raise TypeError('registry must be an mmcv.Registry object, '
+        raise TypeError('registry must be an mmdet.cv_core.Registry object, '
                         f'but got {type(registry)}')
     if not (isinstance(default_args, dict) or default_args is None):
         raise TypeError('default_args must be a dict or None, '

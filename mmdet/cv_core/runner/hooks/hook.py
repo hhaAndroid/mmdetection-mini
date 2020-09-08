@@ -1,5 +1,5 @@
 # Copyright (c) Open-MMLab. All rights reserved.
-from mmcv.utils import Registry
+from mmdet.cv_core.utils import Registry
 
 HOOKS = Registry('hook')
 

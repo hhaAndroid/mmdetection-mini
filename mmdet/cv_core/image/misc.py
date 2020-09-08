@@ -1,6 +1,6 @@
 import numpy as np
 
-import mmcv
+from mmdet import cv_core
 
 try:
     import torch
@@ -37,7 +37,7 @@ def tensor2imgs(tensor, mean=(0, 0, 0), std=(1, 1, 1), to_rgb=True):
     imgs = []
     for img_id in range(num_imgs):
         img = tensor[img_id, ...].cpu().numpy().transpose(1, 2, 0)
-        img = mmcv.imdenormalize(
+        img = cv_core.imdenormalize(
             img, mean, std, to_bgr=to_rgb).astype(np.uint8)
         imgs.append(np.ascontiguousarray(img))
     return imgs

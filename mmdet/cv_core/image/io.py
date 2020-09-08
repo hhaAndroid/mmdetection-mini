@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 from cv2 import IMREAD_COLOR, IMREAD_GRAYSCALE, IMREAD_UNCHANGED
 
-from mmcv.utils import check_file_exist, is_str, mkdir_or_exist
+from mmdet.cv_core.utils import check_file_exist, is_str, mkdir_or_exist
 
 try:
     from turbojpeg import TJCS_RGB, TJPF_BGR, TJPF_GRAY, TurboJPEG
@@ -133,7 +133,7 @@ def imread(img_or_path, flag='color', channel_order='bgr', backend=None):
         channel_order (str): Order of channel, candidates are `bgr` and `rgb`.
         backend (str | None): The image decoding backend type. Options are
             `cv2`, `pillow`, `turbojpeg`, `None`. If backend is None, the
-            global imread_backend specified by ``mmcv.use_backend()`` will be
+            global imread_backend specified by ``mmdet.cv_core.use_backend()`` will be
             used. Default: None.
 
     Returns:
@@ -183,7 +183,7 @@ def imfrombytes(content, flag='color', channel_order='bgr', backend=None):
         flag (str): Same as :func:`imread`.
         backend (str | None): The image decoding backend type. Options are
             `cv2`, `pillow`, `turbojpeg`, `None`. If backend is None, the
-            global imread_backend specified by ``mmcv.use_backend()`` will be
+            global imread_backend specified by ``mmdet.cv_core.use_backend()`` will be
             used. Default: None.
 
     Returns:

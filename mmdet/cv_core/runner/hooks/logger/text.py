@@ -6,7 +6,7 @@ from collections import OrderedDict
 import torch
 import torch.distributed as dist
 
-import mmcv
+import mmdet.cv_core
 from ..hook import HOOKS
 from .base import LoggerHook
 
@@ -55,8 +55,6 @@ class TextLoggerHook(LoggerHook):
         mem_mb = torch.tensor([mem / (1024 * 1024)],
                               dtype=torch.int,
                               device=device)
-        if runner.world_size > 1:
-            dist.reduce(mem_mb, 0, op=dist.ReduceOp.MAX)
         return mem_mb.item()
 
     def _log_info(self, log_dict, runner):
@@ -127,10 +125,9 @@ class TextLoggerHook(LoggerHook):
         for k, v in log_dict.items():
             json_log[k] = self._round_float(v)
         # only append log at last line
-        if runner.rank == 0:
-            with open(self.json_log_path, 'a+') as f:
-                mmcv.dump(json_log, f, file_format='json')
-                f.write('\n')
+        with open(self.json_log_path, 'a+') as f:
+            mmdet.cv_core.dump(json_log, f, file_format='json')
+            f.write('\n')
 
     def _round_float(self, items):
         if isinstance(items, list):

@@ -3,7 +3,7 @@ from .base_runner import BaseRunner
 from .checkpoint import (_load_checkpoint, load_checkpoint, load_state_dict,
                          save_checkpoint, weights_to_cpu)
 from .epoch_based_runner import EpochBasedRunner, Runner
-from .hooks import (HOOKS, CheckpointHook, Fp16OptimizerHook, Hook, IterTimerHook,
+from .hooks import (HOOKS, CheckpointHook, Hook, IterTimerHook,
                     LoggerHook, LrUpdaterHook, OptimizerHook, TextLoggerHook)
 from .iter_based_runner import IterBasedRunner, IterLoader
 from .log_buffer import LogBuffer
@@ -21,5 +21,5 @@ __all__ = [
     'Priority', 'get_priority', 'get_host_info', 'get_time_str',
     'obj_from_dict','OPTIMIZER_BUILDERS', 'OPTIMIZERS', 'DefaultOptimizerConstructor',
     'build_optimizer', 'build_optimizer_constructor', 'IterLoader',
-    'set_random_seed', 'Fp16OptimizerHook'
+    'set_random_seed'
 ]

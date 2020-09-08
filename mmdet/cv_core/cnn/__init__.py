@@ -5,10 +5,9 @@ from .bricks import (ACTIVATION_LAYERS, CONV_LAYERS, NORM_LAYERS,
                      ConvModule, build_activation_layer,
                      build_conv_layer,
                      build_norm_layer, build_padding_layer,
-                     build_upsample_layer, is_norm)
+                     build_upsample_layer, is_norm,Scale)
 
-from .utils import (bias_init_with_prob, caffe2_xavier_init, constant_init,
-                    fuse_conv_bn, get_model_complexity_info, kaiming_init,
+from .utils import (bias_init_with_prob, constant_init,kaiming_init,
                     normal_init, uniform_init, xavier_init)
 
 __all__ = [
@@ -18,5 +17,5 @@ __all__ = [
     'build_padding_layer', 'build_upsample_layer',
     'is_norm', 'ACTIVATION_LAYERS',
     'CONV_LAYERS', 'NORM_LAYERS', 'PADDING_LAYERS', 'UPSAMPLE_LAYERS',
-    'PLUGIN_LAYERS',
+    'PLUGIN_LAYERS','Scale'
 ]

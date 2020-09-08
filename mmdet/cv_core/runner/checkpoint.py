@@ -1,37 +1,16 @@
 # Copyright (c) Open-MMLab. All rights reserved.
-import os
 import os.path as osp
 import pkgutil
-import time
 import warnings
 from collections import OrderedDict
 from importlib import import_module
-
 import torch
 import torchvision
 from torch.optim import Optimizer
 from torch.utils import model_zoo
 
-import mmcv
+from mmdet import cv_core
 from ..fileio import load as load_file
-from ..parallel import is_module_wrapper
-from ..utils import mkdir_or_exist
-from .dist_utils import get_dist_info
-
-ENV_MMCV_HOME = 'MMCV_HOME'
-ENV_XDG_CACHE_HOME = 'XDG_CACHE_HOME'
-DEFAULT_CACHE_DIR = '~/.cache'
-
-
-def _get_mmcv_home():
-    mmcv_home = os.path.expanduser(
-        os.getenv(
-            ENV_MMCV_HOME,
-            os.path.join(
-                os.getenv(ENV_XDG_CACHE_HOME, DEFAULT_CACHE_DIR), 'mmcv')))
-
-    mkdir_or_exist(mmcv_home)
-    return mmcv_home
 
 
 def load_state_dict(module, state_dict, strict=False, logger=None):
@@ -63,8 +42,6 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
     def load(module, prefix=''):
         # recursively check parallel module in case that the model has a
         # complicated structure, e.g., nn.Module(nn.Module(DDP))
-        if is_module_wrapper(module):
-            module = module.module
         local_metadata = {} if metadata is None else metadata.get(
             prefix[:-1], {})
         module._load_from_state_dict(state_dict, prefix, local_metadata, True,
@@ -89,8 +66,7 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
         err_msg.append(
             f'missing keys in source state_dict: {", ".join(missing_keys)}\n')
 
-    rank, _ = get_dist_info()
-    if len(err_msg) > 0 and rank == 0:
+    if len(err_msg) > 0:
         err_msg.insert(
             0, 'The model and loaded state dict do not match exactly\n')
         err_msg = '\n'.join(err_msg)
@@ -103,16 +79,7 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
 
 
 def load_url_dist(url, model_dir=None):
-    """In distributed setting, this function only download checkpoint at local
-    rank 0."""
-    rank, world_size = get_dist_info()
-    rank = int(os.environ.get('LOCAL_RANK', rank))
-    if rank == 0:
-        checkpoint = model_zoo.load_url(url, model_dir=model_dir)
-    if world_size > 1:
-        torch.distributed.barrier()
-        if rank > 0:
-            checkpoint = model_zoo.load_url(url, model_dir=model_dir)
+    checkpoint = model_zoo.load_url(url, model_dir=model_dir)
     return checkpoint
 
 
@@ -129,44 +96,16 @@ def get_torchvision_models():
 
 
 def get_external_models():
-    mmcv_home = _get_mmcv_home()
-    default_json_path = osp.join(mmcv.__path__[0], 'model_zoo/open_mmlab.json')
+    default_json_path = osp.join(cv_core.__path__[0], 'model_zoo/open_mmlab.json')
     default_urls = load_file(default_json_path)
     assert isinstance(default_urls, dict)
-    external_json_path = osp.join(mmcv_home, 'open_mmlab.json')
+    external_json_path = osp.join(osp.dirname(osp.abspath(__file__)), '../','open_mmlab.json')
     if osp.exists(external_json_path):
         external_urls = load_file(external_json_path)
         assert isinstance(external_urls, dict)
         default_urls.update(external_urls)
 
     return default_urls
-
-
-def get_mmcls_models():
-    mmcls_json_path = osp.join(mmcv.__path__[0], 'model_zoo/mmcls.json')
-    mmcls_urls = load_file(mmcls_json_path)
-
-    return mmcls_urls
-
-
-def get_deprecated_model_names():
-    deprecate_json_path = osp.join(mmcv.__path__[0],
-                                   'model_zoo/deprecated.json')
-    deprecate_urls = load_file(deprecate_json_path)
-    assert isinstance(deprecate_urls, dict)
-
-    return deprecate_urls
-
-
-def _process_mmcls_checkpoint(checkpoint):
-    state_dict = checkpoint['state_dict']
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        if k.startswith('backbone.'):
-            new_state_dict[k[9:]] = v
-    new_checkpoint = dict(state_dict=new_state_dict)
-
-    return new_checkpoint
 
 
 def _load_checkpoint(filename, map_location=None):
@@ -196,25 +135,12 @@ def _load_checkpoint(filename, map_location=None):
     elif filename.startswith('open-mmlab://'):
         model_urls = get_external_models()
         model_name = filename[13:]
-        deprecated_urls = get_deprecated_model_names()
-        if model_name in deprecated_urls:
-            warnings.warn(f'open-mmlab://{model_name} is deprecated in favor '
-                          f'of open-mmlab://{deprecated_urls[model_name]}')
-            model_name = deprecated_urls[model_name]
         model_url = model_urls[model_name]
         # check if is url
         if model_url.startswith(('http://', 'https://')):
             checkpoint = load_url_dist(model_url)
         else:
-            filename = osp.join(_get_mmcv_home(), model_url)
-            if not osp.isfile(filename):
-                raise IOError(f'{filename} is not a checkpoint file')
             checkpoint = torch.load(filename, map_location=map_location)
-    elif filename.startswith('mmcls://'):
-        model_urls = get_mmcls_models()
-        model_name = filename[8:]
-        checkpoint = load_url_dist(model_urls[model_name])
-        checkpoint = _process_mmcls_checkpoint(checkpoint)
     elif filename.startswith(('http://', 'https://')):
         checkpoint = load_url_dist(filename)
     else:
@@ -318,11 +244,6 @@ def get_state_dict(module, destination=None, prefix='', keep_vars=False):
     Returns:
         dict: A dictionary containing a whole state of the module.
     """
-    # recursively check parallel module in case that the model has a
-    # complicated structure, e.g., nn.Module(nn.Module(DDP))
-    if is_module_wrapper(module):
-        module = module.module
-
     # below is the same as torch.nn.Module.state_dict()
     if destination is None:
         destination = OrderedDict()
@@ -357,11 +278,8 @@ def save_checkpoint(model, filename, optimizer=None, meta=None):
         meta = {}
     elif not isinstance(meta, dict):
         raise TypeError(f'meta must be a dict or None, but got {type(meta)}')
-    meta.update(mmcv_version=mmcv.__version__, time=time.asctime())
 
-    mmcv.mkdir_or_exist(osp.dirname(filename))
-    if is_module_wrapper(model):
-        model = model.module
+    cv_core.mkdir_or_exist(osp.dirname(filename))
 
     checkpoint = {
         'meta': meta,

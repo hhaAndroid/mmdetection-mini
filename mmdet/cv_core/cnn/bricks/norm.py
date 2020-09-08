@@ -2,7 +2,7 @@ import inspect
 
 import torch.nn as nn
 
-from mmcv.utils import is_tuple_of
+from mmdet.cv_core.utils import is_tuple_of
 from torch.nn.modules.instancenorm import _InstanceNorm
 from torch.nn.modules.batchnorm import _BatchNorm
 

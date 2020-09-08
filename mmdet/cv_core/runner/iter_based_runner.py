@@ -5,7 +5,7 @@ import time
 import torch
 from torch.optim import Optimizer
 
-import mmcv
+from mmdet import cv_core
 from .base_runner import BaseRunner
 from .checkpoint import save_checkpoint
 from .hooks import IterTimerHook
@@ -90,7 +90,7 @@ class IterBasedRunner(BaseRunner):
             max_iters (int): Total training iterations.
         """
         assert isinstance(data_loaders, list)
-        assert mmcv.is_list_of(workflow, tuple)
+        assert cv_core.is_list_of(workflow, tuple)
         assert len(data_loaders) == len(workflow)
 
         self._max_iters = max_iters
@@ -193,7 +193,7 @@ class IterBasedRunner(BaseRunner):
         # in some environments, `os.symlink` is not supported, you may need to
         # set `create_symlink` to False
         if create_symlink:
-            mmcv.symlink(filename, osp.join(out_dir, 'latest.pth'))
+            cv_core.symlink(filename, osp.join(out_dir, 'latest.pth'))
 
     def register_training_hooks(self,
                                 lr_config,

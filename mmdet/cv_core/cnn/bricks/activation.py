@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from mmcv.utils import build_from_cfg
+from mmdet.cv_core import build_from_cfg
 from .registry import ACTIVATION_LAYERS
 
 for module in [
