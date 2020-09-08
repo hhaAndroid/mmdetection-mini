@@ -1,5 +1,4 @@
 import copy
-import platform
 import random
 from functools import partial
 
@@ -8,15 +7,17 @@ from mmdet.cv_core.parallel import collate
 from mmdet.cv_core.utils import Registry, build_from_cfg
 from torch.utils.data import DataLoader
 
-from .samplers import  GroupSampler
+from .samplers import GroupSampler
 
-if platform.system() != 'Windows':
-    # https://github.com/pytorch/pytorch/issues/973
-    import resource
-    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    hard_limit = rlimit[1]
-    soft_limit = min(4096, hard_limit)
-    resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+
+# only linux
+# 用于查询或修改当前系统资源限制设置,可以通过代码控制进程内存,不知道纠结有多少影响？ TODO
+import resource
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)  # 能打开的最大文件数
+hard_limit = rlimit[1]
+soft_limit = min(4096, hard_limit)
+resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+
 
 DATASETS = Registry('dataset')
 PIPELINES = Registry('pipeline')
@@ -50,21 +51,13 @@ def _concat_dataset(cfg, default_args=None):
 
 
 def build_dataset(cfg, default_args=None):
-    from .dataset_wrappers import (ConcatDataset, RepeatDataset,
-                                   ClassBalancedDataset)
-    if isinstance(cfg, (list, tuple)):
-        dataset = ConcatDataset([build_dataset(c, default_args) for c in cfg])
-    elif cfg['type'] == 'ConcatDataset':
-        dataset = ConcatDataset(
-            [build_dataset(c, default_args) for c in cfg['datasets']],
-            cfg.get('separate_eval', True))
-    elif cfg['type'] == 'RepeatDataset':
+    from .dataset_wrappers import (RepeatDataset)
+    if cfg['type'] == 'RepeatDataset':
+        # 将数据集重复times次数，主要用于小数据集，否则每个epoch太短，训练时长会变长
         dataset = RepeatDataset(
             build_dataset(cfg['dataset'], default_args), cfg['times'])
-    elif cfg['type'] == 'ClassBalancedDataset':
-        dataset = ClassBalancedDataset(
-            build_dataset(cfg['dataset'], default_args), cfg['oversample_thr'])
     elif isinstance(cfg.get('ann_file'), (list, tuple)):
+        # 多个标注文件
         dataset = _concat_dataset(cfg, default_args)
     else:
         dataset = build_from_cfg(cfg, DATASETS, default_args)

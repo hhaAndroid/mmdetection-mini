@@ -1,10 +1,9 @@
 import random
-
 import numpy as np
 import torch
+
 from mmdet.cv_core.runner import (HOOKS, EpochBasedRunner, OptimizerHook, build_optimizer)
 from mmdet.cv_core import build_from_cfg, MMDataParallel
-
 from mmdet.det_core import EvalHook
 from mmdet.datasets import build_dataloader, build_dataset
 from mmdet.utils import get_root_logger
@@ -39,20 +38,6 @@ def train_detector(model,
 
     # prepare data loaders
     dataset = dataset if isinstance(dataset, (list, tuple)) else [dataset]
-    if 'imgs_per_gpu' in cfg.data:
-        logger.warning('"imgs_per_gpu" is deprecated in MMDet V2.0. '
-                       'Please use "samples_per_gpu" instead')
-        if 'samples_per_gpu' in cfg.data:
-            logger.warning(
-                f'Got "imgs_per_gpu"={cfg.data.imgs_per_gpu} and '
-                f'"samples_per_gpu"={cfg.data.samples_per_gpu}, "imgs_per_gpu"'
-                f'={cfg.data.imgs_per_gpu} is used in this experiments')
-        else:
-            logger.warning(
-                'Automatically set "samples_per_gpu"="imgs_per_gpu"='
-                f'{cfg.data.imgs_per_gpu} in this experiments')
-        cfg.data.samples_per_gpu = cfg.data.imgs_per_gpu
-
     data_loaders = [
         build_dataloader(
             ds,
@@ -62,6 +47,7 @@ def train_detector(model,
             seed=cfg.seed) for ds in dataset
     ]
 
+    # 作用很大，不仅仅是做dataparallel，还包括对DataContainer数据解码
     model = MMDataParallel(
         model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
 
@@ -87,6 +73,7 @@ def train_detector(model,
                                    cfg.get('momentum_config', None))
     # register eval hooks
     if validate:
+        # 验证评估模式采用的是hook模式注册
         val_dataset = build_dataset(cfg.data.val, dict(test_mode=True))
         val_dataloader = build_dataloader(
             val_dataset,
@@ -96,7 +83,7 @@ def train_detector(model,
         eval_cfg = cfg.get('evaluation', {})
         runner.register_hook(EvalHook(val_dataloader, **eval_cfg))
 
-    # user-defined hooks
+    # 用户自定义的hook列表
     if cfg.get('custom_hooks', None):
         custom_hooks = cfg.custom_hooks
         assert isinstance(custom_hooks, list), \

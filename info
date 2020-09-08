@@ -1,4 +1,5 @@
-../configs/retinanet/retinanet_r50_fpn_1x_coco.py
+../configs/retinanet/retinanet_r50_fpn_coco.py
+../configs/retinanet/retinanet_r50_fpn_voc.py
 
 python setup.py develop
 

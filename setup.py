@@ -13,9 +13,10 @@ def get_version():
     return locals()['__version__']
 
 
+# 编译cuda
 def get_extensions():
     extensions = []
-    ext_name = 'mmdet.cv_core._ext'
+    ext_name = 'mmdet.cv_core._ext'  # 编译后保存的文件前缀名称及其位置
     # prevent ninja from using too many resources
     os.environ.setdefault('MAX_JOBS', '4')
     define_macros = []

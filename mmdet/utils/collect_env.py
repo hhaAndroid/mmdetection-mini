@@ -4,12 +4,8 @@ import sys
 from collections import defaultdict
 
 import cv2
-import mmdet.cv_core
 import torch
 import torchvision
-
-
-import mmdet
 
 
 def collect_env():

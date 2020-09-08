@@ -1,12 +1,14 @@
 import argparse
 import copy
-import os
 import os.path as osp
 import time
-import warnings
+
+import torch
+
+import sys
+sys.path.insert(0, osp.join(osp.dirname(osp.abspath(__file__)), '../'))
 
 import mmdet.cv_core
-import torch
 from mmdet.cv_core import Config
 from mmdet.apis import set_random_seed, train_detector
 from mmdet.datasets import build_dataset
@@ -20,6 +22,7 @@ def parse_args():
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
         '--resume-from', help='the checkpoint file to resume from')
+    # 是否在训练过程中开启验证模式，默认是False
     parser.add_argument(
         '--no-validate',
         action='store_true',
@@ -41,11 +44,6 @@ def parse_args():
         '--deterministic',
         action='store_true',
         help='whether to set deterministic options for CUDNN backend.')
-    parser.add_argument(
-        '--launcher',
-        choices=['none', 'pytorch', 'slurm', 'mpi'],
-        default='none',
-        help='job launcher')
     args = parser.parse_args()
     return args
 
@@ -54,10 +52,6 @@ def main():
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
-    # import modules from string list.
-    if cfg.get('custom_imports', None):
-        from mmdet.cv_core.utils import import_modules_from_strings
-        import_modules_from_strings(**cfg['custom_imports'])
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
@@ -67,7 +61,7 @@ def main():
         # update configs according to CLI args if args.work_dir is not None
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
-        # use config filename as default work_dir if cfg.work_dir is None
+        # 如果不指定work_dir，则采用配置文件名作为work_dir路径
         cfg.work_dir = osp.join('./work_dirs',
                                 osp.splitext(osp.basename(args.config))[0])
     if args.resume_from is not None:
@@ -79,7 +73,7 @@ def main():
 
     # create work_dir
     mmdet.cv_core.mkdir_or_exist(osp.abspath(cfg.work_dir))
-    # dump config
+    # 保存py配置到work_dir路径下
     cfg.dump(osp.join(cfg.work_dir, osp.basename(args.config)))
     # init the logger before other steps
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
@@ -113,7 +107,9 @@ def main():
 
     datasets = [build_dataset(cfg.data.train)]
     if len(cfg.workflow) == 2:
+        # 这个验证仅仅是计算验证集的loss等而已，不会进行评估
         val_dataset = copy.deepcopy(cfg.data.val)
+        # 验证时候采用的也是train的pipeline,感觉是不科学的 TODO
         val_dataset.pipeline = cfg.data.train.pipeline
         datasets.append(build_dataset(val_dataset))
     if cfg.checkpoint_config is not None:

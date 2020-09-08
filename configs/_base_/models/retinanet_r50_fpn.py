@@ -1,6 +1,6 @@
 # model settings
 model = dict(
-    type='RetinaNet',
+    type='SingleStageDetector',
     pretrained='torchvision://resnet50',
     backbone=dict(
         type='ResNet',

@@ -1,5 +1,6 @@
-# onestagedetector
-一阶段目标检测器
+# mmdetection-mini
+mmdetection的mini版本，主要包括一阶段目标检测器，结构和
+mmdetection完全一致，系统通过从头构建整个框架来数学所有细节
 
 ## 1 介绍
 
@@ -15,16 +16,19 @@
 
 
 ## 4 进行中模型
--[ ] yolov2 
--[ ] yolov3 
--[ ] tiny-yolov2和tiny-yolov3 
--[ ] yolov4 
--[ ] tiny-yolov4 
+- [ ] retinanet
 
 
 ## 5 安装说明
 [文档链接](./docs/install.md)
 
+
+## 6 统一数据集
+   由于coco训练集图片太多了，跑到论文效果需要非常多时间，而本框架目的主要目的是快速验证
+思想和算法(代码和mmdetection一致，应该没有错误)，故对主要以voc为主：
+- coco
+- voc2012和voc2007
+- wider face
 
 
 

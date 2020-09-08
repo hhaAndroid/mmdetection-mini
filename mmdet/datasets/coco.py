@@ -35,7 +35,7 @@ class CocoDataset(CustomDataset):
     def load_annotations(self, ann_file):
         self.coco = COCO(ann_file)
         self.cat_ids = self.coco.getCatIds(catNms=self.CLASSES)
-        self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}
+        self.cat2label = {cat_id: i for i, cat_id in enumerate(self.cat_ids)}  # label索引从0开始
         self.img_ids = self.coco.getImgIds()
         data_infos = []
         for i in self.img_ids:

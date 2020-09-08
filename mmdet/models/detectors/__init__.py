@@ -1,11 +1,6 @@
-
 from .base import BaseDetector
-
-from .retinanet import RetinaNet
-
+from .single_stage import SingleStageDetector
 
 __all__ = [
-    'BaseDetector',
-    'RetinaNet',
-
+    'BaseDetector', 'SingleStageDetector'
 ]
