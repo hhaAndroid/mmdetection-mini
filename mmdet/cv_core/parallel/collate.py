@@ -24,6 +24,13 @@ def collate(batch, samples_per_gpu=1):
         raise TypeError(f'{batch.dtype} is not supported.')
 
     if isinstance(batch[0], DataContainer):
+        # 之所以有这个设定，是为了对付多gpu训练时候
+        # 假设一共4张卡，每张卡8个样本，故dataloader吐出来的batch=32
+        # 但是分组采样时候是对单batch而言的，也就是说这里收集到的32个batch其实分成了4组
+        # 4组里面可能存在flag不一样的组，如果这里不对每组进行单独操作
+        # 那么其实前面写的分组采样功能就没多大用途了。本函数写法会出现4个组输出的shape不一样，但是由于是分配到4块卡上训练，所以大小不一样也没有关系
+        # 保持单张卡内shape一样就行。
+        # 所以对于单卡训练场景，len(batch)=samples_per_gpu，这里的for循环没有意义
         assert len(batch) % samples_per_gpu == 0
         stacked = []
         if batch[0].cpu_only:
@@ -58,7 +65,7 @@ def collate(batch, samples_per_gpu=1):
                         padded_samples.append(
                             F.pad(
                                 sample.data, pad, value=sample.padding_value))
-                    stacked.append(default_collate(padded_samples))
+                    stacked.append(default_collate(padded_samples)) # 如果是分布式多卡训练，可能每个组的shape是不一样的，没有影响
                 elif batch[i].pad_dims is None:
                     stacked.append(
                         default_collate([
