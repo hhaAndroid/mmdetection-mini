@@ -1,4 +1,4 @@
-import mmdet.cv_core
+from mmdet import cv_core
 import numpy as np
 import torch
 from torch.nn.modules.utils import _pair
@@ -12,7 +12,7 @@ class AnchorGenerator(object):
 
     Args:
         strides (list[int] | list[tuple[int, int]]): Strides of anchors
-            in multiple feature levels.
+            in multiple feature levels in order (w, h).
         ratios (list[float]): The list of ratios between the height and width
             of anchors in a single level.
         scales (list[int] | None): Anchor scales for anchors in a single level.
@@ -37,7 +37,7 @@ class AnchorGenerator(object):
             width and height. By default it is 0 in V2.0.
 
     Examples:
-        >>> from mmdet.det_core import AnchorGenerator
+        >>> from mmdet.core import AnchorGenerator
         >>> self = AnchorGenerator([16], [1.], [1.], [9])
         >>> all_anchors = self.grid_anchors([(2, 2)], device='cpu')
         >>> print(all_anchors)
@@ -242,8 +242,8 @@ class AnchorGenerator(object):
         Args:
             base_anchors (torch.Tensor): The base anchors of a feature grid.
             featmap_size (tuple[int]): Size of the feature maps.
-            stride (tuple[int], optional): Stride of the feature map.
-                Defaults to (16, 16).
+            stride (tuple[int], optional): Stride of the feature map in order
+                (w, h). Defaults to (16, 16).
             device (str, optional): Device the tensor will be put on.
                 Defaults to 'cuda'.
 
@@ -288,8 +288,8 @@ class AnchorGenerator(object):
             anchor_stride = self.strides[i]
             feat_h, feat_w = featmap_sizes[i]
             h, w = pad_shape[:2]
-            valid_feat_h = min(int(np.ceil(h / anchor_stride[0])), feat_h)
-            valid_feat_w = min(int(np.ceil(w / anchor_stride[1])), feat_w)
+            valid_feat_h = min(int(np.ceil(h / anchor_stride[1])), feat_h)
+            valid_feat_w = min(int(np.ceil(w / anchor_stride[0])), feat_w)
             flags = self.single_level_valid_flags((feat_h, feat_w),
                                                   (valid_feat_h, valid_feat_w),
                                                   self.num_base_anchors[i],
@@ -371,7 +371,7 @@ class SSDAnchorGenerator(AnchorGenerator):
                  input_size=300,
                  scale_major=True):
         assert len(strides) == len(ratios)
-        assert mmdet.cv_core.is_tuple_of(basesize_ratio_range, float)
+        assert cv_core.is_tuple_of(basesize_ratio_range, float)
 
         self.strides = [_pair(stride) for stride in strides]
         self.input_size = input_size
@@ -509,7 +509,6 @@ class LegacyAnchorGenerator(AnchorGenerator):
             in v1.x models.
 
     Examples:
-        >>> from mmdet.det_core import LegacyAnchorGenerator
         >>> self = LegacyAnchorGenerator(
         >>>     [16], [1.], [1.], [9], center_offset=0.5)
         >>> all_anchors = self.grid_anchors(((2, 2),), device='cpu')

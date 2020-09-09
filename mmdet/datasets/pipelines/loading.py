@@ -54,9 +54,9 @@ class LoadImageFromFile(object):
                                 results['img_info']['filename'])
         else:
             filename = results['img_info']['filename']
-
+        # 文件内容读取后端，默认是硬盘读取
         img_bytes = self.file_client.get(filename)
-        img = mmdet.cv_core.imfrombytes(img_bytes, flag=self.color_type)
+        img = mmdet.cv_core.imfrombytes(img_bytes, flag=self.color_type)  # 支持rgb bgr和灰度读取格式
         if self.to_float32:
             img = img.astype(np.float32)
 
@@ -76,38 +76,7 @@ class LoadImageFromFile(object):
         return repr_str
 
 
-@PIPELINES.register_module()
-class LoadImageFromWebcam(LoadImageFromFile):
-    """Load an image from webcam.
-
-    Similar with :obj:`LoadImageFromFile`, but the image read from webcam is in
-    ``results['img']``.
-    """
-
-    def __call__(self, results):
-        """Call functions to add image meta information.
-
-        Args:
-            results (dict): Result dict with Webcam read image in
-                ``results['img']``.
-
-        Returns:
-            dict: The dict contains loaded image and meta information.
-        """
-
-        img = results['img']
-        if self.to_float32:
-            img = img.astype(np.float32)
-
-        results['filename'] = None
-        results['ori_filename'] = None
-        results['img'] = img
-        results['img_shape'] = img.shape
-        results['ori_shape'] = img.shape
-        results['img_fields'] = ['img']
-        return results
-
-
+# 多张图片同时读取，然后在channel维度拼接起来
 @PIPELINES.register_module()
 class LoadMultiChannelImageFromFiles(object):
     """Load multi-channel images from a list of separate channel files.
@@ -191,6 +160,7 @@ class LoadMultiChannelImageFromFiles(object):
         return repr_str
 
 
+# 加载标注文件
 @PIPELINES.register_module()
 class LoadAnnotations(object):
     """Load mutiple types of annotations.

@@ -54,6 +54,7 @@ def collate(batch, samples_per_gpu=1):
                         for dim in range(1, batch[i].pad_dims + 1):
                             pad[2 * dim -
                                 1] = max_shape[dim - 1] - sample.size(-dim)
+                        # 由于前面pipeline没有保证batch内图片大小一致，故在这里需要强制pad到最大shape
                         padded_samples.append(
                             F.pad(
                                 sample.data, pad, value=sample.padding_value))

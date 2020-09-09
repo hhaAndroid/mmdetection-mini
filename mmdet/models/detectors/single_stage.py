@@ -122,6 +122,7 @@ class SingleStageDetector(BaseDetector):
         ]
         return bbox_results
 
+    # 暂时不支持多尺度测试
     def aug_test(self, imgs, img_metas, rescale=False):
         """Test function with test time augmentation."""
         raise NotImplementedError

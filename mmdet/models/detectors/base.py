@@ -98,24 +98,6 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
             logger = get_root_logger()
             print_log(f'load model from: {pretrained}', logger=logger)
 
-    async def aforward_test(self, *, img, img_metas, **kwargs):
-        for var, name in [(img, 'img'), (img_metas, 'img_metas')]:
-            if not isinstance(var, list):
-                raise TypeError(f'{name} must be a list, but got {type(var)}')
-
-        num_augs = len(img)
-        if num_augs != len(img_metas):
-            raise ValueError(f'num of augmentations ({len(img)}) '
-                             f'!= num of image metas ({len(img_metas)})')
-        # TODO: remove the restriction of samples_per_gpu == 1 when prepared
-        samples_per_gpu = img[0].size(0)
-        assert samples_per_gpu == 1
-
-        if num_augs == 1:
-            return await self.async_simple_test(img[0], img_metas[0], **kwargs)
-        else:
-            raise NotImplementedError
-
     def forward_test(self, imgs, img_metas, **kwargs):
         """
         Args:
@@ -151,7 +133,6 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
             # TODO: support test augmentation for predefined proposals
             assert 'proposals' not in kwargs
             return self.aug_test(imgs, img_metas, **kwargs)
-
 
     def forward(self, img, img_metas, return_loss=True, **kwargs):
         """Calls either :func:`forward_train` or :func:`forward_test` depending

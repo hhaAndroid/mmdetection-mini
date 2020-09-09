@@ -153,6 +153,7 @@ class CustomDataset(Dataset):
                 valid_inds.append(i)
         return valid_inds
 
+    # 将宽高比大于1和小于1的分成两组，后面有用，通过flag标注位控制
     def _set_group_flag(self):
         """Set flag according to image aspect ratio.
 
@@ -183,6 +184,7 @@ class CustomDataset(Dataset):
 
         if self.test_mode:
             return self.prepare_test_img(idx)
+        # 这里写的非常鲁棒，当某一张图片错误时候，会随机选择另一张，而不至于报错
         while True:
             data = self.prepare_train_img(idx)
             if data is None:
@@ -204,8 +206,6 @@ class CustomDataset(Dataset):
         img_info = self.data_infos[idx]
         ann_info = self.get_ann_info(idx)
         results = dict(img_info=img_info, ann_info=ann_info)
-        if self.proposals is not None:
-            results['proposals'] = self.proposals[idx]
         self.pre_pipeline(results)
         return self.pipeline(results)
 
@@ -222,8 +222,6 @@ class CustomDataset(Dataset):
 
         img_info = self.data_infos[idx]
         results = dict(img_info=img_info)
-        if self.proposals is not None:
-            results['proposals'] = self.proposals[idx]
         self.pre_pipeline(results)
         return self.pipeline(results)
 

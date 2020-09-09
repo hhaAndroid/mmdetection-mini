@@ -123,7 +123,7 @@ class CocoDataset(CustomDataset):
             else:
                 gt_bboxes.append(bbox)
                 gt_labels.append(self.cat2label[ann['category_id']])
-                gt_masks_ann.append(ann['segmentation'])
+                gt_masks_ann.append(ann.get('segmentation', None))
 
         if gt_bboxes:
             gt_bboxes = np.array(gt_bboxes, dtype=np.float32)
@@ -263,7 +263,6 @@ class CocoDataset(CustomDataset):
         else:
             raise TypeError('invalid type of results')
         return result_files
-
 
     def format_results(self, results, jsonfile_prefix=None, **kwargs):
         """Format the results to json (standard format for COCO evaluation).

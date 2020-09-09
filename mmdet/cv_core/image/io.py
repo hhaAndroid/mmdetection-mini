@@ -147,7 +147,7 @@ def imread(img_or_path, flag='color', channel_order='bgr', backend=None):
                          "backends are 'cv2', 'turbojpeg', 'pillow'")
     if isinstance(img_or_path, Path):
         img_or_path = str(img_or_path)
-
+    # 如果图片已经读取，则不需要再读
     if isinstance(img_or_path, np.ndarray):
         return img_or_path
     elif is_str(img_or_path):
@@ -175,6 +175,7 @@ def imread(img_or_path, flag='color', channel_order='bgr', backend=None):
                         'a pathlib.Path object')
 
 
+# 默认就是opencv的bgr格式
 def imfrombytes(content, flag='color', channel_order='bgr', backend=None):
     """Read an image from bytes.
 

@@ -5,7 +5,7 @@ import mmdet.cv_core
 from ..builder import PIPELINES
 from .compose import Compose
 
-
+# 多尺度测试pipeline
 @PIPELINES.register_module()
 class MultiScaleFlipAug(object):
     """Test-time augmentation with multiple scales and flipping.
@@ -99,7 +99,7 @@ class MultiScaleFlipAug(object):
         for scale in self.img_scale:
             for flip, direction in flip_args:
                 _results = results.copy()
-                _results[self.scale_key] = scale
+                _results[self.scale_key] = scale  # 直接传入了scale参数
                 _results['flip'] = flip
                 _results['flip_direction'] = direction
                 data = self.transforms(_results)

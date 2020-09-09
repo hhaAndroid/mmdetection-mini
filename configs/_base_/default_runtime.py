@@ -4,11 +4,10 @@ log_config = dict(
     interval=50,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(type='TensorboardLoggerHook')
     ])
 # yapf:enable
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-load_from = None
-resume_from = None
+load_from = None  # 需要是全路径
+resume_from = None  # 需要是全路径
 workflow = [('train', 1)]

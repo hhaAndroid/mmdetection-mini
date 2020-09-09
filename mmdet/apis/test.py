@@ -37,7 +37,7 @@ def single_gpu_test(model,
 
                 model.module.show_result(
                     img_show,
-                    result,
+                    result[0],  # 目前仅仅能支持单张图测试，故写死0，如果后面支持batch测试，则需要更改 TODO
                     show=show,
                     out_file=out_file,
                     score_thr=show_score_thr)

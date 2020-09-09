@@ -11,6 +11,7 @@ from torch.utils import model_zoo
 
 from mmdet import cv_core
 from ..fileio import load as load_file
+from ..parallel import is_module_wrapper
 
 
 def load_state_dict(module, state_dict, strict=False, logger=None):
@@ -40,6 +41,8 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
 
     # use _load_from_state_dict to enable checkpoint version control
     def load(module, prefix=''):
+        if is_module_wrapper(module):
+            module = module.module
         # recursively check parallel module in case that the model has a
         # complicated structure, e.g., nn.Module(nn.Module(DDP))
         local_metadata = {} if metadata is None else metadata.get(

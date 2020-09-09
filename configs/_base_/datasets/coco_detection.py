@@ -5,19 +5,20 @@ img_norm_cfg = dict(
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', img_scale=(640, 640), keep_ratio=True),  # (1333, 800)
+    dict(type='Resize', img_scale=(600, 800), keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels']),
 ]
+
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(1333, 800),
-        flip=False,
+        img_scale=(600, 800),  # 单尺度
+        flip=False,  # True，那就是图片数目翻倍
         transforms=[
             dict(type='Resize', keep_ratio=True),
             dict(type='RandomFlip'),
@@ -28,7 +29,7 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=8,
     workers_per_gpu=0,
     train=dict(
         type=dataset_type,
@@ -44,5 +45,5 @@ data = dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_val2017.json',
         img_prefix=data_root + 'images/val2017/',
-        pipeline=test_pipeline))
+        pipeline=train1_pipeline))
 evaluation = dict(interval=1, metric='bbox')

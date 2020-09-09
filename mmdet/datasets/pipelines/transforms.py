@@ -19,7 +19,13 @@ except ImportError:
     albumentations = None
     Compose = None
 
-
+# 典型用法
+# dict(type='Resize', img_scale=[1333, 800], keep_ratio=True)
+# dict(
+#      type='Resize',
+#      img_scale=[(1333, 800), (1333, 600)],
+#      ratio_range=(0.9, 1.1),
+#      keep_ratio=True)
 @PIPELINES.register_module()
 class Resize(object):
     """Resize images & bbox & mask.
@@ -63,9 +69,9 @@ class Resize(object):
             self.img_scale = None
         else:
             if isinstance(img_scale, list):
-                self.img_scale = img_scale
+                self.img_scale = img_scale  # 多尺度
             else:
-                self.img_scale = [img_scale]
+                self.img_scale = [img_scale]  # 单尺度
             assert mmdet.cv_core.is_list_of(self.img_scale, tuple)
 
         if ratio_range is not None:
@@ -114,15 +120,17 @@ class Resize(object):
         """
 
         assert mmdet.cv_core.is_list_of(img_scales, tuple) and len(img_scales) == 2
-        img_scale_long = [max(s) for s in img_scales]
-        img_scale_short = [min(s) for s in img_scales]
+        img_scale_long = [max(s) for s in img_scales]  # 收集所有尺度长边参数
+        img_scale_short = [min(s) for s in img_scales]  # 收集所有尺度短边参数
+        # 从长边list里面随机插值出一个长边尺寸
         long_edge = np.random.randint(
             min(img_scale_long),
             max(img_scale_long) + 1)
+        # 从短边list里面随机插值出一个短边尺寸
         short_edge = np.random.randint(
             min(img_scale_short),
             max(img_scale_short) + 1)
-        img_scale = (long_edge, short_edge)
+        img_scale = (long_edge, short_edge)  # 构造新的单尺度scale
         return img_scale, None
 
     @staticmethod
@@ -171,14 +179,15 @@ class Resize(object):
         """
 
         if self.ratio_range is not None:
+            # 指定范围内基于给定的img_scale,在ratio_range范围内随机resize
             scale, scale_idx = self.random_sample_ratio(
                 self.img_scale[0], self.ratio_range)
         elif len(self.img_scale) == 1:
-            scale, scale_idx = self.img_scale[0], 0
+            scale, scale_idx = self.img_scale[0], 0  # 单尺度
         elif self.multiscale_mode == 'range':
-            scale, scale_idx = self.random_sample(self.img_scale)
+            scale, scale_idx = self.random_sample(self.img_scale)  # 多个尺度随机插值出一个新的尺度
         elif self.multiscale_mode == 'value':
-            scale, scale_idx = self.random_select(self.img_scale)
+            scale, scale_idx = self.random_select(self.img_scale)  # 多个尺度随机选择一个
         else:
             raise NotImplementedError
 
@@ -189,6 +198,7 @@ class Resize(object):
         """Resize images with ``results['scale']``."""
         for key in results.get('img_fields', ['img']):
             if self.keep_ratio:
+                # 保持长宽比的resize
                 img, scale_factor = mmdet.cv_core.imrescale(
                     results[key],
                     results['scale'],
@@ -201,6 +211,7 @@ class Resize(object):
                 w_scale = new_w / w
                 h_scale = new_h / h
             else:
+                # 直接resize
                 img, w_scale, h_scale = mmdet.cv_core.imresize(
                     results[key],
                     results['scale'],
@@ -263,8 +274,9 @@ class Resize(object):
             dict: Resized results, 'img_shape', 'pad_shape', 'scale_factor', \
                 'keep_ratio' keys are added into result dict.
         """
-
+        # 如果指定了目标scale大小，则也是直接resize，没有随机性
         if 'scale' not in results:
+            # 如果指定，则直接对图片进行scale_factor比例缩放即可，没有随机性
             if 'scale_factor' in results:
                 img_shape = results['img'].shape[:2]
                 scale_factor = results['scale_factor']
@@ -272,7 +284,7 @@ class Resize(object):
                 results['scale'] = tuple(
                     [int(x * scale_factor) for x in img_shape][::-1])
             else:
-                self._random_scale(results)
+                self._random_scale(results)  # 否则有随机操作
         else:
             assert 'scale_factor' not in results, (
                 'scale and scale_factor cannot be both set.')
@@ -409,7 +421,7 @@ class RandomFlip(object):
             else:
                 # None means non-flip
                 direction_list = [self.direction, None]
-
+            # 支持多种翻转按照指定比例采样进行翻转增强
             if isinstance(self.flip_ratio, list):
                 non_flip_ratio = 1 - sum(self.flip_ratio)
                 flip_ratio_list = self.flip_ratio + [non_flip_ratio]
@@ -475,9 +487,11 @@ class Pad(object):
         """Pad images according to ``self.size``."""
         for key in results.get('img_fields', ['img']):
             if self.size is not None:
+                # 都是右边和后面pad，不是中心pad
                 padded_img = mmdet.cv_core.impad(
                     results[key], shape=self.size, pad_val=self.pad_val)
             elif self.size_divisor is not None:
+                # 两条边pad到都可以被整除
                 padded_img = mmdet.cv_core.impad_to_multiple(
                     results[key], self.size_divisor, pad_val=self.pad_val)
             results[key] = padded_img

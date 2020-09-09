@@ -133,10 +133,11 @@ def rescale_size(old_size, scale, return_scale=False):
     if isinstance(scale, (float, int)):
         if scale <= 0:
             raise ValueError(f'Invalid scale {scale}, must be positive.')
-        scale_factor = scale
+        scale_factor = scale  # 如果scale就是一个数，说明是比例因子，那就直接设置scale_factor即可
     elif isinstance(scale, tuple):
         max_long_edge = max(scale)
         max_short_edge = min(scale)
+        # 如果是tuple，则找到符合要求的最大缩放系数，原则是resize后长短边必须都在指定的范围
         scale_factor = min(max_long_edge / max(h, w),
                            max_short_edge / min(h, w))
     else:
@@ -151,6 +152,7 @@ def rescale_size(old_size, scale, return_scale=False):
         return new_size
 
 
+# 保持长宽比的resize操作
 def imrescale(img,
               scale,
               return_scale=False,
@@ -349,13 +351,13 @@ def imcrop(img, bboxes, scale=1.0, pad_fill=None):
                 patch_shape = (_y2 - _y1 + 1, _x2 - _x1 + 1, chn)
             patch = np.array(
                 pad_fill, dtype=img.dtype) * np.ones(
-                    patch_shape, dtype=img.dtype)
+                patch_shape, dtype=img.dtype)
             x_start = 0 if _x1 >= 0 else -_x1
             y_start = 0 if _y1 >= 0 else -_y1
             w = x2 - x1 + 1
             h = y2 - y1 + 1
             patch[y_start:y_start + h, x_start:x_start + w,
-                  ...] = img[y1:y1 + h, x1:x1 + w, ...]
+            ...] = img[y1:y1 + h, x1:x1 + w, ...]
         patches.append(patch)
 
     if bboxes.ndim == 1:

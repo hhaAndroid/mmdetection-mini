@@ -206,7 +206,7 @@ class DefaultFormatBundle(object):
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
             img = np.ascontiguousarray(img.transpose(2, 0, 1))
-            results['img'] = DC(to_tensor(img), stack=True)
+            results['img'] = DC(to_tensor(img), stack=True)  # 不管啥对象，都用dc包裹
         for key in ['proposals', 'gt_bboxes', 'gt_bboxes_ignore', 'gt_labels']:
             if key not in results:
                 continue

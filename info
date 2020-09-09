@@ -1,6 +1,21 @@
+cuda编译： python setup.py develop
+
+
 ../configs/retinanet/retinanet_r50_fpn_coco.py
 ../configs/retinanet/retinanet_r50_fpn_voc.py
+demo: demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth
 
-python setup.py develop
 
-当前更新日期 2020.09.08
+test:
+
+评估：
+../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth --eval bbox
+
+显示：
+../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth --show
+
+
+当前同步更新日期:
+    mmcv: 2020.09.09
+    mmdetection: 2020.09.09
+
