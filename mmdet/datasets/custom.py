@@ -95,7 +95,7 @@ class CustomDataset(Dataset):
             if self.proposals is not None:
                 self.proposals = [self.proposals[i] for i in valid_inds]
         # set group flag for the sampler
-        if not self.test_mode:
+        if not self.test_mode:  # 训练模式下设置分组标志
             self._set_group_flag()
         # processing pipeline
         self.pipeline = Compose(pipeline)
