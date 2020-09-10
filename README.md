@@ -31,4 +31,5 @@ mmdetection完全一致，系统通过从头构建整个框架来数学所有细
 - wider face
 
 
-
+## 7 笔记(持续更新)
+https://www.zybuluo.com/huanghaian/note/1740535
