@@ -25,25 +25,26 @@ class MMDataParallel(DataParallel):
 
     def __init__(self, *args, dim=0, **kwargs):
         super(MMDataParallel, self).__init__(*args, dim=dim, **kwargs)
-        self.dim = dim
+        self.dim = dim  # scatter轴
 
-    def forward(self, *inputs, **kwargs):
+    def forward(self, *inputs, **kwargs):  # 训练时候不会被调用，测试时候调用
         """Override the original forward function.
 
         The main difference lies in the CPU inference where the datas in
         :class:`DataContainers` will still be gathered.
         """
-        if not self.device_ids:
+        if not self.device_ids:  # cpu模式
             # We add the following line thus the module could gather and
             # convert data containers as those in GPU inference
             inputs, kwargs = self.scatter(inputs, kwargs, [-1])
             return self.module(*inputs[0], **kwargs[0])
         else:
-            return super().forward(*inputs, **kwargs)
+            return super().forward(*inputs, **kwargs)  # gpu模式
 
     def scatter(self, inputs, kwargs, device_ids):
         return scatter_kwargs(inputs, kwargs, device_ids, dim=self.dim)
 
+    # 训练时候调用
     def train_step(self, *inputs, **kwargs):
         if not self.device_ids:
             # We add the following line thus the module could gather and
@@ -63,9 +64,11 @@ class MMDataParallel(DataParallel):
                     f'on device {self.src_device_obj} (device_ids[0]) but '
                     f'found one of them on device: {t.device}')
 
+        # 单卡模式下，这个函数几乎没有左右,唯一作用就是把dc里面的数据提取出来而已
         inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
-        return self.module.train_step(*inputs[0], **kwargs[0])
+        return self.module.train_step(*inputs[0], **kwargs[0])  # 然后调用model自己的train_step方法
 
+    # 验证时候调用
     def val_step(self, *inputs, **kwargs):
         if not self.device_ids:
             # We add the following line thus the module could gather and

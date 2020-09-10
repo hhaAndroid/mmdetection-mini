@@ -30,16 +30,19 @@ def collate(batch, samples_per_gpu=1):
         # 4组里面可能存在flag不一样的组，如果这里不对每组进行单独操作
         # 那么其实前面写的分组采样功能就没多大用途了。本函数写法会出现4个组输出的shape不一样，但是由于是分配到4块卡上训练，所以大小不一样也没有关系
         # 保持单张卡内shape一样就行。
-        # 所以对于单卡训练场景，len(batch)=samples_per_gpu，这里的for循环没有意义
-        assert len(batch) % samples_per_gpu == 0
+        # 所以对于单卡训练场景，len(batch)=samples_per_gpu，这里的for循环没有意义,可以删掉
+
+        # 如果要兼容batch test，那么这个就不能要，因为最后一个batch可能不是整数倍
+        # assert len(batch) % samples_per_gpu == 0
+
         stacked = []
-        if batch[0].cpu_only:
+        if batch[0].cpu_only:  # meta data 直接变成list，然后dc
             for i in range(0, len(batch), samples_per_gpu):
                 stacked.append(
                     [sample.data for sample in batch[i:i + samples_per_gpu]])
             return DataContainer(
                 stacked, batch[0].stack, batch[0].padding_value, cpu_only=True)
-        elif batch[0].stack:
+        elif batch[0].stack:  # img tensor 先全部统一大小，然后stack，最后包裹为dc
             for i in range(0, len(batch), samples_per_gpu):
                 assert isinstance(batch[i].data, torch.Tensor)
 
@@ -62,10 +65,11 @@ def collate(batch, samples_per_gpu=1):
                             pad[2 * dim -
                                 1] = max_shape[dim - 1] - sample.size(-dim)
                         # 由于前面pipeline没有保证batch内图片大小一致，故在这里需要强制pad到最大shape
+                        # 也是向后右pad
                         padded_samples.append(
                             F.pad(
                                 sample.data, pad, value=sample.padding_value))
-                    stacked.append(default_collate(padded_samples)) # 如果是分布式多卡训练，可能每个组的shape是不一样的，没有影响
+                    stacked.append(default_collate(padded_samples))  # 如果是分布式多卡训练，可能每个组的shape是不一样的，没有影响
                 elif batch[i].pad_dims is None:
                     stacked.append(
                         default_collate([
@@ -76,7 +80,7 @@ def collate(batch, samples_per_gpu=1):
                     raise ValueError(
                         'pad_dims should be either None or integers (1-3)')
 
-        else:
+        else:  # 其余信息，例如gt bbox，内部是tensor,变成list[tensor]，然后dc
             for i in range(0, len(batch), samples_per_gpu):
                 stacked.append(
                     [sample.data for sample in batch[i:i + samples_per_gpu]])
@@ -90,4 +94,4 @@ def collate(batch, samples_per_gpu=1):
             for key in batch[0]
         }
     else:
-        return default_collate(batch)
+        return default_collate(batch)  # 输出的所有对象都是用dc包裹了

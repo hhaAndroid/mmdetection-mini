@@ -1,6 +1,5 @@
 import argparse
 
-import mmdet.cv_core
 import torch
 from mmdet.cv_core import Config, DictAction
 from mmdet.cv_core.parallel import MMDataParallel

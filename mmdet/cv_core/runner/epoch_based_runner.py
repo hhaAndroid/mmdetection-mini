@@ -28,6 +28,7 @@ class EpochBasedRunner(BaseRunner):
             self._inner_iter = i
             self.call_hook('before_train_iter')
             if self.batch_processor is None:
+                # 由于model其实被MMDataParallel包裹，故先调用MMDataParallel.train_step方法
                 outputs = self.model.train_step(data_batch, self.optimizer,
                                                 **kwargs)
             else:
