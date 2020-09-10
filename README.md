@@ -16,8 +16,8 @@ mmdetection完全一致，系统通过从头构建整个框架来数学所有细
 
 
 ## 4 进行中模型
-- [ ] retinanet
-
+- [x] retinanet
+- [ ] yolov3
 
 ## 5 安装说明
 [文档链接](./docs/install.md)

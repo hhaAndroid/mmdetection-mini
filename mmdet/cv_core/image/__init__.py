@@ -6,7 +6,7 @@ from .geometric import (imcrop, imflip, imflip_, impad, impad_to_multiple,
                         imrescale, imresize, imresize_like, imrotate, imshear,
                         imtranslate, rescale_size)
 from .io import imfrombytes, imread, imwrite, supported_backends, use_backend
-from .misc import tensor2imgs
+from .misc import tensor2imgs, show_bbox, show_img
 from .photometric import (imdenormalize, iminvert, imnormalize, imnormalize_,
                           posterize, solarize)
 
@@ -18,5 +18,5 @@ __all__ = [
     'imwrite', 'supported_backends', 'use_backend', 'imdenormalize',
     'imnormalize', 'imnormalize_', 'iminvert', 'posterize', 'solarize',
     'rgb2ycbcr', 'bgr2ycbcr', 'ycbcr2rgb', 'ycbcr2bgr', 'tensor2imgs',
-    'imshear', 'imtranslate'
+    'imshear', 'imtranslate', 'show_bbox', 'show_img'
 ]

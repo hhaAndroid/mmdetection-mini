@@ -86,6 +86,10 @@ class RetinaHead(AnchorHead):
             normal_init(m.conv, std=0.01)
         for m in self.reg_convs:
             normal_init(m.conv, std=0.01)
+        # 这个操作非常关键，原因是anchor太多了，且没有faster rcnn里面的sample操作
+        # 故负样本远远大于正样本，也就是说分类分支，假设负样本：正样本数=1000:1
+        # 分类是sigmod输出，负数表示负样本label，bias_cls是一个负数
+        # 可以保证分类分支输出大部分是负数，这样算loss时候就会比较小，相当于强制输出的值偏向负类
         bias_cls = bias_init_with_prob(0.01)
         normal_init(self.retina_cls, std=0.01, bias=bias_cls)
         normal_init(self.retina_reg, std=0.01)

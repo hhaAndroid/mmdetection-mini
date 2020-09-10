@@ -63,9 +63,9 @@ class FPN(nn.Module):
     def __init__(self,
                  in_channels,
                  out_channels,
-                 num_outs,
-                 start_level=0,
-                 end_level=-1,
+                 num_outs,  # 输出层个数
+                 start_level=0,  # fpn开始层
+                 end_level=-1,  # fpn结束层，用于挑选对应的特征图层进行fpn操作
                  add_extra_convs=False,
                  extra_convs_on_inputs=True,
                  relu_before_extra_convs=False,
@@ -100,13 +100,6 @@ class FPN(nn.Module):
         if isinstance(add_extra_convs, str):
             # Extra_convs_source choices: 'on_input', 'on_lateral', 'on_output'
             assert add_extra_convs in ('on_input', 'on_lateral', 'on_output')
-        elif add_extra_convs:  # True
-            if extra_convs_on_inputs:
-                # For compatibility with previous release
-                # TODO: deprecate `extra_convs_on_inputs`
-                self.add_extra_convs = 'on_input'
-            else:
-                self.add_extra_convs = 'on_output'
 
         self.lateral_convs = nn.ModuleList()
         self.fpn_convs = nn.ModuleList()
@@ -119,7 +112,7 @@ class FPN(nn.Module):
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg if not self.no_norm_on_lateral else None,
                 act_cfg=act_cfg,
-                inplace=False)
+                inplace=False)  # 中间层
             fpn_conv = ConvModule(
                 out_channels,
                 out_channels,
@@ -128,7 +121,7 @@ class FPN(nn.Module):
                 conv_cfg=conv_cfg,
                 norm_cfg=norm_cfg,
                 act_cfg=act_cfg,
-                inplace=False)
+                inplace=False)  # 输出层
 
             self.lateral_convs.append(l_conv)
             self.fpn_convs.append(fpn_conv)
@@ -141,6 +134,7 @@ class FPN(nn.Module):
                     in_channels = self.in_channels[self.backbone_end_level - 1]
                 else:
                     in_channels = out_channels
+                # 额外卷积层得到的下采样都是通过3x3 s=2获得，都没有BN
                 extra_fpn_conv = ConvModule(
                     in_channels,
                     out_channels,
@@ -160,12 +154,12 @@ class FPN(nn.Module):
             if isinstance(m, nn.Conv2d):
                 xavier_init(m, distribution='uniform')
 
-
     def forward(self, inputs):
         """Forward function."""
         assert len(inputs) == len(self.in_channels)
 
         # build laterals
+        # 对所有指定的输出层进行通道变换，统一输出通道
         laterals = [
             lateral_conv(inputs[i + self.start_level])
             for i, lateral_conv in enumerate(self.lateral_convs)
@@ -176,6 +170,7 @@ class FPN(nn.Module):
         for i in range(used_backbone_levels - 1, 0, -1):
             # In some cases, fixing `scale factor` (e.g. 2) is preferred, but
             #  it cannot co-exist with `size` in `F.interpolate`.
+            # 对小特征图进行上采样，然后和邻近高层特征图进行相加融合
             if 'scale_factor' in self.upsample_cfg:
                 laterals[i - 1] += F.interpolate(laterals[i],
                                                  **self.upsample_cfg)
@@ -186,6 +181,7 @@ class FPN(nn.Module):
 
         # build outputs
         # part 1: from original levels
+        # 构造fpn输出层
         outs = [
             self.fpn_convs[i](laterals[i]) for i in range(used_backbone_levels)
         ]
@@ -198,6 +194,7 @@ class FPN(nn.Module):
                     outs.append(F.max_pool2d(outs[-1], 1, stride=2))
             # add conv layers on top of original feature maps (RetinaNet)
             else:
+                # 三种设置构建额外卷积层
                 if self.add_extra_convs == 'on_input':
                     extra_source = inputs[self.backbone_end_level - 1]
                 elif self.add_extra_convs == 'on_lateral':

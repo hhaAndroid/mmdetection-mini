@@ -7,9 +7,9 @@ model = dict(
         depth=50,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
+        frozen_stages=1,  # 固定stem和第0个stage
         norm_cfg=dict(type='BN', requires_grad=True),
-        norm_eval=True,
+        norm_eval=True,  # 除了frozen_stages外的其他bn都采用全局均值和方差，但是可训练参数依然可以更新
         style='pytorch'),
     neck=dict(
         type='FPN',
@@ -26,10 +26,10 @@ model = dict(
         feat_channels=256,
         anchor_generator=dict(
             type='AnchorGenerator',
-            octave_base_scale=4,
-            scales_per_octave=3,
-            ratios=[0.5, 1.0, 2.0],
-            strides=[8, 16, 32, 64, 128]),
+            octave_base_scale=4,  # 每层特征图的base anchor scale,如果变大，则整体anchor都会放大
+            scales_per_octave=3,   # 每层有3个尺度 2**0 2**(1/3) 2**(2/3)
+            ratios=[0.5, 1.0, 2.0],  # 每层的anchor有3种长宽比 故每一层每个位置有9个anchor
+            strides=[8, 16, 32, 64, 128]),  # 每个特征图层输出stride,故anchor范围是4x8=32,4x128x2**(2/3)=812.7
         bbox_coder=dict(
             type='DeltaXYWHBBoxCoder',
             target_means=[.0, .0, .0, .0],
@@ -43,6 +43,7 @@ model = dict(
         loss_bbox=dict(type='L1Loss', loss_weight=1.0)))
 # training and testing settings
 train_cfg = dict(
+    # 双阈值策略
     assigner=dict(
         type='MaxIoUAssigner',
         pos_iou_thr=0.5,

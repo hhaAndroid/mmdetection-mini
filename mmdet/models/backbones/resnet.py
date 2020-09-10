@@ -422,6 +422,7 @@ class ResNet(nn.Module):
             stride = strides[i]
             dilation = dilations[i]
             dcn = self.dcn if self.stage_with_dcn[i] else None
+            # 在每个stage里面可以插入额外的n个模块，应用场景例如在某个stage后面插入nonlocal_block
             if plugins is not None:
                 stage_plugins = self.make_stage_plugins(plugins, i)
             else:
@@ -523,7 +524,7 @@ class ResNet(nn.Module):
         return getattr(self, self.norm1_name)
 
     def _make_stem_layer(self, in_channels, stem_channels):
-        if self.deep_stem:
+        if self.deep_stem:  # resnet改进模型
             self.stem = nn.Sequential(
                 build_conv_layer(
                     self.conv_cfg,
@@ -566,11 +567,11 @@ class ResNet(nn.Module):
                 bias=False)
             self.norm1_name, norm1 = build_norm_layer(
                 self.norm_cfg, stem_channels, postfix=1)
-            self.add_module(self.norm1_name, norm1)
+            self.add_module(self.norm1_name, norm1)  # norm1没有用self属性，故需要add_module,实现通过名字查找类
             self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-    def _freeze_stages(self):
+    def _freeze_stages(self):  # 固定权重需要两步：eval模式，使得bn固定；requires_grad=False使得这部分不需要计算梯度
         if self.frozen_stages >= 0:
             if self.deep_stem:
                 self.stem.eval()
@@ -637,16 +638,18 @@ class ResNet(nn.Module):
                 outs.append(x)
         return tuple(outs)
 
+    # 必须要重写train方法，否则虽然初始化时候调用了self._freeze_stages()
+    # 但是在runner里面，会进行train模式，那么_freeze_stages作用就没有了
     def train(self, mode=True):
         """Convert the model into training mode while keep normalization layer
         freezed."""
         super(ResNet, self).train(mode)
-        self._freeze_stages()
+        self._freeze_stages()  # 这部分的BN不仅仅采用全局均值和方差，而且可训练参数也不更新
         if mode and self.norm_eval:
             for m in self.modules():
                 # trick: eval have effect on BatchNorm only
                 if isinstance(m, _BatchNorm):
-                    m.eval()
+                    m.eval()  # 这部分BN参数都采用全局均值和方差，但是其可训练参数还是可以更新的
 
 
 @BACKBONES.register_module()

@@ -56,13 +56,13 @@ class AnchorGenerator(object):
     """
 
     def __init__(self,
-                 strides,
-                 ratios,
+                 strides,  # 每个特征图层输出stride
+                 ratios,  # 每层的anchor有多少种长宽比
                  scales=None,
                  base_sizes=None,
                  scale_major=True,
-                 octave_base_scale=None,
-                 scales_per_octave=None,
+                 octave_base_scale=None,  # 每层特征图的base anchor scale
+                 scales_per_octave=None,  # 每层有多少个anchor scales
                  centers=None,
                  center_offset=0.):
         # check center and center_offset
@@ -93,6 +93,7 @@ class AnchorGenerator(object):
         if scales is not None:
             self.scales = torch.Tensor(scales)
         elif octave_base_scale is not None and scales_per_octave is not None:
+            # 固定设置，retinanet使用，每层有scales_per_octave个anchor尺度
             octave_scales = np.array(
                 [2**(i / scales_per_octave) for i in range(scales_per_octave)])
             scales = octave_scales * octave_base_scale
@@ -133,12 +134,13 @@ class AnchorGenerator(object):
                 center = self.centers[i]
             multi_level_base_anchors.append(
                 self.gen_single_level_base_anchors(
-                    base_size,
+                    base_size,  # 其实就是stride
                     scales=self.scales,
                     ratios=self.ratios,
                     center=center))
         return multi_level_base_anchors
 
+    # 计算0,0位置的n个anchor base size xyxy格式
     def gen_single_level_base_anchors(self,
                                       base_size,
                                       scales,
@@ -264,7 +266,7 @@ class AnchorGenerator(object):
         # add A anchors (1, A, 4) to K shifts (K, 1, 4) to get
         # shifted anchors (K, A, 4), reshape to (K*A, 4)
 
-        all_anchors = base_anchors[None, :, :] + shifts[:, None, :]
+        all_anchors = base_anchors[None, :, :] + shifts[:, None, :]  # 直接加网格就可以算出整个特征图每个位置的anchor
         all_anchors = all_anchors.view(-1, 4)
         # first A rows correspond to A anchors of (0, 0) in feature map,
         # then (0, 1), (0, 2), ...
