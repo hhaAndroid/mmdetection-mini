@@ -6,10 +6,11 @@ from .samplers import GroupSampler
 from .voc import VOCDataset
 from .wider_face import WIDERFaceDataset
 from .xml_style import XMLDataset
+from .utils import replace_ImageToTensor
 
 __all__ = [
     'CustomDataset', 'XMLDataset', 'CocoDataset',
     'VOCDataset', 'GroupSampler',
     'build_dataloader', 'ConcatDataset', 'RepeatDataset', 'WIDERFaceDataset', 'DATASETS', 'PIPELINES',
-    'build_dataset'
+    'build_dataset', 'replace_ImageToTensor'
 ]

@@ -118,20 +118,11 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
                              f'!= num of image meta ({len(img_metas)})')
 
         if num_augs == 1:
-            # proposals (List[List[Tensor]]): the outer list indicates
-            # test-time augs (multiscale, flip, etc.) and the inner list
-            # indicates images in a batch.
-            # The Tensor should have a shape Px4, where P is the number of
-            # proposals.
-            if 'proposals' in kwargs:
-                kwargs['proposals'] = kwargs['proposals'][0]
             return self.simple_test(imgs[0], img_metas[0], **kwargs)
         else:
             assert imgs[0].size(0) == 1, 'aug test does not support ' \
                                          'inference with batch size ' \
                                          f'{imgs[0].size(0)}'
-            # TODO: support test augmentation for predefined proposals
-            assert 'proposals' not in kwargs
             return self.aug_test(imgs, img_metas, **kwargs)
 
     def forward(self, img, img_metas, return_loss=True, **kwargs):

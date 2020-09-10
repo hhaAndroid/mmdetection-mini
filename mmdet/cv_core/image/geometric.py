@@ -229,6 +229,7 @@ def imrotate(img,
              center=None,
              scale=1.0,
              border_value=0,
+             interpolation='bilinear',
              auto_bound=False):
     """Rotate an image.
 
@@ -241,6 +242,7 @@ def imrotate(img,
             used.
         scale (float): Isotropic scale factor.
         border_value (int): Border value.
+        interpolation (str): Same as :func:`resize`.
         auto_bound (bool): Whether to adjust the image size to cover the whole
             rotated image.
 
@@ -264,7 +266,11 @@ def imrotate(img,
         matrix[1, 2] += (new_h - h) * 0.5
         w = int(np.round(new_w))
         h = int(np.round(new_h))
-    rotated = cv2.warpAffine(img, matrix, (w, h), borderValue=border_value)
+    rotated = cv2.warpAffine(
+        img,
+        matrix, (w, h),
+        flags=cv2_interp_codes[interpolation],
+        borderValue=border_value)
     return rotated
 
 

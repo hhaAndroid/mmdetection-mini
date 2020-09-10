@@ -17,13 +17,18 @@ def single_gpu_test(model,
         with torch.no_grad():
             result = model(return_loss=False, rescale=True, **data)
 
+        batch_size = len(result)
         if show or out_dir:
-            img_tensor = data['img'][0]
+            # 由于前面替换pipeline的原因，在batch=1的时候输出其实是tensor，而batch大于1的时候是dc
+            if batch_size == 1 and isinstance(data['img'][0], torch.Tensor):
+                img_tensor = data['img'][0]
+            else:
+                img_tensor = data['img'][0].data[0]
             img_metas = data['img_metas'][0].data[0]
             imgs = tensor2imgs(img_tensor, **img_metas[0]['img_norm_cfg'])
             assert len(imgs) == len(img_metas)
 
-            for img, img_meta in zip(imgs, img_metas):
+            for i, (img, img_meta) in enumerate(zip(imgs, img_metas)):
                 h, w, _ = img_meta['img_shape']
                 img_show = img[:h, :w, :]
 
@@ -37,14 +42,14 @@ def single_gpu_test(model,
 
                 model.module.show_result(
                     img_show,
-                    result[0],  # 目前仅仅能支持单张图测试，故写死0，如果后面支持batch测试，则需要更改 TODO
+                    result[i],
                     show=show,
                     out_file=out_file,
                     score_thr=show_score_thr)
-
         results.extend(result)
-        batch_size = len(result)
+
         for _ in range(batch_size):
             prog_bar.update()
     return results
+
 
