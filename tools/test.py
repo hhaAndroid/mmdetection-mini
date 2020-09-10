@@ -7,7 +7,7 @@ from mmdet.cv_core.parallel import MMDataParallel
 from mmdet.cv_core.runner import load_checkpoint
 
 from mmdet.apis import single_gpu_test
-from mmdet.datasets import build_dataloader, build_dataset
+from mmdet.datasets import build_dataloader, build_dataset,replace_ImageToTensor
 from mmdet.models import build_detector
 
 
@@ -86,8 +86,10 @@ def main():
             ds_cfg.test_mode = True
 
     # build the dataloader
-    # 目前仅仅支持单张图测试模式，修改了会报错
-    samples_per_gpu = cfg.data.test.pop('samples_per_gpu', 1)
+    samples_per_gpu = cfg.data.pop('samples_per_gpu', 1)  # cfg.data.test.pop
+    if samples_per_gpu > 1:
+        # Replace 'ImageToTensor' to 'DefaultFormatBundle'
+        cfg.data.test.pipeline = replace_ImageToTensor(cfg.data.test.pipeline)
     dataset = build_dataset(cfg.data.test)
     data_loader = build_dataloader(
         dataset,
