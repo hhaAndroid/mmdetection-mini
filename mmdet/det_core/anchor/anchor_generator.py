@@ -178,6 +178,9 @@ class AnchorGenerator(object):
 
         # use float anchor and the anchor's center is aligned with the
         # pixel center
+        # x_center=0,也就是原图到特征图没有设置偏移，假设原图是32x32 stride=32，输出特征图就是一个点假设原图anchor是100x100
+        # 理论上特征图这个点应该和原图的(16,16)处对齐，也就是x_center=16,但是考虑到采用偏移后代码后续复杂很多
+        # 在v2版本里面去掉了，也就是原图左上角点对应特征图点，在v1版本里面有中心偏移
         base_anchors = [
             x_center - 0.5 * ws, y_center - 0.5 * hs, x_center + 0.5 * ws,
             y_center + 0.5 * hs
@@ -652,11 +655,14 @@ class YOLOAnchorGenerator(AnchorGenerator):
         """
         x_center, y_center = center
         base_anchors = []
-        for base_size in base_sizes_per_level:
+        for base_size in base_sizes_per_level:  # 遍历每层的3个anchor size
             w, h = base_size
 
             # use float anchor and the anchor's center is aligned with the
             # pixel center
+            # 映射到原图，假设32x32的原图,原图anchor大小是100x100，stride=32，
+            # 那么特征图就是一个点，那么这个点(可以认为是特征图上面0点)的anchor映射到原图左上角坐标就是，-100/2+16
+            # 在标准的anchor generator里面没有进行偏移
             base_anchor = torch.Tensor([
                 x_center - 0.5 * w, y_center - 0.5 * h, x_center + 0.5 * w,
                 y_center + 0.5 * h
@@ -722,8 +728,8 @@ class YOLOAnchorGenerator(AnchorGenerator):
 
         responsible_grid = torch.zeros(
             feat_h * feat_w, dtype=torch.uint8, device=device)
-        responsible_grid[gt_bboxes_grid_idx] = 1
+        responsible_grid[gt_bboxes_grid_idx] = 1  # 计算当前gt bbox中心在特征图的hxw的哪个位置，需要同时广播到3个anchor上
 
         responsible_grid = responsible_grid[:, None].expand(
             responsible_grid.size(0), num_base_anchors).contiguous().view(-1)
-        return responsible_grid
+        return responsible_grid  # 扩展到每层的n个anchor上 输出维度=hxwx3

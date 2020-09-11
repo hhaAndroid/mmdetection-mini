@@ -1,15 +1,31 @@
 # Copyright (c) 2019 Western Digital Corporation or its affiliates.
 import warnings
 import torch
+import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from mmdet import cv_core
 from mmdet.cv_core.cnn import ConvModule, normal_init
 
 from mmdet.det_core import (build_anchor_generator, build_assigner,
-                        build_bbox_coder, build_sampler,
-                        images_to_levels, multi_apply, multiclass_nms)
+                            build_bbox_coder, build_sampler,
+                            images_to_levels, multi_apply, multiclass_nms)
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
+
+
+def show_pos_anchor(img_meta, gt_anchors, gt_bboxes, is_show=True):
+    # 显示正样本
+    assert 'img' in img_meta, print('Collect类中的meta_keys需要新增‘img’，用于可视化调试')
+    img = img_meta['img'].data.numpy()
+    mean = img_meta['img_norm_cfg']['mean']
+    std = img_meta['img_norm_cfg']['std']
+    # 默认输入是rgb数据，需要切换为bgr显示
+    img = np.transpose(img.copy(), (1, 2, 0))[..., ::-1]
+    img = img * std.reshape([1, 1, 3])[..., ::-1] + mean.reshape([1, 1, 3])[..., ::-1]
+    img = img.astype(np.uint8)
+    img = cv_core.show_bbox(img, gt_anchors.cpu().numpy(), is_show=False)
+    return cv_core.show_bbox(img, gt_bboxes.cpu().numpy(), color=(255, 255, 255), is_show=is_show)
 
 
 @HEADS.register_module()
@@ -81,6 +97,7 @@ class YOLOV3Head(BaseDenseHead):
         self.featmap_strides = featmap_strides
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
+        self.debug = False
         if self.train_cfg:
             self.assigner = build_assigner(self.train_cfg.assigner)
             if hasattr(self.train_cfg, 'sampler'):
@@ -88,6 +105,7 @@ class YOLOV3Head(BaseDenseHead):
             else:
                 sampler_cfg = dict(type='PseudoSampler')
             self.sampler = build_sampler(sampler_cfg, context=self)
+            self.debug = self.train_cfg.debug
 
         self.one_hot_smoother = one_hot_smoother
 
@@ -164,7 +182,6 @@ class YOLOV3Head(BaseDenseHead):
             pred_maps.append(pred_map)
 
         return tuple(pred_maps),
-
 
     def get_bboxes(self, pred_maps, img_metas, cfg=None, rescale=False):
         """Transform network output for a batch into bbox predictions.
@@ -271,7 +288,7 @@ class YOLOV3Head(BaseDenseHead):
         multi_lvl_conf_scores = torch.cat(multi_lvl_conf_scores)
 
         if multi_lvl_conf_scores.size(0) == 0:
-            return torch.zeros((0, 5)), torch.zeros((0, ))
+            return torch.zeros((0, 5)), torch.zeros((0,))
 
         if rescale:
             multi_lvl_bboxes /= multi_lvl_bboxes.new_tensor(scale_factor)
@@ -292,7 +309,6 @@ class YOLOV3Head(BaseDenseHead):
             score_factors=multi_lvl_conf_scores)
 
         return det_bboxes, det_labels
-
 
     def loss(self,
              pred_maps,
@@ -328,12 +344,13 @@ class YOLOV3Head(BaseDenseHead):
 
         responsible_flag_list = []
         for img_id in range(len(img_metas)):
+            # 计算当前图片中的bbox中心在特征图上面的位置
             responsible_flag_list.append(
                 self.anchor_generator.responsible_flags(
                     featmap_sizes, gt_bboxes[img_id], device))
 
         target_maps_list, neg_maps_list = self.get_targets(
-            anchor_list, responsible_flag_list, gt_bboxes, gt_labels)
+            anchor_list, responsible_flag_list, gt_bboxes, gt_labels, img_metas)
 
         losses_cls, losses_conf, losses_xy, losses_wh = multi_apply(
             self.loss_single, pred_maps, target_maps_list, neg_maps_list)
@@ -390,7 +407,7 @@ class YOLOV3Head(BaseDenseHead):
         return loss_cls, loss_conf, loss_xy, loss_wh
 
     def get_targets(self, anchor_list, responsible_flag_list, gt_bboxes_list,
-                    gt_labels_list):
+                    gt_labels_list, img_metas):
         """Compute target maps for anchors in multiple images.
 
         Args:
@@ -411,12 +428,12 @@ class YOLOV3Head(BaseDenseHead):
         """
         num_imgs = len(anchor_list)
 
-        # anchor number of multi levels
+        # anchor number of multi levels 每一层anchor的个数，例如输出是10x10，那么10x10x3=300
         num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
 
         results = multi_apply(self._get_targets_single, anchor_list,
                               responsible_flag_list, gt_bboxes_list,
-                              gt_labels_list)
+                              gt_labels_list, img_metas, num_level_anchors=num_level_anchors)
 
         all_target_maps, all_neg_maps = results
         assert num_imgs == len(all_target_maps) == len(all_neg_maps)
@@ -426,7 +443,7 @@ class YOLOV3Head(BaseDenseHead):
         return target_maps_list, neg_maps_list
 
     def _get_targets_single(self, anchors, responsible_flags, gt_bboxes,
-                            gt_labels):
+                            gt_labels, img_meta, num_level_anchors=None):
         """Generate matching bounding box prior and converted GT.
 
         Args:
@@ -450,7 +467,7 @@ class YOLOV3Head(BaseDenseHead):
             anchor_strides.append(
                 torch.tensor(self.featmap_strides[i],
                              device=gt_bboxes.device).repeat(len(anchors[i])))
-        concat_anchors = torch.cat(anchors)
+        concat_anchors = torch.cat(anchors)  # 三个输出层的anchor合并
         concat_responsible_flags = torch.cat(responsible_flags)
 
         anchor_strides = torch.cat(anchor_strides)
@@ -459,6 +476,31 @@ class YOLOV3Head(BaseDenseHead):
         assign_result = self.assigner.assign(concat_anchors,
                                              concat_responsible_flags,
                                              gt_bboxes)
+
+        if self.debug:
+            # 统计下正样本个数
+            print('anchor分配正负样本后，正样本anchor可视化，白色bbox是gt')
+            gt_inds = assign_result.gt_inds  # 0 1 -1
+            index = gt_inds > 0
+            gt_inds = gt_inds[index]
+            gt_anchors = concat_anchors[index]
+            print('单张图片中正样本anchor个数', len(gt_inds))
+            if num_level_anchors is None:  # 不分层显示
+                show_pos_anchor(img_meta, gt_anchors, gt_bboxes)
+            else:
+                imgs = []
+                count = 0
+                for num_level in num_level_anchors:
+                    gt_inds = assign_result.gt_inds[count:count + num_level]
+                    anchor = concat_anchors[count:count + num_level]
+                    count += num_level
+                    index = gt_inds > 0
+                    gt_anchor = anchor[index]
+                    img = show_pos_anchor(img_meta, gt_anchor, gt_bboxes, is_show=False)
+                    imgs.append(img)
+                print('从小特征图到大特征图顺序显示')
+                cv_core.show_img(imgs)
+
         sampling_result = self.sampler.sample(assign_result, concat_anchors,
                                               gt_bboxes)
 
@@ -475,7 +517,7 @@ class YOLOV3Head(BaseDenseHead):
             gt_labels, num_classes=self.num_classes).float()
         if self.one_hot_smoother != 0:  # label smooth
             gt_labels_one_hot = gt_labels_one_hot * (
-                1 - self.one_hot_smoother
+                    1 - self.one_hot_smoother
             ) + self.one_hot_smoother / self.num_classes
         target_map[sampling_result.pos_inds, 5:] = gt_labels_one_hot[
             sampling_result.pos_assigned_gt_inds]

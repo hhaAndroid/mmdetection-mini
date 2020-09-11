@@ -5,6 +5,8 @@ cuda编译： python setup.py develop
 ../configs/retinanet/retinanet_r50_fpn_voc.py
 demo: demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth
 
+../configs/yolo/yolov3_d53_320_273e_coco.py  --eval bbox
+
 
 test:
 

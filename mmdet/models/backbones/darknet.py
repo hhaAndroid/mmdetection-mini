@@ -129,7 +129,7 @@ class Darknet(nn.Module):
             if i in self.out_indices:
                 outs.append(x)
 
-        return tuple(outs)
+        return tuple(outs)  # 和resnet一样，大特征图在前
 
     def init_weights(self, pretrained=None):
         if isinstance(pretrained, str):

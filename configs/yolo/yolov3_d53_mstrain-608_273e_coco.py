@@ -1,7 +1,7 @@
 _base_ = '../_base_/default_runtime.py'
 # model settings
 model = dict(
-    type='YOLOV3',
+    type='SingleStageDetector',
     pretrained='open-mmlab://darknet53',
     backbone=dict(type='Darknet', depth=53, out_indices=(3, 4, 5)),
     neck=dict(
@@ -13,7 +13,7 @@ model = dict(
         type='YOLOV3Head',
         num_classes=80,
         in_channels=[512, 256, 128],
-        out_channels=[1024, 512, 256],
+        out_channels=[1024, 512, 256],  # 输出特征图是从小到大，故anchor size是从大到小
         anchor_generator=dict(
             type='YOLOAnchorGenerator',
             base_sizes=[[(116, 90), (156, 198), (373, 326)],
@@ -41,7 +41,8 @@ model = dict(
 # training and testing settings
 train_cfg = dict(
     assigner=dict(
-        type='GridAssigner', pos_iou_thr=0.5, neg_iou_thr=0.5, min_pos_iou=0))
+        type='GridAssigner', pos_iou_thr=0.5, neg_iou_thr=0.5, min_pos_iou=0),
+    debug=False)
 test_cfg = dict(
     nms_pre=1000,
     min_bbox_size=0,
@@ -56,14 +57,14 @@ img_norm_cfg = dict(mean=[0, 0, 0], std=[255., 255., 255.], to_rgb=True)
 train_pipeline = [
     dict(type='LoadImageFromFile', to_float32=True),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='PhotoMetricDistortion'),
+    dict(type='PhotoMetricDistortion'),  # 光度失真增强类,同时包含了多种增强，例如亮度，饱和度、对比度、色调等
     dict(
-        type='Expand',
+        type='Expand',  # 随机四周扩展
         mean=img_norm_cfg['mean'],
         to_rgb=img_norm_cfg['to_rgb'],
         ratio_range=(1, 2)),
     dict(
-        type='MinIoURandomCrop',
+        type='MinIoURandomCrop',  # 代码目前写的有问题
         min_ious=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9),
         min_crop_size=0.3),
     dict(type='Resize', img_scale=[(320, 320), (608, 608)], keep_ratio=True),
@@ -71,7 +72,12 @@ train_pipeline = [
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
+    # dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
+    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'],
+         meta_keys=('filename', 'ori_filename', 'ori_shape',
+                    'img_shape', 'pad_shape', 'scale_factor', 'flip',
+                    'flip_direction', 'img_norm_cfg', 'img')),  # meta_keys新增‘img’，用于可视化调试
+
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -90,21 +96,21 @@ test_pipeline = [
 ]
 data = dict(
     samples_per_gpu=8,
-    workers_per_gpu=4,
+    workers_per_gpu=0,
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
-        img_prefix=data_root + 'train2017/',
+        img_prefix=data_root + 'images/train2017/',
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
+        img_prefix=data_root + 'images/val2017/',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
+        img_prefix=data_root + 'images/val2017/',
         pipeline=test_pipeline))
 # optimizer
 optimizer = dict(type='SGD', lr=0.001, momentum=0.9, weight_decay=0.0005)

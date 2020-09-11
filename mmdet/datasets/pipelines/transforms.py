@@ -19,6 +19,7 @@ except ImportError:
     albumentations = None
     Compose = None
 
+
 # 典型用法
 # dict(type='Resize', img_scale=[1333, 800], keep_ratio=True)
 # dict(
@@ -564,7 +565,7 @@ class Normalize(object):
         """
         for key in results.get('img_fields', ['img']):
             results[key] = mmdet.cv_core.imnormalize(results[key], self.mean, self.std,
-                                            self.to_rgb)
+                                                     self.to_rgb)
         results['img_norm_cfg'] = dict(
             mean=self.mean, std=self.std, to_rgb=self.to_rgb)
         return results
@@ -644,7 +645,7 @@ class RandomCrop(object):
             bboxes[:, 0::2] = np.clip(bboxes[:, 0::2], 0, img_shape[1])
             bboxes[:, 1::2] = np.clip(bboxes[:, 1::2], 0, img_shape[0])
             valid_inds = (bboxes[:, 2] > bboxes[:, 0]) & (
-                bboxes[:, 3] > bboxes[:, 1])
+                    bboxes[:, 3] > bboxes[:, 1])
             # If the crop does not contain any gt-bbox area and
             # self.allow_negative_crop is False, skip this image.
             if (key == 'gt_bboxes' and not valid_inds.any()
@@ -661,7 +662,7 @@ class RandomCrop(object):
             if mask_key in results:
                 results[mask_key] = results[mask_key][
                     valid_inds.nonzero()[0]].crop(
-                        np.asarray([crop_x1, crop_y1, crop_x2, crop_y2]))
+                    np.asarray([crop_x1, crop_y1, crop_x2, crop_y2]))
 
         # crop semantic seg
         for key in results.get('seg_fields', []):
@@ -711,6 +712,7 @@ class SegRescale(object):
         return self.__class__.__name__ + f'(scale_factor={self.scale_factor})'
 
 
+# 光度失真增强类
 @PIPELINES.register_module()
 class PhotoMetricDistortion(object):
     """Apply photometric distortion to image sequentially, every transformation
@@ -758,13 +760,13 @@ class PhotoMetricDistortion(object):
                 'Only single img_fields is allowed'
         img = results['img']
         assert img.dtype == np.float32, \
-            'PhotoMetricDistortion needs the input image of dtype np.float32,'\
+            'PhotoMetricDistortion needs the input image of dtype np.float32,' \
             ' please set "to_float32=True" in "LoadImageFromFile" pipeline'
         # random brightness
         if random.randint(2):
             delta = random.uniform(-self.brightness_delta,
                                    self.brightness_delta)
-            img += delta
+            img += delta  # 亮度增强
 
         # mode == 0 --> do random contrast first
         # mode == 1 --> do random contrast last
@@ -773,18 +775,20 @@ class PhotoMetricDistortion(object):
             if random.randint(2):
                 alpha = random.uniform(self.contrast_lower,
                                        self.contrast_upper)
-                img *= alpha
+                img *= alpha  # 对比度增强
 
         # convert color from BGR to HSV
         img = mmdet.cv_core.bgr2hsv(img)
 
         # random saturation
         if random.randint(2):
+            # 饱和度增强
             img[..., 1] *= random.uniform(self.saturation_lower,
                                           self.saturation_upper)
 
         # random hue
         if random.randint(2):
+            # 色调增强
             img[..., 0] += random.uniform(-self.hue_delta, self.hue_delta)
             img[..., 0][img[..., 0] > 360] -= 360
             img[..., 0][img[..., 0] < 0] += 360
@@ -801,7 +805,7 @@ class PhotoMetricDistortion(object):
 
         # randomly swap channels
         if random.randint(2):
-            img = img[..., random.permutation(3)]
+            img = img[..., random.permutation(3)]  # 随机通道交换
 
         results['img'] = img
         return results
@@ -817,6 +821,7 @@ class PhotoMetricDistortion(object):
         return repr_str
 
 
+# 图片四周随机扩展
 @PIPELINES.register_module()
 class Expand(object):
     """Random expand the image & bboxes.
@@ -834,7 +839,7 @@ class Expand(object):
     def __init__(self,
                  mean=(0, 0, 0),
                  to_rgb=True,
-                 ratio_range=(1, 4),
+                 ratio_range=(1, 4),  # ratio_range不能小于1
                  seg_ignore_label=None,
                  prob=0.5):
         self.to_rgb = to_rgb
@@ -872,7 +877,7 @@ class Expand(object):
                              dtype=img.dtype)
         left = int(random.uniform(0, w * ratio - w))
         top = int(random.uniform(0, h * ratio - h))
-        expand_img[top:top + h, left:left + w] = img
+        expand_img[top:top + h, left:left + w] = img  # 图片四周随机扩展
 
         results['img'] = expand_img
         # expand bboxes
@@ -903,6 +908,7 @@ class Expand(object):
         return repr_str
 
 
+# 这个类写的有问题 TODO
 @PIPELINES.register_module()
 class MinIoURandomCrop(object):
     """Random crop the image & bboxes, the cropped patches have minimum IoU
@@ -966,22 +972,27 @@ class MinIoURandomCrop(object):
                 new_w = random.uniform(self.min_crop_size * w, w)
                 new_h = random.uniform(self.min_crop_size * h, h)
 
-                # h / w in [0.5, 2]
+                # h / w in [0.5, 2] 无效裁剪 TODO 为啥有这个限制？
                 if new_h / new_w < 0.5 or new_h / new_w > 2:
                     continue
 
                 left = random.uniform(w - new_w)
                 top = random.uniform(h - new_h)
 
+                # 新图片在原图中的xyxy坐标
                 patch = np.array(
                     (int(left), int(top), int(left + new_w), int(top + new_h)))
-                # Line or point crop is not allowed
+                # Line or point crop is not allowed 无效裁剪
                 if patch[2] == patch[0] or patch[3] == patch[1]:
                     continue
                 overlaps = bbox_overlaps(
                     patch.reshape(-1, 4), boxes.reshape(-1, 4)).reshape(-1)
-                if len(overlaps) > 0 and overlaps.min() < min_iou:
+                # 如果裁剪后和所有bbox计算iou中的最小值小于阈值，则裁剪失败  TODO 这个写法明显不合理，如果min_iou不为0，则几乎该条件始终满足
+                if len(overlaps) > 0 and overlaps.min() < min_iou:  # min_iou可以是0
                     continue
+                # 上面写法应该是错误的，正确的是：
+                # if overlaps.max() < min_iou or overlaps.min() > max_iou:
+                #     continue
 
                 # center of boxes should inside the crop img
                 # only adjust boxes and instance masks when the gt is not empty
@@ -994,21 +1005,21 @@ class MinIoURandomCrop(object):
                                 (center[:, 0] < patch[2]) *
                                 (center[:, 1] < patch[3]))
                         return mask
-
+                    # 判断裁剪后所有bbox的中心是否落在图片内部
                     mask = is_center_of_bboxes_in_patch(boxes, patch)
-                    if not mask.any():
+                    if not mask.any():  # 所有bbox都没有落在中心，则裁剪无效
                         continue
                     for key in results.get('bbox_fields', []):
                         boxes = results[key].copy()
                         mask = is_center_of_bboxes_in_patch(boxes, patch)
-                        boxes = boxes[mask]
+                        boxes = boxes[mask]  # 找出有效bbox，无效的丢弃
                         boxes[:, 2:] = boxes[:, 2:].clip(max=patch[2:])
                         boxes[:, :2] = boxes[:, :2].clip(min=patch[:2])
                         boxes -= np.tile(patch[:2], 2)
 
-                        results[key] = boxes
+                        results[key] = boxes  # 新bbox坐标
                         # labels
-                        label_key = self.bbox2label.get(key)
+                        label_key = self.bbox2label.get(key)  # label也要对应删掉
                         if label_key in results:
                             results[label_key] = results[label_key][mask]
 
@@ -1025,7 +1036,7 @@ class MinIoURandomCrop(object):
                 # seg fields
                 for key in results.get('seg_fields', []):
                     results[key] = results[key][patch[1]:patch[3],
-                                                patch[0]:patch[2]]
+                                   patch[0]:patch[2]]
                 return results
 
     def __repr__(self):
@@ -1425,8 +1436,8 @@ class RandomCenterCropPad(object):
         """
         center = (boxes[:, :2] + boxes[:, 2:]) / 2
         mask = (center[:, 0] > patch[0]) * (center[:, 1] > patch[1]) * (
-            center[:, 0] < patch[2]) * (
-                center[:, 1] < patch[3])
+                center[:, 0] < patch[2]) * (
+                       center[:, 1] < patch[3])
         return mask
 
     def _crop_image_and_paste(self, image, center, size):
@@ -1476,7 +1487,7 @@ class RandomCenterCropPad(object):
             cropped_center_y - top, cropped_center_y + bottom,
             cropped_center_x - left, cropped_center_x + right
         ],
-                          dtype=np.float32)
+            dtype=np.float32)
 
         return cropped_img, border, patch
 
@@ -1529,7 +1540,7 @@ class RandomCenterCropPad(object):
                     bboxes[:, 0:4:2] = np.clip(bboxes[:, 0:4:2], 0, new_w)
                     bboxes[:, 1:4:2] = np.clip(bboxes[:, 1:4:2], 0, new_h)
                     keep = (bboxes[:, 2] > bboxes[:, 0]) & (
-                        bboxes[:, 3] > bboxes[:, 1])
+                            bboxes[:, 3] > bboxes[:, 1])
                     bboxes = bboxes[keep]
                     results[key] = bboxes
                     if key in ['gt_bboxes']:

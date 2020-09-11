@@ -1,12 +1,28 @@
 import torch
+import numpy as np
 import torch.nn as nn
 from mmdet.cv_core.cnn import normal_init
+from mmdet import cv_core
 
 from mmdet.det_core import (anchor_inside_flags, build_anchor_generator,
-                        build_assigner, build_bbox_coder, build_sampler,images_to_levels, multi_apply,
-                        multiclass_nms, unmap)
+                            build_assigner, build_bbox_coder, build_sampler, images_to_levels, multi_apply,
+                            multiclass_nms, unmap)
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
+
+
+def show_pos_anchor(img_meta, gt_anchors, gt_bboxes, is_show=True):
+    # 显示正样本
+    assert 'img' in img_meta, print('Collect类中的meta_keys需要新增‘img’，用于可视化调试')
+    img = img_meta['img'].data.numpy()
+    mean = img_meta['img_norm_cfg']['mean']
+    std = img_meta['img_norm_cfg']['std']
+    # 默认输入是rgb数据，需要切换为bgr显示
+    img = np.transpose(img.copy(), (1, 2, 0))[..., ::-1]
+    img = img * std.reshape([1, 1, 3])[..., ::-1] + mean.reshape([1, 1, 3])[..., ::-1]
+    img = img.astype(np.uint8)
+    img = cv_core.show_bbox(img, gt_anchors.cpu().numpy(), is_show=False)
+    return cv_core.show_bbox(img, gt_bboxes.cpu().numpy(), color=(255, 255, 255), is_show=is_show)
 
 
 @HEADS.register_module()
@@ -83,6 +99,7 @@ class AnchorHead(BaseDenseHead):
         self.loss_bbox = build_loss(loss_bbox)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
+        self.debug = False
         if self.train_cfg:
             self.assigner = build_assigner(self.train_cfg.assigner)
             # use PseudoSampler when sampling is False
@@ -91,6 +108,7 @@ class AnchorHead(BaseDenseHead):
             else:
                 sampler_cfg = dict(type='PseudoSampler')
             self.sampler = build_sampler(sampler_cfg, context=self)
+            self.debug = self.train_cfg.debug
         self.fp16_enabled = False
 
         self.anchor_generator = build_anchor_generator(anchor_generator)
@@ -184,7 +202,8 @@ class AnchorHead(BaseDenseHead):
                             gt_labels,
                             img_meta,
                             label_channels=1,
-                            unmap_outputs=True):
+                            unmap_outputs=True,
+                            num_level_anchors=None):
         """Compute regression and classification targets for anchors in a
         single image.
 
@@ -219,20 +238,45 @@ class AnchorHead(BaseDenseHead):
                                            img_meta['img_shape'][:2],
                                            self.train_cfg.allowed_border)
         if not inside_flags.any():
-            return (None, ) * 7
+            return (None,) * 7
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
 
         assign_result = self.assigner.assign(
             anchors, gt_bboxes, gt_bboxes_ignore,
             None if self.sampling else gt_labels)
+
+        if self.debug:
+            # 统计下正样本个数
+            print('anchor分配正负样本后，正样本anchor可视化，白色bbox是gt')
+            gt_inds = assign_result.gt_inds  # 0 1 -1
+            index = gt_inds > 0
+            gt_inds = gt_inds[index]
+            gt_anchors = anchors[index]
+            print('单张图片中正样本anchor个数', len(gt_inds))
+            if num_level_anchors is None:  # 不分层显示
+                show_pos_anchor(img_meta, gt_anchors, gt_bboxes)
+            else:
+                imgs = []
+                count = 0
+                for num_level in num_level_anchors:
+                    gt_inds = assign_result.gt_inds[count:count + num_level]
+                    anchor = anchors[count:count + num_level]
+                    count += num_level
+                    index = gt_inds > 0
+                    gt_anchor = anchor[index]
+                    img = show_pos_anchor(img_meta, gt_anchor, gt_bboxes, is_show=False)
+                    imgs.append(img)
+                print('从大特征图到小特征图顺序显示')
+                cv_core.show_img(imgs)
+
         sampling_result = self.sampler.sample(assign_result, anchors,
                                               gt_bboxes)
 
         num_valid_anchors = anchors.shape[0]
         bbox_targets = torch.zeros_like(anchors)
         bbox_weights = torch.zeros_like(anchors)
-        labels = anchors.new_full((num_valid_anchors, ),
+        labels = anchors.new_full((num_valid_anchors,),
                                   self.background_label,
                                   dtype=torch.long)
         label_weights = anchors.new_zeros(num_valid_anchors, dtype=torch.float)
@@ -351,7 +395,8 @@ class AnchorHead(BaseDenseHead):
             gt_labels_list,
             img_metas,
             label_channels=label_channels,
-            unmap_outputs=unmap_outputs)
+            unmap_outputs=unmap_outputs,
+            num_level_anchors=num_level_anchors)
         (all_labels, all_label_weights, all_bbox_targets, all_bbox_weights,
          pos_inds_list, neg_inds_list, sampling_results_list) = results[:7]
         rest_results = list(results[7:])  # user-added return values
@@ -372,7 +417,7 @@ class AnchorHead(BaseDenseHead):
         res = (labels_list, label_weights_list, bbox_targets_list,
                bbox_weights_list, num_total_pos, num_total_neg)
         if return_sampling_results:
-            res = res + (sampling_results_list, )
+            res = res + (sampling_results_list,)
         for i, r in enumerate(rest_results):  # user-added return values
             rest_results[i] = images_to_levels(r, num_level_anchors)
 
@@ -424,7 +469,6 @@ class AnchorHead(BaseDenseHead):
             bbox_weights,
             avg_factor=num_total_samples)
         return loss_cls, loss_bbox
-
 
     def loss(self,
              cls_scores,
@@ -494,7 +538,6 @@ class AnchorHead(BaseDenseHead):
             bbox_weights_list,
             num_total_samples=num_total_samples)
         return dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
-
 
     def get_bboxes(self,
                    cls_scores,
