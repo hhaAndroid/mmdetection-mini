@@ -3,7 +3,7 @@ from mmdet import cv_core
 import numpy as np
 
 
-def demo_net(input_shape_hw, stride, anchor_generator_cfg, random_n, select_n):
+def show_anchor(input_shape_hw, stride, anchor_generator_cfg, random_n, select_n):
     img = np.zeros(input_shape_hw, np.uint8)
     feature_map = []
     for s in stride:
@@ -33,7 +33,7 @@ def demo_retinanet(input_shape_hw):
         strides=stride),  # 每个特征图层输出stride,故anchor范围是4x8=32,4x128x2**(2/3)=812.7
     random_n = 10
     select_n = 100
-    demo_net(input_shape_hw, stride, anchor_generator_cfg, random_n, select_n)
+    show_anchor(input_shape_hw, stride, anchor_generator_cfg, random_n, select_n)
 
 
 def demo_yolov3(input_shape_hw):
@@ -47,7 +47,7 @@ def demo_yolov3(input_shape_hw):
 
     random_n = 10
     select_n = 100
-    demo_net(input_shape_hw, stride, anchor_generator_cfg, random_n, select_n)
+    show_anchor(input_shape_hw, stride, anchor_generator_cfg, random_n, select_n)
 
 
 if __name__ == '__main__':
