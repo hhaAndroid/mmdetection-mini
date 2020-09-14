@@ -5,7 +5,8 @@ from ..iou_calculators import build_iou_calculator
 from .assign_result import AssignResult
 from .base_assigner import BaseAssigner
 
-
+# 整个算法流程和max_iou_assigner非常类似，只不过多了一个box_responsible_flags限制
+# 所以可以看出，其分配测试和原版yolov3有差别，主要是本文策略会引入更多正样本，可能能加速收敛
 @BBOX_ASSIGNERS.register_module()
 class GridAssigner(BaseAssigner):
     """Assign a corresponding gt bbox or background to each bbox.
@@ -115,7 +116,10 @@ class GridAssigner(BaseAssigner):
         # positive IOU threshold, the order matters.
         # the prior condition of comparision is to filter out all
         # unrelated anchors, i.e. not box_responsible_flags
-        overlaps[:, ~box_responsible_flags.type(torch.bool)] = -1.  # 将没有gt bbox中心位置的anchor iou强制设置为最小值-1
+        # 将没有gt bbox中心位置的anchor iou强制设置为最小值-1
+        # 意思是为了避免：gt bbox中心落在A格子内部，但是最大Iou对应的anchor不在A,而是B，不允许出现这种情况
+        # 虽然出现这种情况也是可以训练的，但是这不符合yolo思想，因为我们是强制落在网格处的才负责预测
+        overlaps[:, ~box_responsible_flags.type(torch.bool)] = -1.
 
         # calculate max_overlaps again, but this time we only consider IOUs
         # for anchors responsible for prediction

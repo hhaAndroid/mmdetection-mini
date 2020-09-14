@@ -103,7 +103,7 @@ class YOLOV3Head(BaseDenseHead):
             if hasattr(self.train_cfg, 'sampler'):
                 sampler_cfg = self.train_cfg.sampler
             else:
-                sampler_cfg = dict(type='PseudoSampler')
+                sampler_cfg = dict(type='PseudoSampler')  # yolo系列不需随机采样等操作
             self.sampler = build_sampler(sampler_cfg, context=self)
             self.debug = self.train_cfg.debug
 
@@ -344,7 +344,7 @@ class YOLOV3Head(BaseDenseHead):
 
         responsible_flag_list = []
         for img_id in range(len(img_metas)):
-            # 计算当前图片中的bbox中心在特征图上面的位置
+            # 计算当前图片中的bbox中心在特征图上面的位置,以flag形式表示
             responsible_flag_list.append(
                 self.anchor_generator.responsible_flags(
                     featmap_sizes, gt_bboxes[img_id], device))
@@ -380,11 +380,11 @@ class YOLOV3Head(BaseDenseHead):
         num_imgs = len(pred_map)
         pred_map = pred_map.permute(0, 2, 3,
                                     1).reshape(num_imgs, -1, self.num_attrib)
-        neg_mask = neg_map.float()
-        pos_mask = target_map[..., 4]
+        neg_mask = neg_map.float()  # 忽略位置图
+        pos_mask = target_map[..., 4]  # confidence，也是衡量该位置有没有obj的标志
         pos_and_neg_mask = neg_mask + pos_mask
         pos_mask = pos_mask.unsqueeze(dim=-1)
-        if torch.max(pos_and_neg_mask) > 1.:
+        if torch.max(pos_and_neg_mask) > 1.:  # 说明有些正样本区域是要忽略的
             warnings.warn('There is overlap between pos and neg sample.')
             pos_and_neg_mask = pos_and_neg_mask.clamp(min=0., max=1.)
 
@@ -437,6 +437,7 @@ class YOLOV3Head(BaseDenseHead):
 
         all_target_maps, all_neg_maps = results
         assert num_imgs == len(all_target_maps) == len(all_neg_maps)
+        # all_target_maps是图片级别list结构，假设有8张图片则len()=8，需要转化为fpn级别的输出，才方便计算Loss,假设有三层输出，则len()=3
         target_maps_list = images_to_levels(all_target_maps, num_level_anchors)
         neg_maps_list = images_to_levels(all_neg_maps, num_level_anchors)
 
@@ -479,7 +480,7 @@ class YOLOV3Head(BaseDenseHead):
 
         if self.debug:
             # 统计下正样本个数
-            print('anchor分配正负样本后，正样本anchor可视化，白色bbox是gt')
+            print('----anchor分配正负样本后，正样本anchor可视化，白色bbox是gt----')
             gt_inds = assign_result.gt_inds  # 0 1 -1
             index = gt_inds > 0
             gt_inds = gt_inds[index]
@@ -501,17 +502,21 @@ class YOLOV3Head(BaseDenseHead):
                 print('从小特征图到大特征图顺序显示')
                 cv_core.show_img(imgs)
 
+        # 相当于没有，只是为了不报错
         sampling_result = self.sampler.sample(assign_result, concat_anchors,
                                               gt_bboxes)
 
+        # 转化为最终计算Loss所需要的格式
         target_map = concat_anchors.new_zeros(
-            concat_anchors.size(0), self.num_attrib)
+            concat_anchors.size(0), self.num_attrib)  # 5+class_count
 
+        # 正样本位置anchor bbox；对应的gt bbox；strides
+        # target_map前4个是xywh在特征图尺度上面的转化后的label
         target_map[sampling_result.pos_inds, :4] = self.bbox_coder.encode(
             sampling_result.pos_bboxes, sampling_result.pos_gt_bboxes,
             anchor_strides[sampling_result.pos_inds])
 
-        target_map[sampling_result.pos_inds, 4] = 1
+        target_map[sampling_result.pos_inds, 4] = 1  # confidence label
 
         gt_labels_one_hot = F.one_hot(
             gt_labels, num_classes=self.num_classes).float()
@@ -520,7 +525,7 @@ class YOLOV3Head(BaseDenseHead):
                     1 - self.one_hot_smoother
             ) + self.one_hot_smoother / self.num_classes
         target_map[sampling_result.pos_inds, 5:] = gt_labels_one_hot[
-            sampling_result.pos_assigned_gt_inds]
+            sampling_result.pos_assigned_gt_inds]  # class one hot label
 
         neg_map = concat_anchors.new_zeros(
             concat_anchors.size(0), dtype=torch.uint8)
