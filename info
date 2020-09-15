@@ -12,6 +12,8 @@ test:
 
 评估：
 ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth --eval bbox
+../configs/yolo/rr_yolov3_d53_416_coco.py  ../yolov3.pth  --show
+
 
 显示：
 ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth --show
