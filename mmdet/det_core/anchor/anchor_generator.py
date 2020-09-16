@@ -289,17 +289,21 @@ class AnchorGenerator(object):
         """
         assert self.num_levels == len(featmap_sizes)
         multi_level_flags = []
+        # 计算每张图片的多个anchor的有效位置,由于collate会采用当前batch内部最大的w,h对图片进行右下pad全黑像素操作
+        # 原则是：pad全黑区域算无效区域，因为图片pad都是右下角像素，一定是pad，不可能crop，故np.ceil向上取整
         for i in range(self.num_levels):
             anchor_stride = self.strides[i]
             feat_h, feat_w = featmap_sizes[i]
             h, w = pad_shape[:2]
+            # 这个valid生效是由于图片被pad了，导致实际有效图片w,h小于输入tensor
+            # 同样的，去掉这些位置的anchor
             valid_feat_h = min(int(np.ceil(h / anchor_stride[1])), feat_h)
             valid_feat_w = min(int(np.ceil(w / anchor_stride[0])), feat_w)
             flags = self.single_level_valid_flags((feat_h, feat_w),
                                                   (valid_feat_h, valid_feat_w),
                                                   self.num_base_anchors[i],
                                                   device=device)
-            multi_level_flags.append(flags)
+            multi_level_flags.append(flags)  # 有效位置设置为1，否则为0
         return multi_level_flags
 
     def single_level_valid_flags(self,

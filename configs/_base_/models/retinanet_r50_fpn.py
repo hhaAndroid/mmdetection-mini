@@ -30,7 +30,7 @@ model = dict(
             scales_per_octave=3,   # 每层有3个尺度 2**0 2**(1/3) 2**(2/3)
             ratios=[0.5, 1.0, 2.0],  # 每层的anchor有3种长宽比 故每一层每个位置有9个anchor
             strides=[8, 16, 32, 64, 128]),  # 每个特征图层输出stride,故anchor范围是4x8=32,4x128x2**(2/3)=812.7
-        bbox_coder=dict(
+        bbox_coder=dict(  # 基于anchor的中心点平移，wh缩放预测，编解码函数
             type='DeltaXYWHBBoxCoder',
             target_means=[.0, .0, .0, .0],
             target_stds=[1.0, 1.0, 1.0, 1.0]),
@@ -43,14 +43,15 @@ model = dict(
         loss_bbox=dict(type='L1Loss', loss_weight=1.0)))
 # training and testing settings
 train_cfg = dict(
-    # 双阈值策略
+    # 双阈值策略，下列设置会出现忽略样本，且可能引入低质量anchor
+    # min_pos_iou=0 表示每个gt都一定有anchor匹配
     assigner=dict(
         type='MaxIoUAssigner',
-        pos_iou_thr=0.5,
-        neg_iou_thr=0.4,
-        min_pos_iou=0,
+        pos_iou_thr=0.5,  # 遍历anchor,anchor和所有gt的最大iou大于pos_iou_thr，则该anchor是正样本且最大iou对应的gt是匹配对象
+        neg_iou_thr=0.4,  # 遍历anchor,anchor和所有gt的最大iou小于neg_iou_thr，则该anchor是背景
+        min_pos_iou=0,  # 遍历gt，gt和所有anchor的最大iou大于min_pos_iou，则该对应的anchor也是正样本，负责对于gt的匹配
         ignore_iof_thr=-1),
-    allowed_border=-1,
+    allowed_border=-1,  # 边界位置anchor不排除，通过其他方式排除
     pos_weight=-1,
     debug=False)
 test_cfg = dict(

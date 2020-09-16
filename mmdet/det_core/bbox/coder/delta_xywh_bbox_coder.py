@@ -94,9 +94,9 @@ def bbox2delta(proposals, gt, means=(0., 0., 0., 0.), stds=(1., 1., 1., 1.)):
     proposals = proposals.float()
     gt = gt.float()
     px = (proposals[..., 0] + proposals[..., 2]) * 0.5
-    py = (proposals[..., 1] + proposals[..., 3]) * 0.5
+    py = (proposals[..., 1] + proposals[..., 3]) * 0.5  # anchor中心坐标
     pw = proposals[..., 2] - proposals[..., 0]
-    ph = proposals[..., 3] - proposals[..., 1]
+    ph = proposals[..., 3] - proposals[..., 1]  # anchor的宽高
 
     gx = (gt[..., 0] + gt[..., 2]) * 0.5
     gy = (gt[..., 1] + gt[..., 3]) * 0.5
@@ -111,7 +111,7 @@ def bbox2delta(proposals, gt, means=(0., 0., 0., 0.), stds=(1., 1., 1., 1.)):
 
     means = deltas.new_tensor(means).unsqueeze(0)
     stds = deltas.new_tensor(stds).unsqueeze(0)
-    deltas = deltas.sub_(means).div_(stds)
+    deltas = deltas.sub_(means).div_(stds)  # 均值和方差的作用主要是平衡loss，参数可能比较难调，默认就是0,1
 
     return deltas
 
@@ -168,7 +168,7 @@ def delta2bbox(rois,
     dy = denorm_deltas[:, 1::4]
     dw = denorm_deltas[:, 2::4]
     dh = denorm_deltas[:, 3::4]
-    max_ratio = np.abs(np.log(wh_ratio_clip))
+    max_ratio = np.abs(np.log(wh_ratio_clip))  # 允许预测输出的最大宽高比例，防止预测出非常奇怪的bbox
     dw = dw.clamp(min=-max_ratio, max=max_ratio)
     dh = dh.clamp(min=-max_ratio, max=max_ratio)
     # Compute center of each roi
@@ -188,7 +188,7 @@ def delta2bbox(rois,
     y1 = gy - gh * 0.5
     x2 = gx + gw * 0.5
     y2 = gy + gh * 0.5
-    if max_shape is not None:
+    if max_shape is not None:  # 允许输出的最大bbox wh设置，防止预测bbox太大
         x1 = x1.clamp(min=0, max=max_shape[1])
         y1 = y1.clamp(min=0, max=max_shape[0])
         x2 = x2.clamp(min=0, max=max_shape[1])

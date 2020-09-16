@@ -186,8 +186,8 @@ class AnchorHead(BaseDenseHead):
         anchor_list = [multi_level_anchors for _ in range(num_imgs)]
 
         # for each image, we compute valid flags of multi level anchors
-        valid_flag_list = []
-        for img_id, img_meta in enumerate(img_metas):
+        valid_flag_list = []  # pad_shape属性是图片没有经过collate函数右下pad后的图片size,也就是datalayer吐出的图片shape
+        for img_id, img_meta in enumerate(img_metas):  # 每张图片的pad_shape都不一样，故需要遍历
             multi_level_flags = self.anchor_generator.valid_flags(
                 featmap_sizes, img_meta['pad_shape'], device)
             valid_flag_list.append(multi_level_flags)
@@ -234,6 +234,7 @@ class AnchorHead(BaseDenseHead):
                 num_total_pos (int): Number of positive samples in all images
                 num_total_neg (int): Number of negative samples in all images
         """
+        # # 默认self.train_cfg.allowed_border=-1 也就是仅仅看valid_flags就可以,功能重复
         inside_flags = anchor_inside_flags(flat_anchors, valid_flags,
                                            img_meta['img_shape'][:2],
                                            self.train_cfg.allowed_border)
@@ -242,14 +243,15 @@ class AnchorHead(BaseDenseHead):
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
 
+        # 核心类，基于anchor和gt bbox，进行正负样本anchor分配
         assign_result = self.assigner.assign(
             anchors, gt_bboxes, gt_bboxes_ignore,
             None if self.sampling else gt_labels)
 
         if self.debug:
             # 统计下正样本个数
-            print('anchor分配正负样本后，正样本anchor可视化，白色bbox是gt')
-            gt_inds = assign_result.gt_inds  # 0 1 -1
+            print('----anchor分配正负样本后，正样本anchor可视化，白色bbox是gt----')
+            gt_inds = assign_result.gt_inds  # 0 1 -1 正负忽略样本标志
             index = gt_inds > 0
             gt_inds = gt_inds[index]
             gt_anchors = anchors[index]
@@ -270,20 +272,24 @@ class AnchorHead(BaseDenseHead):
                 print('从大特征图到小特征图顺序显示')
                 cv_core.show_img(imgs)
 
+        # 正负样本采样，默认是伪随机，也就是相当于没有
         sampling_result = self.sampler.sample(assign_result, anchors,
                                               gt_bboxes)
 
-        num_valid_anchors = anchors.shape[0]
+        num_valid_anchors = anchors.shape[0]  # 这里计算的仅仅是有效区域anchor
         bbox_targets = torch.zeros_like(anchors)
         bbox_weights = torch.zeros_like(anchors)
         labels = anchors.new_full((num_valid_anchors,),
                                   self.background_label,
                                   dtype=torch.long)
+        # 正负样本区域权重为1，其余位置全部设置为0
         label_weights = anchors.new_zeros(num_valid_anchors, dtype=torch.float)
 
         pos_inds = sampling_result.pos_inds
         neg_inds = sampling_result.neg_inds
         if len(pos_inds) > 0:
+            # 是否需要对gt进行编码，主要是区分l1 loss和iou类 loss
+            # l1 loss需要编解码，iou loss不需要
             if not self.reg_decoded_bbox:
                 pos_bbox_targets = self.bbox_coder.encode(
                     sampling_result.pos_bboxes, sampling_result.pos_gt_bboxes)
@@ -296,7 +302,7 @@ class AnchorHead(BaseDenseHead):
                 labels[pos_inds] = 1
             else:
                 labels[pos_inds] = gt_labels[
-                    sampling_result.pos_assigned_gt_inds]
+                    sampling_result.pos_assigned_gt_inds]  # labels里面存储的，0-num_class表示正样本对应的class，num_class表示背景
             if self.train_cfg.pos_weight <= 0:
                 label_weights[pos_inds] = 1.0
             else:
@@ -304,6 +310,7 @@ class AnchorHead(BaseDenseHead):
         if len(neg_inds) > 0:
             label_weights[neg_inds] = 1.0
 
+        # 为了方便计算，还原到最原始anchor个数，这个操作也非常关键，特别是label_weights和bbox_weights
         # map up to original set of anchors
         if unmap_outputs:
             num_total_anchors = flat_anchors.size(0)
@@ -371,6 +378,7 @@ class AnchorHead(BaseDenseHead):
         num_imgs = len(img_metas)
         assert len(anchor_list) == len(valid_flag_list) == num_imgs
 
+        # 将多层的anchor数据concat,变成一个大矩阵，方便后面计算；也就是相当于只有一个预测输出层
         # anchor number of multi levels
         num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
         # concat all level anchors to a single tensor
@@ -407,6 +415,8 @@ class AnchorHead(BaseDenseHead):
         num_total_pos = sum([max(inds.numel(), 1) for inds in pos_inds_list])
         num_total_neg = sum([max(inds.numel(), 1) for inds in neg_inds_list])
         # split targets to a list w.r.t. multiple levels
+
+        # 前面把多个层的target合并了，现在还原到各自的层上面
         labels_list = images_to_levels(all_labels, num_level_anchors)
         label_weights_list = images_to_levels(all_label_weights,
                                               num_level_anchors)
@@ -450,6 +460,7 @@ class AnchorHead(BaseDenseHead):
             dict[str, Tensor]: A dictionary of loss components.
         """
         # classification loss
+        # labels中 0 - num_class表示正样本对应的class，num_class值表示背景
         labels = labels.reshape(-1)
         label_weights = label_weights.reshape(-1)
         cls_score = cls_score.permute(0, 2, 3,
@@ -495,7 +506,7 @@ class AnchorHead(BaseDenseHead):
         Returns:
             dict[str, Tensor]: A dictionary of loss components.
         """
-        featmap_sizes = [featmap.size()[-2:] for featmap in cls_scores]
+        featmap_sizes = [featmap.size()[-2:] for featmap in cls_scores]  # 每个层的特征图size
         assert len(featmap_sizes) == self.anchor_generator.num_levels
 
         device = cls_scores[0].device
