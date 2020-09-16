@@ -56,7 +56,8 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - wider face
 
 ## 7 笔记(持续更新)
-https://www.zybuluo.com/huanghaian/note/1740535
+[第一篇：mmdetection最小复刻版(一)：整体概览](https://www.zybuluo.com/huanghaian/note/1742545)
+
 
 ## 8 使用说明
 ### 8.1 训练、测试和demo使用说明
@@ -90,7 +91,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 例如tiny_yolov3权重：
 
-1. 首先到https://github.com/AlexeyAB/darknet对应的tiny_yolov3链接处下载对应权重
+1. 首先到https://github.com/AlexeyAB/darknet 对应的tiny_yolov3链接处下载对应权重
 2. 打开tools/darknet/tiny_yolov3.py代码，修改tiny_yolov3_weights_path为你的下载的权重路径
 3. 运行tiny_yolov3.py即可生成pth权重
 4. 然后就可以直接训练或者测试了
