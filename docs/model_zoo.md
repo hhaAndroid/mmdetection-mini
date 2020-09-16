@@ -48,5 +48,6 @@ mmdetection: 65.8% mAP@0.5 (20.3% AP@0.5:0.95) -257. MB
 而我没有下载test_dev数据，而是采用了val数据进行测试的，所有两者指标没有非常强的对比性。
 只能说明我重写的yolo系列代码没有问题，而且可以直接导入coco权重进行微调训练。
 - darknet权重转mmdetection的脚本在tools/darknet文件夹里面
+- 模型实现参考了https://github.com/Tencent/ObjectDetection-OneStageDet
 
 
