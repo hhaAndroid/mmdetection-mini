@@ -57,3 +57,41 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 
 ## 7 笔记(持续更新)
 https://www.zybuluo.com/huanghaian/note/1740535
+
+## 8 使用说明
+### 8.1 训练、测试和demo使用说明
+
+开启训练过程和mmdetection完全一致，例如：
+
+```python
+python train.py ../configs/retinanet/retinanet_r50_fpn_coco.py
+```
+
+开启测试过程和mmdetection完全一致，例如：
+
+```python
+# 评估   
+python test.py ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth --eval bbox
+# 显示
+python test.py ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth --show
+```
+
+开启demo过程和mmdetection完全一致，例如：
+
+```python
+python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth
+```
+
+### 8.2 darknet权重转化为mmdetection
+
+转化脚本在tools/darknet里面
+
+使用方法就是参考模型仓库文档里面的链接，将对应的权重下载下来，然后设置path就可以转化成功
+
+例如tiny_yolov3权重：
+
+1. 首先到https://github.com/AlexeyAB/darknet对应的tiny_yolov3链接处下载对应权重
+2. 打开tools/darknet/tiny_yolov3.py代码，修改tiny_yolov3_weights_path为你的下载的权重路径
+3. 运行tiny_yolov3.py即可生成pth权重
+4. 然后就可以直接训练或者测试了
+
