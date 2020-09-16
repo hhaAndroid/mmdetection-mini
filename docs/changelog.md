@@ -7,6 +7,7 @@
 - 新增darknet中yolo系列模型，直接darknet权重直接导入，支持微调训练
 - 新增darknet权重转mmdetection权重工具
 - 新增各个部分注释(持续更新)
+- 新增loss分析工具loss_analyze
 
 ### 2020.09.11
 **(1) 新特性**
