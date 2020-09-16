@@ -9,5 +9,5 @@ log_config = dict(
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 load_from = None  # 需要是全路径
-resume_from = None  # 需要是全路径
+resume_from = None
 workflow = [('train', 1)]

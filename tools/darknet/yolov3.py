@@ -143,24 +143,11 @@ class YOLOV3(nn.Module):
 
 if __name__ == '__main__':
     import torch
-    from mmdet.models import build_detector
 
-    # model cfg
-    model_cfg = dict(
-        type='SingleStageDetector',
-        backbone=dict(type='RRDarknet53'),
-        neck=dict(type='DarkNeck'),
-        bbox_head=dict(
-            type='RRYolov3Head',
-            num_classes=80,
-            in_channels=[512, 256, 128],
-            featmap_strides=[32, 16, 8]),
-    )
-
-    yolov3_rr = build_detector(model_cfg)
-    print(yolov3_rr.state_dict().keys())
-
-    yolov3 = YOLOV3(pretrained='/home/pi/yolov3.weights')
+    # darknet 权重路径 https://github.com/AlexeyAB/darknet
+    yolov3_weights_path = '/home/pi/yolo权重/yolov3/yolov3.weights'
+    
+    yolov3 = YOLOV3(pretrained=yolov3_weights_path)
     new_state_dict = OrderedDict()
     for k, v in yolov3.state_dict().items():
         if k.startswith('backbone'):

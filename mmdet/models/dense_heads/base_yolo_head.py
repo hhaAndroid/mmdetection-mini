@@ -58,6 +58,7 @@ class BaseYOLOHead(BaseDenseHead):
     def __init__(self,
                  num_classes,
                  in_channels,
+                 out_channels=(1024, 512, 256),
                  anchor_generator=dict(
                      type='YOLOAnchorGenerator',
                      base_sizes=[[(116, 90), (156, 198), (373, 326)],
@@ -91,6 +92,7 @@ class BaseYOLOHead(BaseDenseHead):
 
         self.num_classes = num_classes
         self.in_channels = in_channels
+        self.out_channels = out_channels
         self.featmap_strides = featmap_strides
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg

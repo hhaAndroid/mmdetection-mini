@@ -8,36 +8,27 @@ from ..builder import BACKBONES
 
 
 @BACKBONES.register_module()
-class RRDarknet53(nn.Module):
+class RRTinyYolov4Backbone(nn.Module):
     # 用于递归导入权重
-    custom_layers = (vn_layer.Stage, vn_layer.Stage.custom_layers)
+    custom_layers = (vn_layer.ResConv2dBatchLeaky,)
 
-    def __init__(self, pretrained=None, input_channels=32):
-        super().__init__()
-        stage_cfg = {'stage_2': 2, 'stage_3': 3, 'stage_4': 9, 'stage_5': 9, 'stage_6': 5}
+    def __init__(self, pretrained=None):
+        super(RRTinyYolov4Backbone, self).__init__()
 
-        # Network
-        layer_list = [
-            # first scale, smallest
-            OrderedDict([
-                ('stage_1', vn_layer.Conv2dBatchLeaky(3, input_channels, 3, 1)),
-                ('stage_2', vn_layer.Stage(input_channels, stage_cfg['stage_2'])),
-                ('stage_3', vn_layer.Stage(input_channels * (2 ** 1), stage_cfg['stage_3'])),
-                ('stage_4', vn_layer.Stage(input_channels * (2 ** 2), stage_cfg['stage_4'])),
-            ]),
+        backbone = OrderedDict([
+            ('0_convbatch', vn_layer.Conv2dBatchLeaky(3, 32, 3, 2)),
+            ('1_convbatch', vn_layer.Conv2dBatchLeaky(32, 64, 3, 2)),
+            ('2_convbatch', vn_layer.Conv2dBatchLeaky(64, 64, 3, 1)),
+            ('3_resconvbatch', vn_layer.ResConv2dBatchLeaky(64, 32, 3, 1)),
+            ('4_max', nn.MaxPool2d(2, 2)),
+            ('5_convbatch', vn_layer.Conv2dBatchLeaky(128, 128, 3, 1)),
+            ('6_resconvbatch', vn_layer.ResConv2dBatchLeaky(128, 64, 3, 1)),
+            ('7_max', nn.MaxPool2d(2, 2)),
+            ('8_convbatch', vn_layer.Conv2dBatchLeaky(256, 256, 3, 1)),
+            ('9_resconvbatch', vn_layer.ResConv2dBatchLeaky(256, 128, 3, 1, return_extra=True)),
+        ])
 
-            # second scale
-            OrderedDict([
-                ('stage_5', vn_layer.Stage(input_channels * (2 ** 3), stage_cfg['stage_5'])),
-            ]),
-
-            # third scale, largest
-            OrderedDict([
-                ('stage_6', vn_layer.Stage(input_channels * (2 ** 4), stage_cfg['stage_6'])),
-            ]),
-        ]
-
-        self.layers = nn.ModuleList([nn.Sequential(layer_dict) for layer_dict in layer_list])
+        self.layers = nn.Sequential(backbone)
         self.init_weights(pretrained)
 
     def __modules_recurse(self, mod=None):
@@ -48,13 +39,13 @@ class RRDarknet53(nn.Module):
         if mod is None:
             mod = self
         for module in mod.children():
-            if isinstance(module, (nn.ModuleList, nn.Sequential, RRDarknet53.custom_layers)):
+            if isinstance(module, (nn.ModuleList, nn.Sequential)):
                 yield from self.__modules_recurse(module)
             else:
                 yield module
 
     def init_weights(self, pretrained=None):
-        if isinstance(pretrained, str):
+        if pretrained is not None:
             weights = vn_layer.WeightLoader(pretrained)
             for module in self.__modules_recurse():
                 try:
@@ -73,7 +64,5 @@ class RRDarknet53(nn.Module):
                     constant_init(m, 1)
 
     def forward(self, x):
-        stage_4 = self.layers[0](x)
-        stage_5 = self.layers[1](stage_4)
-        stage_6 = self.layers[2](stage_5)
-        return [stage_6, stage_5, stage_4]  # 由小到大特征图输出
+        stem, extra_x = self.layers(x)
+        return [stem, extra_x]

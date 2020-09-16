@@ -5,14 +5,14 @@ import torch.nn as nn
 from ..utils import brick as vn_layer
 from ..builder import NECKS
 
-__all__ = ['DarkNeck', 'YoloV4DarkNeck']
+__all__ = ['RRDarkNeck', 'RRYoloV4DarkNeck']
 
 
 # FPN结构
 @NECKS.register_module()
-class DarkNeck(nn.Module):
-    def __init__(self, input_channels=32, pretrained=None):
-        super(DarkNeck, self).__init__()
+class RRDarkNeck(nn.Module):
+    def __init__(self, input_channels=32):
+        super(RRDarkNeck, self).__init__()
         layer_list = [
             # the following is extra
             # layer 3
@@ -44,21 +44,10 @@ class DarkNeck(nn.Module):
             ]),
         ]
         self.layers = nn.ModuleList([nn.Sequential(layer_dict) for layer_dict in layer_list])
-        # TODO 不能开启，一旦开启初始效果很差，后续需要排查
-        # self.init_weights(pretrained)
+        self.init_weights()
 
-    def init_weights(self, pretrained=None):
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, a=0.1, mode='fan_in')
-                if m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
-                nn.init.constant_(m.bias, 0)
+    def init_weights(self):
+        pass
 
     def forward(self, x):
         stage_6, stage_5, stage_4 = x
@@ -79,9 +68,9 @@ class DarkNeck(nn.Module):
 
 # PAN+SPP结构
 @NECKS.register_module()
-class YoloV4DarkNeck(nn.Module):
+class RRYoloV4DarkNeck(nn.Module):
     def __init__(self):
-        super(YoloV4DarkNeck, self).__init__()
+        super(RRYoloV4DarkNeck, self).__init__()
         layer_list = [
             OrderedDict([
                 ('head_body0_0', vn_layer.MakeNConv([512, 1024], 1024, 3)),
@@ -121,3 +110,8 @@ class YoloV4DarkNeck(nn.Module):
         out5 = self.layers[4]([out4, out5])  # 输出2 小图
 
         return [out5, out4, out3]
+
+    def init_weights(self):
+        """Initialize the weights of module."""
+        # init is done in ConvModule
+        pass

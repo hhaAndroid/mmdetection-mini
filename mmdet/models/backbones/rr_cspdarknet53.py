@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-from collections import OrderedDict
 import torch.nn as nn
 from torch.nn.modules.batchnorm import _BatchNorm
 from ...cv_core import kaiming_init, constant_init
@@ -8,36 +7,24 @@ from ..builder import BACKBONES
 
 
 @BACKBONES.register_module()
-class RRDarknet53(nn.Module):
+class RRCSPDarknet53(nn.Module):
     # 用于递归导入权重
-    custom_layers = (vn_layer.Stage, vn_layer.Stage.custom_layers)
+    custom_layers = (vn_layer.Resblock_body, vn_layer.Resblock_body.custom_layers)
 
-    def __init__(self, pretrained=None, input_channels=32):
+    def __init__(self, layers=(1, 2, 8, 8, 4), input_channels=32, pretrained=None):
         super().__init__()
-        stage_cfg = {'stage_2': 2, 'stage_3': 3, 'stage_4': 9, 'stage_5': 9, 'stage_6': 5}
+        self.inplanes = input_channels
+        self.conv1 = vn_layer.Conv2dBatchMish(3, self.inplanes, kernel_size=3, stride=1)
+        self.feature_channels = [64, 128, 256, 512, 1024]
 
-        # Network
-        layer_list = [
-            # first scale, smallest
-            OrderedDict([
-                ('stage_1', vn_layer.Conv2dBatchLeaky(3, input_channels, 3, 1)),
-                ('stage_2', vn_layer.Stage(input_channels, stage_cfg['stage_2'])),
-                ('stage_3', vn_layer.Stage(input_channels * (2 ** 1), stage_cfg['stage_3'])),
-                ('stage_4', vn_layer.Stage(input_channels * (2 ** 2), stage_cfg['stage_4'])),
-            ]),
+        self.stages = nn.ModuleList([
+            vn_layer.Resblock_body(self.inplanes, self.feature_channels[0], layers[0], first=True),
+            vn_layer.Resblock_body(self.feature_channels[0], self.feature_channels[1], layers[1], first=False),
+            vn_layer.Resblock_body(self.feature_channels[1], self.feature_channels[2], layers[2], first=False),
+            vn_layer.Resblock_body(self.feature_channels[2], self.feature_channels[3], layers[3], first=False),
+            vn_layer.Resblock_body(self.feature_channels[3], self.feature_channels[4], layers[4], first=False)
+        ])
 
-            # second scale
-            OrderedDict([
-                ('stage_5', vn_layer.Stage(input_channels * (2 ** 3), stage_cfg['stage_5'])),
-            ]),
-
-            # third scale, largest
-            OrderedDict([
-                ('stage_6', vn_layer.Stage(input_channels * (2 ** 4), stage_cfg['stage_6'])),
-            ]),
-        ]
-
-        self.layers = nn.ModuleList([nn.Sequential(layer_dict) for layer_dict in layer_list])
         self.init_weights(pretrained)
 
     def __modules_recurse(self, mod=None):
@@ -48,7 +35,7 @@ class RRDarknet53(nn.Module):
         if mod is None:
             mod = self
         for module in mod.children():
-            if isinstance(module, (nn.ModuleList, nn.Sequential, RRDarknet53.custom_layers)):
+            if isinstance(module, (nn.ModuleList, nn.Sequential, RRCSPDarknet53.custom_layers)):
                 yield from self.__modules_recurse(module)
             else:
                 yield module
@@ -73,7 +60,12 @@ class RRDarknet53(nn.Module):
                     constant_init(m, 1)
 
     def forward(self, x):
-        stage_4 = self.layers[0](x)
-        stage_5 = self.layers[1](stage_4)
-        stage_6 = self.layers[2](stage_5)
-        return [stage_6, stage_5, stage_4]  # 由小到大特征图输出
+        x = self.conv1(x)
+        x = self.stages[0](x)
+        x = self.stages[1](x)
+        out3 = self.stages[2](x)
+        out4 = self.stages[3](out3)
+        out5 = self.stages[4](out4)
+
+        return [out3, out4, out5]  # 由大到小特征图输出
+

@@ -4,7 +4,7 @@ model = dict(
     type='SingleStageDetector',
     pretrained=None,
     backbone=dict(type='RRDarknet53'),
-    neck=dict(type='DarkNeck'),
+    neck=dict(type='RRDarkNeck'),
     bbox_head=dict(
         type='RRYolov3Head',
         num_classes=80,
@@ -90,7 +90,7 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=16,
+    samples_per_gpu=8,
     workers_per_gpu=8,
     train=dict(
         type=dataset_type,
