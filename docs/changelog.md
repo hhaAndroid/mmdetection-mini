@@ -2,6 +2,13 @@
 
 
 ## V0.0.2
+### 2020.09.17
+**(1) 新特性**
+- 新增模型感受野自动计算工具tools/receptive_analyze
+- 同步最新版本mmcv和mmdetection
+
+
+
 ### 2020.09.16
 **(1) 新特性**
 - 新增darknet中yolo系列模型，直接darknet权重直接导入，支持微调训练
