@@ -103,10 +103,11 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 - loss分析工具 tools/loss_analyze.py
 - anchor分析工具 tools/anchor_analyze.py
-- 前向推理时间分析工具 tools/inference_analyze.py
-- 正样本可视化，需要开启debug模式
 - 模型感受野自动计算工具 tools/receptive_analyze.py
+- 前向推理时间分析工具 tools/inference_analyze.py
 - darknet权重和mmdetection模型相互转化工具 tools/darknet
+- 数据分析工具(hw ratio/hw scale/anchor kmean)tools/dataset_analyze
+- 正样本可视化，需要开启debug模式
 - 支持darknet系列模型权重在mmdetection中训练，目前支持4个主流模型yolov3/v4和tiny-yolov3/v4
 
 
