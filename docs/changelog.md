@@ -6,6 +6,7 @@
 **(1) 新特性**
 - 新增模型感受野自动计算工具tools/receptive_analyze
 - 同步最新版本mmcv和mmdetection
+- 新增前向推理时间统计工具tools/inference_analyze
 
 
 
