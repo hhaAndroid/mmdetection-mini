@@ -8,6 +8,7 @@
 - 同步最新版本mmcv和mmdetection
 - 新增前向推理时间统计工具tools/inference_analyze
 - 新增数据分析工具tools/dataset_analyze
+- 新增特征图可视化工具tools/featuremap_analyze
 
 
 
