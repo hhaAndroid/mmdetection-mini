@@ -6,6 +6,8 @@ import warnings
 from collections import abc
 from importlib import import_module
 from inspect import getfullargspec
+import torch
+import torch.nn as nn
 
 
 def is_str(x):
@@ -313,3 +315,63 @@ def deprecated_api_warning(name_dict, cls_name=None):
         return new_func
 
     return api_warning_wrapper
+
+
+
+class Linear(nn.Module):
+    """An identity activation function"""
+
+    def __init__(self, inplace=False):
+        super(Linear, self).__init__()
+
+    def forward(self, x):
+        return x
+
+
+def get_names_dict(model):
+    """Recursive walk to get names including path."""
+    names = {}
+
+    def _get_names(module, parent_name=""):
+        for key, m in module.named_children():
+            cls_name = str(m.__class__).split(".")[-1].split("'")[0]
+            num_named_children = len(list(m.named_children()))
+            if num_named_children > 0:
+                name = parent_name + "." + key if parent_name else key
+            else:
+                name = parent_name + "." + cls_name + "_" + key if parent_name else key
+            names[name] = m
+
+            if isinstance(m, torch.nn.Module):
+                _get_names(m, parent_name=name)
+
+    _get_names(model)
+    return names
+
+
+def replace_names_dict(model):
+    """Recursive walk to get names including path."""
+    names = {}
+
+    def _get_names(module, parent_name=""):
+        for key, m in module.named_children():
+            cls_name = str(m.__class__).split(".")[-1].split("'")[0]
+            num_named_children = len(list(m.named_children()))
+            if num_named_children > 0:
+                name = parent_name + "." + key if parent_name else key
+                if isinstance(m, torch.nn.Module):
+                    _get_names(m, parent_name=name)
+            else:
+                # 需要拦截的函数
+                name = parent_name + "." + cls_name + "_" + key if parent_name else key
+                if name.find('ReLU') >= 0:
+                    module._modules[key] = Linear()
+                    name = name.replace('ReLU', 'Linear')
+                elif name.find('MaxPool2d') >= 0:
+                    module._modules[key] = nn.AvgPool2d(module._modules[key].kernel_size, module._modules[key].stride,
+                                                        module._modules[key].padding)
+                    name = name.replace('MaxPool2d', 'AvgPool2d')
+                names[name] = module._modules[key]
+
+    _get_names(model)
+    return names

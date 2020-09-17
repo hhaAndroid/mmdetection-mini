@@ -10,6 +10,7 @@ from .path import (check_file_exist, fopen, is_filepath, mkdir_or_exist,
 from .progressbar import (ProgressBar, track_iter_progress,
                           track_parallel_progress, track_progress)
 from .timer import Timer, TimerError, check_time
-from .registry import Registry,build_from_cfg
-from .parrots_wrapper import _BatchNorm,_InstanceNorm
-from .logging import print_log,get_logger
+from .registry import Registry, build_from_cfg
+from .parrots_wrapper import _BatchNorm, _InstanceNorm
+from .logging import print_log, get_logger
+from .receptivefield import calc_receptive_filed
