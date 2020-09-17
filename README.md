@@ -90,9 +90,26 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 例如tiny_yolov3权重：
 
 1. 首先到https://github.com/AlexeyAB/darknet 对应的tiny_yolov3链接处下载对应权重
+
 2. 打开tools/darknet/tiny_yolov3.py代码，修改tiny_yolov3_weights_path为你的下载的权重路径
+
 3. 运行tiny_yolov3.py即可生成pth权重
+
 4. 然后就可以直接训练或者测试了
 
+   
+
+## 8 mmdetection-mini独有特性
+
+- loss分析工具 tools/loss_analyze.py
+- anchor分析工具 tools/anchor_analyze.py
+- 正样本可视化，需要开启debug模式
+- 模型感受野自动计算工具 tools/receptive_analyze.py
+- darknet权重和mmdetection模型相互转化工具 tools/darknet
+- 支持darknet系列模型权重在mmdetection中训练，目前支持4个主流模型yolov3/v4和tiny-yolov3/v4
+
+
+
 ## 笔记(持续更新)
+
 [第一篇：mmdetection最小复刻版(一)：整体概览](https://www.zybuluo.com/huanghaian/note/1742545)
