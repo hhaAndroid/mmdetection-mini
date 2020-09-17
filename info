@@ -23,6 +23,6 @@ test:
 
 
 当前同步更新日期:
-    mmcv: Supports brightness and contrast augmentations (#546) Qiaofei Li* 2020/9/14 下午12:14
-    mmdetection: [fix] typo (#3741) Jaedong Hwang* 2020/9/12 下午4:52
+    mmcv: Allow type to be default arg (#558) David de la Iglesia Castro* 2020/9/16 下午7:16
+    mmdetection: [Feature] add exp_name (#3764) Jerry Jiarui XU* 2020/9/16 下午2:22
 

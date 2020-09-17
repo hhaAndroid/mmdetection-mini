@@ -1,5 +1,7 @@
 # Copyright (c) Open-MMLab. All rights reserved.
 import os.path as osp
+import platform
+import shutil
 import time
 import warnings
 
@@ -164,7 +166,11 @@ class EpochBasedRunner(BaseRunner):
         # in some environments, `os.symlink` is not supported, you may need to
         # set `create_symlink` to False
         if create_symlink:
-            cv_core.symlink(filename, osp.join(out_dir, 'latest.pth'))
+            dst_file = osp.join(out_dir, 'latest.pth')
+            if platform.system() != 'Windows':
+                cv_core.symlink(filename, dst_file)
+            else:
+                shutil.copy(filename, dst_file)
 
 
 class Runner(EpochBasedRunner):
