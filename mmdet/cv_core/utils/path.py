@@ -96,3 +96,34 @@ def find_vcs_root(path, markers=('.git', )):
             return cur
         prev, cur = cur, osp.split(cur)[0]
     return None
+
+
+def traverse_file_paths(path, extensions, exclude_extensions=None):
+    """
+        Recursively reads all files under given folder, until all files have been ergodic.
+        You can also specified file extensions to read or not to read.
+        :return: list: path_list contains all wanted files.
+        """
+
+    def is_valid_file(x):
+        if exclude_extensions is None:
+            return x.lower().endswith(extensions)
+        else:
+            return x.lower().endswith(extensions) and not x.lower().endswith(exclude_extensions)
+
+    # check_file_exist(path)
+    if isinstance(extensions, list):
+        extensions = tuple(extensions)
+    if isinstance(exclude_extensions, list):
+        exclude_extensions = tuple(exclude_extensions)
+
+    all_list = os.listdir(path)
+    path_list = []
+    for subpath in all_list:
+        path_next = os.path.join(path, subpath)
+        if os.path.isdir(path_next):
+            path_list.extend(traverse_file_paths(path_next, extensions, exclude_extensions))
+        else:
+            if is_valid_file(path_next):
+                path_list.append(path_next)
+    return path_list

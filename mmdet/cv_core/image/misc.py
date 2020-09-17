@@ -3,10 +3,9 @@ import cv2
 
 from mmdet import cv_core
 
-try:
-    import torch
-except ImportError:
-    torch = None
+import torch
+import torch.nn.functional as F
+
 
 
 def tensor2imgs(tensor, mean=(0, 0, 0), std=(1, 1, 1), to_rgb=True):
@@ -212,3 +211,84 @@ def show_bbox(image, bboxs_list, color=None,
     if is_show:
         show_img(image_copy, names, wait_time_ms)
     return image_copy
+
+
+def show_tensor(tensor, resize_hw=None, top_k=50, mode='CHW', is_show=True,
+                wait_time_ms=0, show_split=True, is_merge=True, row_col_num=(1, -1)):
+    """
+
+        :param wait_time_ms:
+        :param tensor: torch.tensor
+        :param resize_hw: list:
+        :param top_k: int
+        :param mode: string: 'CHW' , 'HWC'
+        """
+
+    def normalize_numpy(array):
+        max_value = np.max(array)
+        min_value = np.min(array)
+        array = (array - min_value) / (max_value - min_value)
+        return array
+
+    assert tensor.dim() == 3, 'Dim of input tensor should be 3, please check your tensor dimension!'
+
+    # 默认tensor格式,通道在前
+    if mode == 'CHW':
+        tensor = tensor
+    else:
+        tensor = tensor.permute(2, 0, 1)
+
+    # 利用torch中的resize函数进行插值, 选择双线性插值平滑
+    if resize_hw is not None:
+        tensor = tensor[None]
+        tensor = F.interpolate(tensor, resize_hw, mode='bilinear')
+        tensor = tensor.squeeze(0)
+
+    tensor = tensor.permute(1, 2, 0)
+
+    channel = tensor.shape[2]
+
+    if tensor.device == 'cpu':
+        tensor = tensor.detach().numpy()
+    else:
+        tensor = tensor.cpu().detach().numpy()
+    if not show_split:
+        # sum可能会越界，所以需要归一化
+        sum_tensor = np.sum(tensor, axis=2)
+        sum_tensor = normalize_numpy(sum_tensor) * 255
+        sum_tensor = sum_tensor.astype(np.uint8)
+
+        # 热力图显示
+        sum_tensor = cv2.applyColorMap(np.uint8(sum_tensor), cv2.COLORMAP_JET)
+        # mean_tensor = cv2.applyColorMap(np.uint8(mean_tensor), cv2.COLORMAP_JET)
+
+        if is_show:
+            show_img([sum_tensor], ['sum'], wait_time_ms=wait_time_ms)
+        return [sum_tensor]
+    else:
+        assert top_k > 0, 'top k should be positive!'
+        channel_sum = np.sum(tensor, axis=(0, 1))
+        index = np.argsort(channel_sum)
+        select_index = index[:top_k]
+        tensor = tensor[:, :, select_index]
+        tensor = np.clip(tensor, 0, np.max(tensor))
+
+        single_tensor_list = []
+        if top_k > channel:
+            top_k = channel
+        for c in range(top_k):
+            single_tensor = tensor[..., c]
+            single_tensor = normalize_numpy(single_tensor) * 255
+            single_tensor = single_tensor.astype(np.uint8)
+
+            single_tensor = cv2.applyColorMap(np.uint8(single_tensor), cv2.COLORMAP_JET)
+            single_tensor_list.append(single_tensor)
+
+        if is_merge:
+            return_imgs = merge_imgs(single_tensor_list, row_col_num=row_col_num)
+        else:
+            return_imgs = single_tensor_list
+
+        if is_show:
+            show_img(return_imgs, wait_time_ms=wait_time_ms, is_merge=is_merge)
+        return return_imgs
