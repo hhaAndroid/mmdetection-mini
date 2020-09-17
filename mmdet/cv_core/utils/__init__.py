@@ -14,3 +14,4 @@ from .registry import Registry, build_from_cfg
 from .parrots_wrapper import _BatchNorm, _InstanceNorm
 from .logging import print_log, get_logger
 from .receptivefield import calc_receptive_filed
+from .kmean import Kmean
