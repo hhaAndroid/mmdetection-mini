@@ -81,9 +81,9 @@ def show_coco(data_root, ann_file, img_prefix, only_bbox=True, show_all=True, ca
 
 if __name__ == '__main__':
     # 和cfg里面设置一样 coco
-    data_root = '/home/pi/dataset/wider_face/'
-    ann_file = data_root + 'annotations/wider_face_train.json'
-    img_prefix = data_root+'WIDER_train/images'
+    data_root = '/home/pi/dataset/coco/'
+    ann_file = data_root + 'annotations/instances_val2017.json'
+    img_prefix = data_root + 'images/val2017/'
     show_coco(data_root, ann_file, img_prefix)
 
     # voc转化为coco后显示
