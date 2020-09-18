@@ -110,6 +110,12 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 - 数据分析工具(hw ratio/hw scale/anchor kmean)tools/dataset_analyze
 - 正样本可视化，需要开启debug模式
 - 支持darknet系列模型权重在mmdetection中训练，目前支持4个主流模型yolov3/v4和tiny-yolov3/v4
+- coco数据可视化工具，包括显示所有label和仅仅显示gt bbox格式，显示效果极佳(即使是voc数据，也推荐先转化为coco)
+- 支持任意数据格式转coco类CocoCreator
+
+
+## 9 mmdetection-mini工具汇总
+- voc2coco工具 tools/convert/voc2coco
 
 
 ## 笔记(持续更新)

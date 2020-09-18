@@ -8,7 +8,7 @@ from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
 
 
-def showBBox(coco, anns, label_box=True):
+def showBBox(coco, anns, label_box=True, is_filling=True):
     """
     show bounding box of annotations or predictions
     anns: loadAnns() annotations or predictions subject to coco results format
@@ -31,8 +31,6 @@ def showBBox(coco, anns, label_box=True):
         np_poly = np.array(poly).reshape((4, 2))
         polygons.append(Polygon(np_poly))
         color.append(c)
-        # option for dash-line
-        # ax.add_patch(Polygon(np_poly, linestyle='--', facecolor='none', edgecolor=c, linewidth=2))
         if label_box:
             label_bbox = dict(facecolor=c)
         else:
@@ -43,17 +41,19 @@ def showBBox(coco, anns, label_box=True):
         else:
             ax.text(bbox_x, bbox_y, '%s' % (coco.loadCats(ann['category_id'])[0]['name']), color='white',
                     bbox=label_bbox)
-    # option for filling bounding box
-    # p = PatchCollection(polygons, facecolor=color, linewidths=0, alpha=0.4)
-    # ax.add_collection(p)
+    if is_filling:
+        # option for filling bounding box
+        p = PatchCollection(polygons, facecolor=color, linewidths=0, alpha=0.4)
+        ax.add_collection(p)
     p = PatchCollection(polygons, facecolor='none', edgecolors=color, linewidths=2)
     ax.add_collection(p)
 
 
-def show_coco(data_dir, datasets, only_bbox, show_all, category_name='bicycle'):
-    annotation_file = os.path.join(data_dir, datasets)
-    example_coco = COCO(annotation_file)
-
+# only_bbox 为True表示仅仅可视化bbox，其余label不显示
+# show_all 表示所有类别都显示，否则category_name来确定显示类别
+def show_coco(data_root, ann_file, img_prefix, only_bbox=True, show_all=True, category_name='bicycle'):
+    example_coco = COCO(ann_file)
+    print('图片总数：{}'.format(len(example_coco.getImgIds())))
     categories = example_coco.loadCats(example_coco.getCatIds())
     category_names = [category['name'] for category in categories]
     print('Custom COCO categories: \n{}\n'.format(' '.join(category_names)))
@@ -67,7 +67,7 @@ def show_coco(data_dir, datasets, only_bbox, show_all, category_name='bicycle'):
     for i in range(len(image_ids)):
         plt.figure()
         image_data = example_coco.loadImgs(image_ids[i])[0]
-        path = os.path.join(DATA_DIR, '', image_data['file_name'])
+        path = os.path.join(data_root, img_prefix, image_data['file_name'])
         image = cv2.imread(path)
         plt.imshow(image)
         annotation_ids = example_coco.getAnnIds(imgIds=image_data['id'], catIds=category_ids, iscrowd=None)
@@ -80,8 +80,14 @@ def show_coco(data_dir, datasets, only_bbox, show_all, category_name='bicycle'):
 
 
 if __name__ == '__main__':
-    DATA_DIR = "/home/pi/dataset/VOCdevkit/"
-    DATASETS = "annotations/voc0712_trainval.json"
-    ONLY_BBOX = True
-    SHOW_ALL = True
-    show_coco(DATA_DIR, DATASETS, ONLY_BBOX, SHOW_ALL)
+    # 和cfg里面设置一样 coco
+    data_root = '/home/pi/dataset/wider_face/'
+    ann_file = data_root + 'annotations/wider_face_train.json'
+    img_prefix = data_root+'WIDER_train/images'
+    show_coco(data_root, ann_file, img_prefix)
+
+    # voc转化为coco后显示
+    data_root = '/home/pi/dataset/VOCdevkit/'
+    ann_file = data_root + 'annotations/voc0712_trainval.json'
+    img_prefix = data_root
+    show_coco(data_root, ann_file, img_prefix)

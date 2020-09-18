@@ -112,7 +112,7 @@ class CocoDataset(CustomDataset):
         for i, ann in enumerate(ann_info):
             if ann.get('ignore', False):
                 continue
-            x1, y1, w, h = ann['bbox']
+            x1, y1, w, h = ann['bbox']  # coco保存格式是 x1 y1 w h (x1 y1是左上角起点坐标)
             if ann['area'] <= 0 or w < 1 or h < 1:
                 continue
             if ann['category_id'] not in self.cat_ids:
