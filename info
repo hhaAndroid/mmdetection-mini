@@ -23,6 +23,6 @@ test:
 
 
 当前同步更新日期:
-    mmcv: Allow type to be default arg (#558) David de la Iglesia Castro* 2020/9/16 下午7:16
-    mmdetection: [Feature] add exp_name (#3764) Jerry Jiarui XU* 2020/9/16 下午2:22
+    mmcv: fix mdconv backward bug (#563) ychan* 2020/9/17 下午2:25
+    mmdetection: fix no gt in gpu focal loss (#3688) shilong* 2020/9/18 上午11:34
 
