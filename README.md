@@ -120,4 +120,6 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 ## 笔记(持续更新)
 
-[第一篇：mmdetection最小复刻版(一)：整体概览](https://www.zybuluo.com/huanghaian/note/1742545)
+[第一篇：mmdetection最小复刻版(一)：整体概览](https://www.zybuluo.com/huanghaian/note/1742545)  
+或者 [知乎文章](https://zhuanlan.zhihu.com/p/252616317)   
+[第二篇：mmdetection最小复刻版(二)：RetinaNet和YoloV3分析](https://www.zybuluo.com/huanghaian/note/1742594)
