@@ -116,6 +116,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 ## 9 mmdetection-mini工具汇总
 - voc2coco工具 tools/convert/voc2coco
+- 数据浏览工具 tools/browse_dataset
 
 
 ## 笔记(持续更新)
