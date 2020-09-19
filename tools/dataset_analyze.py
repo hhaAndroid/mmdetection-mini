@@ -112,6 +112,16 @@ def statistics_hw_ratio(wh_all):
 
     plt.show()
 
+    hw_ratio = np.concatenate((hw_ratio_small, hw_ratio_larger), axis=0).round(1)
+    hw_ratio_uq = np.unique(hw_ratio).tolist()
+    box_hw_count = [np.count_nonzero(hw_ratio == i) for i in hw_ratio_uq]
+
+    print('按照num数从大到小排序输出')
+    data = sorted(zip(hw_ratio_uq, box_hw_count), key=lambda x: x[1], reverse=True)
+    hw_ratio_uq, box_hw_count = zip(*data)
+    print('hw_ratio', hw_ratio_uq)
+    print('num', box_hw_count)
+
 
 def statistics_hw_scale(wh_data):
     print('----------统计wh尺度分布---------')
