@@ -23,8 +23,8 @@ test:
 
 
 当前同步更新日期:
-    mmcv: fix mdconv backward bug (#563) ychan* 2020/9/17 下午2:25
-    mmdetection: fix no gt in gpu focal loss (#3688) shilong* 2020/9/18 上午11:34
+    mmcv: fix deprecated wrappers exiting bug (#567) Ryan Li* 2020/9/18 下午7:54
+    mmdetection: [Enhance] Update ckpt filename in docs (#3795) Jerry Jiarui XU* 2020/9/18 下午6:58
 
 
 ../configs/yolo/yolov3_d53_320_273e_coco.py  /home/hha/Downloads/yolov3_d53_320_273e_coco-421362b6.pth
