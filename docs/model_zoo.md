@@ -31,8 +31,9 @@ mmdetection: 416x416 37.9% mAP@0.5 (19.2 mAP@0.5:0.95) -24.3 MB
 
 权重下载链接： https://github.com/AlexeyAB/darknet   
 对应配置： https://raw.githubusercontent.com/AlexeyAB/darknet/master/cfg/yolov3.cfg  
-darknet: 416x416 55.3% mAP@0.5 (31.0 mAP@0.5:0.95)  - 66(R) FPS - 65.9 BFlops - 236 MB  
-mmdetection: 416x416 66.8 mAP@0.5 (37.4 mAP@0.5:0.95)  -248 MB
+darknet(test_dev): 416x416 55.3% mAP@0.5 (31.0 mAP@0.5:0.95)  - 66(R) FPS - 65.9 BFlops - 236 MB  
+darknet(val2017): 416x416 65.9 mAP@0.5
+mmdetection(val2017): 416x416 66.8 mAP@0.5 (37.4 mAP@0.5:0.95)  -248 MB
 
 
 ### yolov4

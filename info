@@ -30,58 +30,12 @@ test:
 ../configs/yolo/yolov3_d53_320_273e_coco.py  /home/hha/Downloads/yolov3_d53_320_273e_coco-421362b6.pth
 
 
-
-我现在又懵逼了：
-
-首先从这个https://github.com/ultralytics/yolov5
-
-1. val2017和test_dev2017虽然数量差别很大，但是mAP其实是差不多的，test_dev会难一点点
-2. yolov3里面贴的指标例如YOLOv3 608, map=33.1,其实是test_dev的结果
-原文里面没有写，但是可以对照retinanet论文找到
-
-
-Start Training: python3 train.py to begin training after downloading COCO data with data/get_coco2017.sh.
-Each epoch trains on 117,263 images from the train and validate COCO sets,
-and tests on 5000 images from the COCO validate set.
-
-说明是采用117,263张训练数据训练，5000张验证数据进行评估的
+首先需要注意coco2014和coco2017，虽然图片是一样的，但是训练、验证和测试集划分原则的是不一样的。
+理论上不能用coco2014数据训练，然后在coco2017验证集或者测试集上面测试，因为有些数据是交叉的
 
 
 还有一个细节需要注意：coco数据集有两种划分原则，coco2014和coco2017，数据还是这些，但是划分方式变了
 具体见：https://blog.csdn.net/sinat_34569355/article/details/104548480
-
-
-train2017 == trainval35k
-
-          == train2014 + val2014 - minival2014
-
-          == train2014 + val2014 - val2017
-
-
-val2017=minival2014，一共5000张
-
-
-test_dev2017=40670张
-test_dev2014=40775张
-
-
-
-
-https://pjreddie.com/darknet/yolo/官网
-中提到的采用COCO trainval训练，实际上应该是指的coco2014版本，其实也就是train2017
-
-
-
-coco/trainvalno5k.txt：  表示coco2014训练集,实际上应该就是train2017数据集
-5k.txt or coco_val_5k.list： 表示coco2014验证集，其实就是val2017
-
-
-
-简单来说就是：训练集采用coco2014里面的trainvalno5k.txt其实就等价于采用train2017
-            验证集采用coco2014里面的coco_val_5k.list或者minival2014，其实就是等价于采用val2017
-
-           而test_dev都是不公开的，应该是差不多
-
 
 
 MSCOCO2014数据集：
@@ -91,10 +45,61 @@ MSCOCO2017数据集：
 训练集：118287张，19.3GB，验证集： 5000张，1814.7M，共计123287张
 
 
-现在问题来了？ 首先假设val2017和test_dev2017评估的mAP差不多，那么为何
-我下载darknet权重并且在mmdetection中测试，有时候mAP比原文高很多，有些却比原文低？
+coco2014:
 
-首先需要排除参数影响，这个可能要仔细检查下！
+The 2014 release contains 82,783 training, 40,504 validation, and 40,775 testing images
+train2014 + val2014=123287,然后从val2014里面随机分出5000张验证集叫做minival2014(社区自己随机分的，没有对比性)
+
+在2017年开始，将数据重新进行了划分，主要是从val2014里面随机挑选了5000张数据变成val2017，其余数据合并到train2017
+
+测试集图片应该一直没有咋变化
+
+
+train2017 == trainval35k
+
+          == train2014 + val2014 - minival2014
+
+          == train2014 + val2014 - val2017
+
+
+因为虽然都是5000张，但是minival2014不等于val2017，所以我们下载darknet权重(其在train2014 + val2014 - minival2014上面训练的)，但是在
+val2017上面测试，发现mAP比论文高了很多的原因。因为val2017数据可能出现在coco2014训练数据集中。
+
+
+
+关于这coco2014和2017，在https://cocodataset.org/#download里面有说明
+
+
+在yolov3论文中，训练数据是coco2014，也就是train2014 + val2014，指标计算是在test_dev上面得到json，并提交给coco服务器得到的。
+并不是在minival2014上面测试的
+
+
+
+u版本yolov3 https://github.com/ultralytics/yolov3
+贴的指标是不公平的。因为对于原版本yolov3结果来说，其是在test_dev上面测试的。但是
+YOLOv3-SPP-ultralytics是在minival2014上面测试的，是不公平的。
+
+
+
+首先从这个https://github.com/ultralytics/yolov5
+
+1. val2017和test_dev2017虽然数量差别很大，但是mAP其实是差不多的，test_dev会难一点点(这个是否如此，有待商榷)
+2. yolov3里面贴的指标例如YOLOv3 608, map=33.1,其实是test_dev的结果
+原文里面没有写，但是可以对照retinanet论文找到
+
+
+
+
+test_dev2017=40670张
+test_dev2014=40775张
+
+
+
+coco/trainvalno5k.txt：  表示coco2014训练集,实际上应该就是train2017数据集
+5k.txt or coco_val_5k.list： 表示coco2014验证集，其实就是val2017
+
+
+
 
 
 
