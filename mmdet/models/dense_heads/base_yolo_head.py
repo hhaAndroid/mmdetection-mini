@@ -225,12 +225,15 @@ class BaseYOLOHead(BaseDenseHead):
             pred_map = pred_maps_list[i]
             stride = self.featmap_strides[i]
 
+            # 额外增加
+            hw = pred_map.shape[1:]
+
             # (h, w, num_anchors*num_attrib) -> (h*w*num_anchors, num_attrib)
             pred_map = pred_map.permute(1, 2, 0).reshape(-1, self.num_attrib)
 
             pred_map[..., :2] = torch.sigmoid(pred_map[..., :2])
             bbox_pred = self.bbox_coder.decode(multi_lvl_anchors[i],
-                                               pred_map[..., :4], stride)
+                                               pred_map[..., :4], stride,hw=hw)
             # conf and cls
             conf_pred = torch.sigmoid(pred_map[..., 4]).view(-1)
             cls_pred = torch.sigmoid(pred_map[..., 5:]).view(

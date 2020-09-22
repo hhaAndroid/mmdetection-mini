@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 __all__ = ['yolo_init_weight', 'WeightLoader']
 
 
@@ -508,9 +509,27 @@ class WeightLoader:
         self.start += num_w
 
 
-
 # yolov5所需
 # 暂时如此写，后面重构为mmdetection的注册模式来用
+
+
+class Hswish(nn.Module):
+    def __init__(self, inplace=True):
+        super(Hswish, self).__init__()
+        self.inplace = inplace
+
+    def forward(self, x):
+        out = x * F.relu6(x + 3, self.inplace) / 6
+        return out
+
+
+class Identity(nn.Module):
+    def __init__(self, *args, **kwargs):
+        super(Identity, self).__init__()
+
+    def forward(self, input):
+        return input
+
 
 def autopad(k, p=None):  # kernel, padding
     # Pad to 'same'
@@ -525,13 +544,21 @@ class Conv(nn.Module):
         super(Conv, self).__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
         self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.Hardswish() if act else nn.Identity()
+        # self.act = nn.Hardswish() if act else nn.Identity() # 需要pytorch1.6支持
+        self.act = Hswish() if act else Identity()  # 简单替换掉
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
 
-    def fuseforward(self, x):
-        return self.act(self.conv(x))
+
+class Concat(nn.Module):
+    # Concatenate a list of tensors along dimension
+    def __init__(self, dimension=1):
+        super(Concat, self).__init__()
+        self.d = dimension
+
+    def forward(self, x):
+        return torch.cat(x, self.d)
 
 
 class Focus(nn.Module):
