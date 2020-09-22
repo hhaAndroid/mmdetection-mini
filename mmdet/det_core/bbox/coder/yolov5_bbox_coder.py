@@ -80,7 +80,7 @@ class YOLOV5BBoxCoder(BaseBBoxCoder):
         # 先进行模拟,依然有问题
 
         grid = _make_grid(hw[1], hw[0]).to(pred_bboxes.device)
-        grid = grid.repeat((3, 1, 1)).view(-1, 2)
+        grid = grid.repeat((3, 1, 1)).permute(1, 0, 2).reshape(-1, 2)  # .permute(1, 0, 2)很关键，必须是13x13,3 rehape，不能乱写
 
         x_center = (bboxes[..., 0] + bboxes[..., 2]) * 0.5
         y_center = (bboxes[..., 1] + bboxes[..., 3]) * 0.5
@@ -88,12 +88,15 @@ class YOLOV5BBoxCoder(BaseBBoxCoder):
         h = bboxes[..., 3] - bboxes[..., 1]
         # Get outputs x, y
 
+        # 感觉应该差不多
         # x_center_pred = (pred_bboxes[..., 0] * 2. - 0.5) * stride + x_center
         # y_center_pred = (pred_bboxes[..., 1] * 2. - 0.5) * stride + y_center
 
+        # 这个才是正确的，下面要解决wh问题
         x_center_pred = (pred_bboxes[..., 0] * 2. - 0.5 + grid[:, 0]) * stride  # xy
         y_center_pred = (pred_bboxes[..., 1] * 2. - 0.5 + grid[:, 1]) * stride  # xy
 
+        #
         w_pred = (pred_bboxes[..., 2].sigmoid() * 2) ** 2 * w
         h_pred = (pred_bboxes[..., 3].sigmoid() * 2) ** 2 * h
 
