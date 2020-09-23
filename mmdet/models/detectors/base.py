@@ -292,7 +292,7 @@ class BaseDetector(nn.Module, metaclass=ABCMeta):
         if out_file is not None:
             show = False
         # draw bounding boxes
-        mmdet.cv_core.imshow_det_bboxes(
+        img = mmdet.cv_core.imshow_det_bboxes(
             img,
             bboxes,
             labels,
