@@ -25,6 +25,7 @@ def make_round(depth_multiple=1.0):
     return functools.partial(_make_round, depth_multiple=depth_multiple)
 
 
+# 可能写的不太优美
 @HEADS.register_module()
 class RRYolov5Head(BaseYOLOHead):
     # 为了不传入新的参数，默认将self.out_channels=[depth_multiple,width_multiple]
@@ -41,37 +42,37 @@ class RRYolov5Head(BaseYOLOHead):
         model.append(up1)  # 1
         cont1 = vn_layer.Concat()
         model.append(cont1)  # 2
-        bsp1 = vn_layer.BottleneckCSP(make_div8_fun(1024), make_div8_fun(512), make_round_fun(3), shortcut=False)
+        bsp1 = vn_layer.BottleneckCSP(make_div8_fun(512)+make_div8_fun(self.in_channels[0]), make_div8_fun(512), make_round_fun(3), shortcut=False)
         model.append(bsp1)  # 3
 
         conv2 = vn_layer.Conv(make_div8_fun(512), make_div8_fun(256))
-        model.append(conv2)  # 3
+        model.append(conv2)  # 4
         up2 = nn.Upsample(scale_factor=2)
-        model.append(up2)
+        model.append(up2)  # 5
         cont2 = vn_layer.Concat()
-        model.append(cont2)
-        bsp2 = vn_layer.BottleneckCSP(make_div8_fun(512), make_div8_fun(256), make_round_fun(3), shortcut=False)
-        model.append(bsp2)  # 5
+        model.append(cont2)  # 6
+        bsp2 = vn_layer.BottleneckCSP(make_div8_fun(256)+make_div8_fun(self.in_channels[1]), make_div8_fun(256), make_round_fun(3), shortcut=False)
+        model.append(bsp2)  # 7
 
         conv3 = vn_layer.Conv(make_div8_fun(256), make_div8_fun(256), k=3, s=2)
-        model.append(conv3)  # 6
+        model.append(conv3)  # 8
         cont3 = vn_layer.Concat()
-        model.append(cont3)
-        bsp3 = vn_layer.BottleneckCSP(make_div8_fun(512), make_div8_fun(512), make_round_fun(3), shortcut=False)
-        model.append(bsp3)  # 7
+        model.append(cont3)  # 9
+        bsp3 = vn_layer.BottleneckCSP(make_div8_fun(256)+make_div8_fun(256), make_div8_fun(512), make_round_fun(3), shortcut=False)
+        model.append(bsp3)  # 10
 
         conv4 = vn_layer.Conv(make_div8_fun(512), make_div8_fun(512), k=3, s=2)
-        model.append(conv4)  # 8
+        model.append(conv4)  # 11
         cont4 = vn_layer.Concat()
-        model.append(cont4)
+        model.append(cont4)  # 12
         bsp4 = vn_layer.BottleneckCSP(make_div8_fun(1024), make_div8_fun(1024), make_round_fun(3), shortcut=False)
-        model.append(bsp4)  # 9
+        model.append(bsp4)  # 13
 
         self.det = nn.Sequential(*model)
         self.head = nn.Sequential(
-            nn.Conv2d(128, 255, 1),
-            nn.Conv2d(256, 255, 1),
-            nn.Conv2d(512, 255, 1),
+            nn.Conv2d(make_div8_fun(256), 255, 1),
+            nn.Conv2d(make_div8_fun(512), 255, 1),
+            nn.Conv2d(make_div8_fun(1024), 255, 1),
         )
 
     def forward(self, feats):
@@ -90,7 +91,7 @@ class RRYolov5Head(BaseYOLOHead):
 
         x = self.det[8](x)
         x = self.det[9]([x, inter_feat])
-        x = self.det[10](x)  # 128
+        x = self.det[10](x)  #
         out1 = self.head[1](x)  # 第二个输出层
 
         x = self.det[11](x)
