@@ -12,6 +12,6 @@ __date__ = '2020.09.10'
 __copyright__ = "Copyright 2020, HHA"
 __title__ = "mmdetection-mini"
 __summary__ = ("mmdetection-mini is one stage detector.",)
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 __email__ = "1286304229@qq.com"
 __url__ = 'https://github.com/hhaAndroid/mmdetection-mini'
