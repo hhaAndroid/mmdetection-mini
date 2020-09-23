@@ -12,7 +12,7 @@ model = dict(
         out_channels=[0.33, 0.5],  # yolov5s
         anchor_generator=dict(
             type='YOLOAnchorGenerator',
-            base_sizes=[[(116, 90), (90, 156), (373, 326)],
+            base_sizes=[[(116, 90), (156, 198), (373, 326)],
                         [(30, 61), (62, 45), (59, 119)],
                         [(10, 13), (16, 30), (33, 23)]],
             strides=[32, 16, 8]),
@@ -41,5 +41,5 @@ test_cfg = dict(
     min_bbox_size=0,
     score_thr=0.05,
     conf_thr=0.001,
-    nms=dict(type='nms', iou_thr=0.6),
+    nms=dict(type='nms', iou_thr=0.45),
     max_per_img=100)
