@@ -56,3 +56,52 @@ mmdetection: 608x608 72.9% mAP@0.5 (48.1% AP@0.5:0.95) -257.7 MB
 - 模型实现参考了https://github.com/Tencent/ObjectDetection-OneStageDet
 
 
+## yolov5
+目前采用的是yolov5 v3发行版本
+
+yolov5采用了pytorch1.6的版本，其包括nn.Hardswish()函数，而pytorch1.3没有
+故我采用了替代版本，效果测试后是一样的。
+
+
+640x640，采用coco2017的val2017测试
+
+
+yolov5参数： conf_thres=0.001 iou_thres=0.65
+mmdetection: 
+   test_cfg = dict(
+        nms_pre=1000,
+        min_bbox_size=0,
+        score_thr=0.05,
+        conf_thr=0.001,
+        nms=dict(type='nms', iou_thr=0.65),
+        max_per_img=100)
+
+
+orig yolov5s: 37.0@mAP0.5...0.9 56.2@mAP0.5
+mmdetection: 36.0@mAP0.5...0.9 56.3@mAP0.5
+
+可以看出有一点差距，原因可能有：图片前逻辑处理不一样，yolov5是采用letterbox方式(pad指定值)，
+而mmdetection是直接保持长宽比进行resize，没有pad操作。
+
+后续有空我会把letterbox操作写到mmdetection里面，就可以完全相同了
+
+
+我将mmdetection-mini的骨架加上head部分代码嵌入到yolov5中，切换不同模型测试
+，结果和原始yolov5完全相同，说明整个模型部分代码没有任何问题。如下图所示：
+
+
+orig yolov5m: 44.3@mAP0.5...0.9 63.2@mAP0.5
+mmdetection: 43.1@mAP0.5...0.9 63@mAP0.5
+
+
+orig yolov5l: 47.7@mAP0.5...0.9 66.5@mAP0.5
+mmdetection: 46.3@mAP0.5...0.9 65.8@mAP0.5
+
+
+orig yolov5x: 49.2@mAP0.5...0.9 67.7@mAP0.5
+mmdetection: 48@mAP0.5...0.9 67.3@mAP0.5
+
+
+
+
+
