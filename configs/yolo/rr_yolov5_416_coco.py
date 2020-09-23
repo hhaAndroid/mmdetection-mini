@@ -1,15 +1,32 @@
 _base_ = './rr_yolov3_d53_416_coco.py'
 # model settings
+
+_yolo_type = 0  # 0=5s 1=5m 2=5l 3=5x
+if _yolo_type == 0:
+    _depth_multiple = 0.33
+    _width_multiple = 0.5
+elif _yolo_type == 1:
+    _depth_multiple = 0.67
+    _width_multiple = 0.75
+elif _yolo_type == 2:
+    _depth_multiple = 1.0
+    _width_multiple = 1.0
+elif _yolo_type == 3:
+    _depth_multiple = 1.33
+    _width_multiple = 1.25
+else:
+    raise NotImplementedError
+
 model = dict(
     type='SingleStageDetector',
     pretrained=None,
-    backbone=dict(type='RRYoloV5Backbone', depth_multiple=0.33, width_multiple=0.5),
+    backbone=dict(type='RRYoloV5Backbone', depth_multiple=_depth_multiple, width_multiple=_width_multiple),
     neck=None,
     bbox_head=dict(
         type='RRYolov5Head',
         num_classes=80,
-        in_channels=[512, 256, 128],  # 不需要该参数
-        out_channels=[0.33, 0.5],  # yolov5s
+        in_channels=[512, 256, 128],
+        out_channels=[_depth_multiple, _width_multiple],  # yolov5s
         anchor_generator=dict(
             type='YOLOAnchorGenerator',
             base_sizes=[[(116, 90), (156, 198), (373, 326)],
