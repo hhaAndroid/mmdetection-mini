@@ -7,6 +7,7 @@ from mmdet.cv_core.runner import load_checkpoint
 
 from mmdet.datasets.pipelines import Compose
 from mmdet.models import build_detector
+from mmdet.datasets import build_dataset
 
 
 def init_detector(config, checkpoint=None, device='cuda:0'):
@@ -31,8 +32,12 @@ def init_detector(config, checkpoint=None, device='cuda:0'):
     if checkpoint is not None:
         map_loc = 'cpu' if device == 'cpu' else None
         checkpoint = load_checkpoint(model, checkpoint, map_location=map_loc)
-        assert 'CLASSES' in checkpoint['meta']
-        model.CLASSES = checkpoint['meta']['CLASSES']
+        if 'meta' in checkpoint and 'CLASSES' in checkpoint['meta']:
+            model.CLASSES = checkpoint['meta']['CLASSES']
+        else:
+            dataset = build_dataset(config.data.test)
+            model.CLASSES = dataset.CLASSES
+
     model.cfg = config  # save the config in the model for convenience
     model.to(device)
     model.eval()
