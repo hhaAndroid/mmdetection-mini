@@ -42,8 +42,8 @@ test_cfg = dict(
     nms_pre=1000,
     min_bbox_size=0,
     score_thr=0.05,
-    conf_thr=0.005,
-    nms=dict(type='nms', iou_thr=0.45),
+    conf_thr=0.001,
+    nms=dict(type='nms', iou_thr=0.65),
     max_per_img=100)
 # dataset settings
 dataset_type = 'CocoDataset'
@@ -62,7 +62,7 @@ train_pipeline = [
         type='MinIoURandomCrop',  # 代码目前写的有问题
         min_ious=(0.4, 0.5, 0.6, 0.7, 0.8, 0.9),
         min_crop_size=0.3),
-    dict(type='Resize', img_scale=[(320, 320), (416, 416)], keep_ratio=True),
+    dict(type='Resize', img_scale=[(416, 416)], keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
@@ -78,7 +78,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(416, 416),
+        img_scale=(640, 640),
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
@@ -90,8 +90,8 @@ test_pipeline = [
         ])
 ]
 data = dict(
-    samples_per_gpu=8,
-    workers_per_gpu=8,
+    samples_per_gpu=32,
+    workers_per_gpu=16,
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
