@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 __all__ = ['yolo_init_weight', 'WeightLoader']
 
 
@@ -543,7 +542,7 @@ class Conv(nn.Module):
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, act=True):  # ch_in, ch_out, kernel, stride, padding, groups
         super(Conv, self).__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
-        self.bn = nn.BatchNorm2d(c2)
+        self.bn = nn.BatchNorm2d(c2, eps=0.001, momentum=0.01)
         # self.act = nn.Hardswish() if act else nn.Identity() # 需要pytorch1.6支持
         self.act = Hswish() if act else Identity()  # 简单替换掉
 
@@ -607,7 +606,8 @@ class BottleneckCSP(nn.Module):
         self.cv2 = nn.Conv2d(c1, c_, 1, 1, bias=False)
         self.cv3 = nn.Conv2d(c_, c_, 1, 1, bias=False)
         self.cv4 = Conv(2 * c_, c2, 1, 1)
-        self.bn = nn.BatchNorm2d(2 * c_)  # applied to cat(cv2, cv3)
+        # BN的后面两个参数要非常注意，必须保持一致，否则效果不对劲
+        self.bn = nn.BatchNorm2d(2 * c_, eps=0.001, momentum=0.01)  # applied to cat(cv2, cv3)
         self.act = nn.LeakyReLU(0.1, inplace=True)
         self.m = nn.Sequential(*[Bottleneck(c_, c_, shortcut, g, e=1.0) for _ in range(n)])
 
