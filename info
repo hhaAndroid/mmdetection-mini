@@ -3,7 +3,9 @@ cuda编译： python setup.py develop
 
 ../configs/retinanet/retinanet_r50_fpn_coco.py
 ../configs/retinanet/retinanet_r50_fpn_voc.py
+
 demo: demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth
+demo: bus.jpg ../configs/yolo/rr_yolov5_416_coco.py ../yolov5s.pth
 
 ../configs/yolo/yolov3_d53_320_273e_coco.py  /home/pi/Downloads/yolov3_d53_320_273e_coco-421362b6.pth --eval bbox
 
@@ -90,33 +92,12 @@ YOLOv3-SPP-ultralytics是在minival2014上面测试的，是不公平的。
 
 
 
-
 test_dev2017=40670张
 test_dev2014=40775张
 
 
-
 coco/trainvalno5k.txt：  表示coco2014训练集,实际上应该就是train2017数据集
 5k.txt or coco_val_5k.list： 表示coco2014验证集，其实就是val2017
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
