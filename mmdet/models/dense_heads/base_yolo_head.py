@@ -183,8 +183,12 @@ class BaseYOLOHead(BaseDenseHead):
                 pred_maps[i][img_id].detach() for i in range(num_levels)
             ]
             scale_factor = img_metas[img_id]['scale_factor']
+            if 'pad_param' in img_metas[img_id]:
+                pad_param = img_metas[img_id]['pad_param']
+            else:
+                pad_param = None
             proposals = self._get_bboxes_single(pred_maps_list, scale_factor,
-                                                cfg, rescale)
+                                                cfg, rescale, pad_param)
             result_list.append(proposals)
         return result_list
 
@@ -192,7 +196,8 @@ class BaseYOLOHead(BaseDenseHead):
                            pred_maps_list,
                            scale_factor,
                            cfg,
-                           rescale=False):
+                           rescale=False,
+                           pad_param=None):
         """Transform outputs for a single batch item into bbox predictions.
 
         Args:
@@ -265,6 +270,10 @@ class BaseYOLOHead(BaseDenseHead):
             return torch.zeros((0, 5)), torch.zeros((0,))
 
         if rescale:
+            # 先去掉pad，如果有的话
+            if pad_param is not None:
+                multi_lvl_bboxes -= multi_lvl_bboxes.new_tensor(
+                    [pad_param[2], pad_param[0], pad_param[2], pad_param[0]])
             multi_lvl_bboxes /= multi_lvl_bboxes.new_tensor(scale_factor)
 
         # In mmdet 2.x, the class_id for background is num_classes.
