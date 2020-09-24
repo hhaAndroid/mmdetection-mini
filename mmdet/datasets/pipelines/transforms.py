@@ -306,6 +306,12 @@ class Resize(object):
 
 
 # from https://github.com/ultralytics/yolov5
+
+# 第一步： 计算缩放比例，假设input_shape = (181, 110, 3)，输出shape=201，先计算缩放比例1.11和1.9,选择小比例
+#         这个是常规操作，保证缩放后最长边不超过设定值
+# 第二步： 计算pad像素，前面resize后会变成(201,122,3)，理论上应该pad=(0,79)，采用最小pad原则，设置最多不能pad超过64像素
+#         故对79采用取模操作，变成79%64=15，然后对15进行/2，然后左右pad即可
+# 原因是：在单张推理时候不想用letterbox的正方形模式，而是矩形模式，可以加快推理时间、但是在batch测试中，会右下pad到整个batch内部wh最大值
 @PIPELINES.register_module()
 class LetterResize(object):
     def __init__(self,
