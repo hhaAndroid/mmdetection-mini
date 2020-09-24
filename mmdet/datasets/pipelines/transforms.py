@@ -1,5 +1,5 @@
 import inspect
-
+import cv2
 import mmdet.cv_core
 import numpy as np
 from numpy import random
@@ -303,6 +303,71 @@ class Resize(object):
         repr_str += f'ratio_range={self.ratio_range}, '
         repr_str += f'keep_ratio={self.keep_ratio})'
         return repr_str
+
+
+# from https://github.com/ultralytics/yolov5
+@PIPELINES.register_module()
+class LetterResize(object):
+    def __init__(self,
+                 img_scale=None,
+                 color=(114, 114, 114),
+                 auto=True,
+                 scaleFill=False,
+                 scaleup=True,
+                 backend='cv2'):
+        self.image_size_hw = img_scale
+        self.color = color
+        self.auto = auto
+        self.scaleFill = scaleFill
+        self.scaleup = scaleup
+        self.backend = backend
+
+    def __call__(self, results):
+        for key in results.get('img_fields', ['img']):
+            img = results[key]
+
+            shape = img.shape[:2]  # current shape [height, width]
+            if isinstance(self.image_size_hw, int):
+                self.image_size_hw = (self.image_size_hw, self.image_size_hw)
+
+            # Scale ratio (new / old)
+            r = min(self.image_size_hw[0] / shape[0], self.image_size_hw[1] / shape[1])
+            if not self.scaleup:  # only scale down, do not scale up (for better test mAP)
+                r = min(r, 1.0)
+            ratio = r, r
+            # 保存图片宽高缩放的最佳size
+            new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+            # 为了得到指定输出size，可能需要pad,pad参数
+            dw, dh = self.image_size_hw[1] - new_unpad[0], self.image_size_hw[0] - new_unpad[1]  # wh padding
+            if self.auto:  # minimum rectangle
+                dw, dh = np.mod(dw, 64), np.mod(dh, 64)  # wh padding
+            elif self.scaleFill:  # stretch
+                dw, dh = 0.0, 0.0
+                # 直接强制拉伸成指定输出
+                new_unpad = (self.image_size_hw[1], self.image_size_hw[0])
+                ratio = self.image_size_hw[1] / shape[1], self.image_size_hw[0] / shape[0]  # width, height ratios
+
+            # 左右padding
+            dw /= 2  # divide padding into 2 sides
+            dh /= 2
+
+            # 没有padding前
+            if shape[::-1] != new_unpad:  # resize
+                img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+            results['img_shape'] = img.shape
+            scale_factor = np.array([ratio[0], ratio[1], ratio[0], ratio[1]], dtype=np.float32)
+            results['scale_factor'] = scale_factor
+
+            # padding
+            top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+            left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+            img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.color)  # add border
+
+            results[key] = img
+
+            results['pad_shape'] = img.shape
+            results['pad_param'] = np.array([top, bottom, left, right], dtype=np.float32)
+        return results
 
 
 @PIPELINES.register_module()
@@ -1005,6 +1070,7 @@ class MinIoURandomCrop(object):
                                 (center[:, 0] < patch[2]) *
                                 (center[:, 1] < patch[3]))
                         return mask
+
                     # 判断裁剪后所有bbox的中心是否落在图片内部
                     mask = is_center_of_bboxes_in_patch(boxes, patch)
                     if not mask.any():  # 所有bbox都没有落在中心，则裁剪无效
