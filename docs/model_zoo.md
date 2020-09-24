@@ -93,22 +93,86 @@ mmdetection: 36.0@mAP0.5...0.9 56.3@mAP0.5
 ，结果和原始yolov5完全相同，说明整个模型部分代码没有任何问题。如下图所示：
 
 
+后来发现mmdetection还有一个score_thr阈值，而yolov5是没有这个参数的
+故将该参数设置的极小进行测试score_thr=0.0000001
+
+```python
+    test_cfg = dict(
+        nms_pre=1000,
+        min_bbox_size=0,
+        score_thr=0.0000001,
+        conf_thr=0.001,
+        nms=dict(type='nms', iou_thr=0.6),
+        max_per_img=300)
+```
+
+结果如下：  
+
+orig yolov5s: 37.0@mAP0.5...0.9 56.2@mAP0.    
+mmdetection: 36.6@mAP0.5...0.9 56.6@mAP0.5   
+
+指标就非常接近了  
+
+当切换为letterresize模式，采用同样配置  
+
+orig yolov5s: 37.0@mAP0.5...0.9 56.2@mAP0.    
+mmdetection: 36.6@mAP0.5...0.9 56.5@mAP0.5   
+
+看来不是letterresize问题，差别几乎没有。剩下差距的0.4个点就不清楚了。 
+
+
+
+其余模型：  测试参数为letterresize模式，且配置为：  
+```python
+    test_cfg = dict(
+        nms_pre=1000,
+        min_bbox_size=0,
+        score_thr=0.0000001,
+        conf_thr=0.001,
+        nms=dict(type='nms', iou_thr=0.6),
+        max_per_img=300)
+```
+
 
 orig yolov5m: 44.3@mAP0.5...0.9 63.2@mAP0.5  
-mmdetection: 43.1@mAP0.5...0.9 63@mAP0.5  
+mmdetection: 43.9@mAP0.5...0.9 63.4@mAP0.5  
 
 
 
 orig yolov5l: 47.7@mAP0.5...0.9 66.5@mAP0.5  
-mmdetection: 46.3@mAP0.5...0.9 65.8@mAP0.5  
-
+mmdetection: 47.1@mAP0.5...0.9 66.2@mAP0.5  
 
 
 
 orig yolov5x: 49.2@mAP0.5...0.9 67.7@mAP0.5  
-mmdetection: 48@mAP0.5...0.9 67.3@mAP0.5  
+mmdetection: 48.6@mAP0.5...0.9 67.6@mAP0.5  
 
 
+再次仔细检查，发现letterresize虽然是用了，但是其输入shape是自适应的，其保证了训练和测试的数据处理逻辑一样(除了mosaic逻辑外)也就是说yolov5的
+测试模式下，每个batch内部的shape是不一样的。这个才是造成最终差异的原因。
+
+而在detertor代码里面，是直接调用letterresize，而输入shape是指定的，所以才会找出
+我们在对某一张图进行demo 测试时候，结果完全相同，但是test代码时候mAP不一致。
+
+
+
+yolov5采用dataloader进行测试时候，实际上是有自适应的，虽然你设置的是640的输入，其流程是：
+
+1. 遍历所有验证集图片的shape，保存起来
+2. 开启Rectangular模式，对所有shape按照h/w比例从小到大排序
+3. 计算所有验证集，一共可以构成多少个batch，然后对前面排序后的shape进行连续截取操作，并且考虑h/w大于1和小于1的场景，
+因为h/w不同，pad的方向也不同，保存每个batch内部的shape比例都差不多
+4. 将每个batch内部的shape值转化为指定的图片大小比例，例如打算网络预测最大不超过640，那么所有shape都要不大于640
+5. 对batch内部图片进行letterbox操作，测试或者训练时候，不开启minimum rectangle操作。也就是输出shape一定等于指定的shape。这样可以保证
+每个batch内部输出的图片shape完全相同
+
+
+而mmdetection中test时候实现的逻辑是：
+1. 将每张图片LetterResize到640x640(输出不一定是640x640)
+2. 将图片shape pad到32的整数倍，右下pad
+3. 在collate函数中将一个batch内部的图片全部右下pad到当前batch最大的w和h，变成相同shape
+
+可以看出yolov5这种设置会更好一点。应该就是这个差异导致的mAP不一样。
 
 
 

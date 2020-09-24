@@ -3,6 +3,12 @@
 ## V0.0.4
 ### 2020.09.23
 **(1) 新特性**
+- 新增letterresize操作，和yolov5的detector数据处理一致
+- 分析yolov5和mmdetection-mini mAP不一致的原因
+
+
+### 2020.09.23
+**(1) 新特性**
 - 新增yolov5的s/m/l/x模型
 - 新增yolov5转化为mmdetection-mini脚本
 
