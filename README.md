@@ -103,7 +103,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 转化脚本在tools/darknet里面。以yolov5s为例
 
-1. https://github.com/ultralytics/yolov5/releases/tag/v3.0处下载yolo5s.pt或者直接运行convert_yolov5_weights_step1.py脚本，会自动下载
+1. https://github.com/ultralytics/yolov5/releases/tag/v3.0 处下载yolo5s.pt或者直接运行convert_yolov5_weights_step1.py脚本，会自动下载
 2. 运行convert_yolov5_weights_step1.py脚本，但是不好意思，你不能直接在我写的路径下运行，你需要将本脚本copy到yolov5工程目录下运行，并且必须pytorch版本大于等于1.6，原因是其保存的权重包括了picker对象，如果不放在相同路径下无法重新加载
 3. 利用上一步所得权重，然后运行tools/darknet/convert_yolov5_weights_step2.py(在本框架中运行)，得到最终转化模型
 4. 然后修改configs/yolo/rr_yolov5_416_coco.py对应的路径就可以进行前向测试或者mAP计算了
