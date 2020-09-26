@@ -1,7 +1,7 @@
 _base_ = './rr_yolov3_d53_416_coco.py'
 # model settings
 
-_yolo_type = 1  # 0=5s 1=5m 2=5l 3=5x
+_yolo_type = 0  # 0=5s 1=5m 2=5l 3=5x
 if _yolo_type == 0:
     _depth_multiple = 0.33
     _width_multiple = 0.5
