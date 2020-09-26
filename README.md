@@ -140,4 +140,14 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第三篇：mmdetection最小复刻版(三)：神兵利器](https://www.zybuluo.com/huanghaian/note/1743266)  
 [第四篇：mmdetection最小复刻版(四)：独家yolo转化内幕](https://www.zybuluo.com/huanghaian/note/1744915)      
 [第五篇：mmdetection最小复刻版(五)：yolov5转化内幕](https://www.zybuluo.com/huanghaian/note/1745145)  
+
+
+## 帮助
+
+如果使用本框架有啥问题，想立刻联系我或者参与讨论的，可以加我微信，我拉你进入讨论群，微信号：hhahuanghaian .
+请注明：mmdetection-mini，否则不会通过！  
+
+
+
+
        
