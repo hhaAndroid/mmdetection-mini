@@ -1,6 +1,7 @@
 import torch
 import os
-from tools.darknet.yolov5_download import attempt_download
+# from tools.darknet.yolov5_download import attempt_download
+from utils.google_utils import attempt_download
 
 
 # 注意本程序无法运行！！！
@@ -9,7 +10,7 @@ from tools.darknet.yolov5_download import attempt_download
 if __name__ == '__main__':
     # v3版本下载地址 https://github.com/ultralytics/yolov5/releases/tag/v3.0
 
-    is_download = False
+    is_download = True
     save_name = 'yolov5s.pth'
 
     if is_download:
