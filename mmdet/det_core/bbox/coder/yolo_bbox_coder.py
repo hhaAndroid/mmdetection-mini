@@ -17,9 +17,10 @@ class YOLOBBoxCoder(BaseBBoxCoder):
         eps (float): Min value of cx, cy when encoding.
     """
 
-    def __init__(self, eps=1e-6):
+    def __init__(self, eps=1e-6, scale_x_y=1.0):
         super(BaseBBoxCoder, self).__init__()
         self.eps = eps
+        self.scale_x_y = scale_x_y
 
     def encode(self, bboxes, gt_bboxes, stride):
         """Get box regression transformation deltas that can be used to
@@ -76,8 +77,8 @@ class YOLOBBoxCoder(BaseBBoxCoder):
         w = bboxes[..., 2] - bboxes[..., 0]
         h = bboxes[..., 3] - bboxes[..., 1]
         # Get outputs x, y
-        x_center_pred = (pred_bboxes[..., 0] - 0.5) * stride + x_center
-        y_center_pred = (pred_bboxes[..., 1] - 0.5) * stride + y_center
+        x_center_pred = (pred_bboxes[..., 0] * self.scale_x_y - 0.5 * (self.scale_x_y - 1) - 0.5) * stride + x_center
+        y_center_pred = (pred_bboxes[..., 1] * self.scale_x_y - 0.5 * (self.scale_x_y - 1) - 0.5) * stride + y_center
         w_pred = torch.exp(pred_bboxes[..., 2]) * w
         h_pred = torch.exp(pred_bboxes[..., 3]) * h
 
