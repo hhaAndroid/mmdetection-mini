@@ -42,8 +42,8 @@ test_cfg = dict(
     nms_pre=1000,
     min_bbox_size=0,
     score_thr=0.05,
-    conf_thr=0.001,
-    nms=dict(type='nms', iou_thr=0.65),
+    conf_thr=0.005,
+    nms=dict(type='nms', iou_thr=0.45),
     max_per_img=100)
 # dataset settings
 dataset_type = 'CocoDataset'
@@ -78,7 +78,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(640, 640),
+        img_scale=(416, 416),
         flip=False,
         transforms=[
             dict(type='Resize', keep_ratio=True),
