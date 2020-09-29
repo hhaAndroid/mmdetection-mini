@@ -15,7 +15,7 @@ model = dict(
                         [(36, 75), (76, 55), (72, 146)],
                         [(12, 16), (19, 36), (40, 28)]],
             strides=[32, 16, 8]),
-        bbox_coder=dict(type='YOLOBBoxCoder'),
+        bbox_coder=dict(type='YOLOBBoxCoder', scale_x_y=1.05),
         featmap_strides=[32, 16, 8],
         loss_cls=dict(
             type='CrossEntropyLoss',
