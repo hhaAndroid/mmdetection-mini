@@ -7,6 +7,17 @@
 目前支持yolov3/v4和tiny-yolov3/v4的模型  
 对比结果如下：
 
+测试配置为：
+```python 
+    test_cfg = dict(
+        nms_pre=1000,
+        min_bbox_size=0,
+        score_thr=0.05,
+        conf_thr=0.005,
+        nms=dict(type='nms', iou_thr=0.45),
+        max_per_img=100)
+```
+
 ### tiny-yolov3 
 
 权重下载链接： https://github.com/AlexeyAB/darknet   
@@ -25,6 +36,23 @@ darknet: 416x416 40.2% mAP@0.5 - 371(1080Ti) FPS / 330(RTX2070) FPS - 6.9 BFlops
 mmdetection: 416x416 37.9% mAP@0.5 (19.2 mAP@0.5:0.95) -24.3 MB
 
 注意：更低的原因应该是该配置里面有一个scale_x_y = 1.05一些参数不一样，目前没有利用到
+
+附加内容：  
+mmdetection: 416x416 考虑scale_x_y = 1.05 37.9% mAP@0.5 (19.3 mAP@0.5:0.95) -24.3 MB  
+
+修改配置为：
+
+```python 
+    test_cfg = dict(
+        nms_pre=1000,
+        min_bbox_size=0,
+        score_thr=0.000000005,
+        conf_thr=0.001,
+        nms=dict(type='nms', iou_thr=0.45),
+        max_per_img=100)
+```
+参考： https://github.com/AlexeyAB/darknet/tree/master/src/yolo_layer.c  
+mmdetection: 416x416 考虑scale_x_y = 1.05 38.0% mAP@0.5 (19.3 mAP@0.5:0.95) -24.3 MB 
 
 
 ### yolov3
@@ -48,6 +76,11 @@ mmdetection: 416x416 65.7% mAP@0.5 (41.7% AP@0.5:0.95) -257. MB
 mmdetection: 608x608 72.9% mAP@0.5 (48.1% AP@0.5:0.95) -257.7 MB  
 
 注意： yolov4的anchor尺寸变了，不同于yolov3， 下载的权重是608x608训练过的,测试用了两种尺度而已
+
+
+附加内容：   
+mmdetection: 416x416 考虑scale 65.8% mAP@0.5 (42.0% AP@0.5:0.95) -257. MB   
+mmdetection: 608x608 考虑scale 73.0% mAP@0.5 (48.4% AP@0.5:0.95) -257.7 MB     
 
 
 ### 附加说明
