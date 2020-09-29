@@ -137,7 +137,8 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/252616317)   
 [第二篇：mmdetection最小复刻版(二)：RetinaNet和YoloV3分析](https://www.zybuluo.com/huanghaian/note/1742594)    
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/259487104)  
-[第三篇：mmdetection最小复刻版(三)：神兵利器](https://www.zybuluo.com/huanghaian/note/1743266)  
+[第三篇：mmdetection最小复刻版(三)：神兵利器](https://www.zybuluo.com/huanghaian/note/1743266)    
+或者 [知乎文章](https://zhuanlan.zhihu.com/p/259963010)  
 [第四篇：mmdetection最小复刻版(四)：独家yolo转化内幕](https://www.zybuluo.com/huanghaian/note/1744915)      
 [第五篇：mmdetection最小复刻版(五)：yolov5转化内幕](https://www.zybuluo.com/huanghaian/note/1745145)  
 
