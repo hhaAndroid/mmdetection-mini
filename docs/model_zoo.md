@@ -208,4 +208,25 @@ yolov5采用dataloader进行测试时候，实际上是有自适应的，虽然�
 可以看出yolov5这种设置会更好一点。应该就是这个差异导致的mAP不一样。
 
 
+关于yolov5中心点解码问题的分析：  
+yolov5中是：  
+x_center_pred = (pred_bboxes[..., 0] * 2. - 0.5 + grid[:, 0]) * stride  # xy    
+y_center_pred = (pred_bboxes[..., 1] * 2. - 0.5 + grid[:, 1]) * stride  # xy    
 
+pred_bboxes的xy是相对网格左上角的偏移，而mmdetection中anchor是相对网格中心，以x方向为例  
+ (x*2-0.5+grid_x)*s  
+= (x*2-0.5)*s+grid_x*s   # yolov5  
+= (x*2-0.5)*s+(xcenter/s-0.5)*s  
+= (x-0.5)*2*s+xcenter  # mmdetection  
+
+
+关于yolov4的scale_xy，中心点解码问题的分析：  
+yolov4中是：  
+x_center_pred = (pred_bboxes[..., 0] * self.scale_x_y - 0.5 * (self.scale_x_y - 1)  + grid[:, 0]) * stride  # xy       
+
+pred_bboxes的xy是相对网格左上角的偏移，而mmdetection中anchor是相对网格中心，以x方向为例     
+
+ (x*1.05-0.5(1.05-1)+grid)*s   
+= (x*1.05-0.5(1.05-1))*s+grid_x*s   
+= (x*1.05-0.5(1.05-1))*s+(xcenter/s-0.5)*s     
+= (x*1.05-0.5(1.05-1)-0.5)*s+xcenter   
