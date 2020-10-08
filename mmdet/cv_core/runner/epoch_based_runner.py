@@ -6,13 +6,13 @@ import time
 import warnings
 
 import torch
-
 from mmdet import cv_core
+from .builder import RUNNERS
 from .base_runner import BaseRunner
 from .checkpoint import save_checkpoint
 from .utils import get_host_info
 
-
+@RUNNERS.register_module()
 class EpochBasedRunner(BaseRunner):
     """Epoch-based Runner.
 
@@ -67,7 +67,7 @@ class EpochBasedRunner(BaseRunner):
 
         self.call_hook('after_val_epoch')
 
-    def run(self, data_loaders, workflow, max_epochs, **kwargs):
+    def run(self, data_loaders, workflow, max_epochs=None, **kwargs):
         """Start running.
 
         Args:
@@ -83,7 +83,14 @@ class EpochBasedRunner(BaseRunner):
         assert cv_core.is_list_of(workflow, tuple)
         assert len(data_loaders) == len(workflow)
 
-        self._max_epochs = max_epochs
+        if max_epochs is not None:
+            warnings.warn(
+                'setting max_epochs in run is deprecated, '
+                'please set max_epochs in runner_config', DeprecationWarning)
+            self._max_epochs = max_epochs
+
+        assert self._max_epochs is not None, (
+            'max_epochs must be specified during instantiation')
         for i, flow in enumerate(workflow):
             mode, epochs = flow
             if mode == 'train':
@@ -163,7 +170,7 @@ class EpochBasedRunner(BaseRunner):
             else:
                 shutil.copy(filename, dst_file)
 
-
+@RUNNERS.register_module()
 class Runner(EpochBasedRunner):
     """Deprecated name of EpochBasedRunner."""
 

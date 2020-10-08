@@ -49,7 +49,9 @@ class BaseRunner(metaclass=ABCMeta):
                  optimizer=None,
                  work_dir=None,
                  logger=None,
-                 meta=None):
+                 meta=None,
+                 max_iters=None,
+                 max_epochs=None):
         if batch_processor is not None:
             if not callable(batch_processor):
                 raise TypeError('batch_processor must be callable, '
@@ -115,8 +117,11 @@ class BaseRunner(metaclass=ABCMeta):
         self._epoch = 0
         self._iter = 0
         self._inner_iter = 0
-        self._max_epochs = 0
-        self._max_iters = 0
+        if max_epochs is not None and max_iters is not None:
+            raise ValueError(
+                'Only one of `max_epochs` or `max_iters` can be set.')
+        self._max_epochs = max_epochs
+        self._max_iters = max_iters
         # TODO: Redesign LogBuffer, it is not flexible and elegant enough
         self.log_buffer = LogBuffer()
 
