@@ -1,6 +1,10 @@
 # ChangeLog
 
 ## V0.0.4
+### 2020.10.08
+**(1) 新特性**
+- 同步mmcv和mmdetection
+
 ### 2020.09.23
 **(1) 新特性**
 - 新增letterresize操作，和yolov5的detector数据处理一致
