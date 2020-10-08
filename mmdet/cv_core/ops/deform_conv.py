@@ -185,7 +185,8 @@ class DeformConv2d(nn.Module):
                  deform_groups=1,
                  bias=False):
         super(DeformConv2d, self).__init__()
-
+        assert not bias, \
+            f'bias={bias} is not supported in DeformConv2d.'
         assert in_channels % groups == 0, \
             f'in_channels {in_channels} cannot be divisible by groups {groups}'
         assert out_channels % groups == 0, \
