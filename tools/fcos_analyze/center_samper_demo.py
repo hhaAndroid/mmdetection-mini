@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import cv2
 import mmdet.cv_core as mmcv
+import matplotlib.pyplot as plt
 
 
 def get_target_mask(gt_bboxes, feature_shape, center_sample_radius, center_sampling):
@@ -56,7 +57,31 @@ def get_target_mask(gt_bboxes, feature_shape, center_sample_radius, center_sampl
     # value, index = bbox_targets.min(-1)
     pos_mask = bbox_targets.min(-1)[0] > 0
     pos_mask = pos_mask.view(feature_shape[0], feature_shape[1], -1)
-    return pos_mask
+    return pos_mask, bbox_targets
+
+
+def centerness_target(pos_mask, bbox_targets):
+    """Compute centerness targets.
+
+        Args:
+            pos_bbox_targets (Tensor): BBox targets of positive bboxes in shape
+                (num_pos, 4)
+
+        Returns:
+            Tensor: Centerness target.
+        """
+    # only calculate pos centerness targets, otherwise there may be nan
+    pos_mask = pos_mask.view(-1, 1)
+    bbox_targets = bbox_targets[pos_mask]
+    left_right = bbox_targets[:, [0, 2]]
+    top_bottom = bbox_targets[:, [1, 3]]
+    centerness_targets = (left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * \
+                         (top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
+    targets = torch.sqrt(centerness_targets)
+    # 还原成图返回
+    img_disp_target = pos_mask.new_zeros(pos_mask.shape, dtype=torch.float32)
+    img_disp_target[pos_mask] = targets
+    return img_disp_target
 
 
 if __name__ == '__main__':
@@ -64,18 +89,24 @@ if __name__ == '__main__':
     center_sampling = True  # 是否使用中心采样策略
     feature_shape = (100, 100, 3)
     strides = 4
-    radius = 1.5
+    radius = 3.5  # 默认1.5
     center_sample_radius = radius * strides  # 扩展半径radius，值越大，扩展面积越大
     gt_boox = [20, 30, 80, 71]  # 特征图size xyxy
 
     gt_bbox = torch.as_tensor(gt_boox, dtype=torch.float32).view(-1, 4)
-    pos_mask = get_target_mask(gt_bbox, feature_shape, center_sample_radius, center_sampling)
+    pos_mask, bbox_targets = get_target_mask(gt_bbox, feature_shape, center_sample_radius, center_sampling)
 
     # 可视化
-    pos_mask = pos_mask[..., 0].numpy()
-    gray_img = np.where(pos_mask > 0, 255, 0).astype(np.uint8)
+    pos_mask1 = pos_mask[..., 0].numpy()
+    gray_img = np.where(pos_mask1 > 0, 255, 0).astype(np.uint8)
     # 绘制原始bbox
     img = mmcv.gray2bgr(gray_img)
     cv2.rectangle(img, (gt_boox[0], gt_boox[1]), (gt_boox[2], gt_boox[3]), color=(255, 0, 0))
     cv2.namedWindow('img', 0)
     mmcv.imshow(img, 'img')
+
+    # 显示centerness
+    centerness_targets = centerness_target(pos_mask, bbox_targets)
+    centerness_targets = centerness_targets.view(feature_shape[0], feature_shape[1])
+    plt.imshow(centerness_targets)
+    plt.show()
