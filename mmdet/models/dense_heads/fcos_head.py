@@ -90,7 +90,10 @@ class FCOSHead(AnchorFreeHead):
             norm_cfg=norm_cfg,
             **kwargs)
         self.loss_centerness = build_loss(loss_centerness)
-        self.debug = kwargs['train_cfg'].debug
+        if kwargs['train_cfg'] is None:
+            self.debug = False
+        else:
+            self.debug = kwargs['train_cfg'].debug
 
     def _init_layers(self):
         """Initialize layers of the head."""

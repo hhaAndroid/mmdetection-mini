@@ -21,6 +21,7 @@ test:
 ../configs/yolo/rr_yolov4_cspd53_416_coco.py  ../yolov4.pth  --show  # 416x416
 ../configs/yolo/rr_tiny_yolov4_416_coco.py  ../tiny_yolov4.pth  --show  # 416x416
 ../configs/yolo/rr_yolov5_416_coco.py  ../yolov5s_mm.pth  --show  # 416x416
+../configs/fcos/fcos_center-normbbox-centeronreg-giou_r50_caffe_fpn_gn-head_4x4_1x_coco.py  /home/pi/fcos_center-normbbox-centeronreg-giou_r50_caffe_fpn_gn-head_4x4_1x_coco_20200603-67b3859f.pth  --show  # 416x416
 
 
 显示：
