@@ -26,8 +26,8 @@ test:
 
 
 当前同步更新日期:
-    mmcv: bump version to 1.1.5 (#603) Kai Chen* 2020/10/7 下午11:09
-    mmdetection: fix the API change bug of PAA (#3883) Wenwei Zhang* 2020/10/7 下午7:40
+    mmcv: add switch for onnx exporter (#607) robin Han* 2020/10/11 下午6:11
+    mmdetection: Added `generate_inputs_and_wrap_model` function for pytorch2onnx (#3857) Ryan Li* 2020/10/12 下午3:57
 
 
 ../configs/yolo/yolov3_d53_320_273e_coco.py  /home/hha/Downloads/yolov3_d53_320_273e_coco-421362b6.pth
