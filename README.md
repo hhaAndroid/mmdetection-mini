@@ -40,7 +40,8 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] darknet-yolov4
 - [x] darknet-tiny_yolov3
 - [x] darknet-tiny_yolov4
-- [x] yolov5(s/m/l/x全部支持)
+- [x] yolov5(s/m/l/x全部支持)   
+- [x] fcos  
 
 ## 4 模型仓库
 [文档链接](./docs/model_zoo.md)

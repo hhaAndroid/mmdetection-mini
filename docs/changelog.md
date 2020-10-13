@@ -1,6 +1,12 @@
 # ChangeLog
 
 ## V0.0.4
+### 2020.10.13
+**(1) 新特性**
+- 同步mmcv和mmdetection
+- 新增FCOS模型
+- 新增FCOS分析代码 
+
 ### 2020.10.08
 **(1) 新特性**
 - 同步mmcv和mmdetection
