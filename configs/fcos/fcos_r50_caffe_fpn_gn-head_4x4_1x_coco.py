@@ -12,19 +12,19 @@ model = dict(
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=False),
+        norm_cfg=dict(type='BN', requires_grad=False),  # 注意requires_grad
         norm_eval=True,
-        style='caffe'),
+        style='caffe'),  # 注意style
     neck=dict(
         type='FPN',
         in_channels=[256, 512, 1024, 2048],
         out_channels=256,
         start_level=1,
         add_extra_convs=True,
-        extra_convs_on_inputs=False,  # use P5
+        extra_convs_on_inputs=False,  # use P5，而不是C5
         num_outs=5,
-        relu_before_extra_convs=True),
-    bbox_head=dict(
+        relu_before_extra_convs=True),  # P5模式下有额外的relu层，C5不需要是因为resnet输出最后就是relu
+    bbox_head=dict(  # 可以发现比retinanet head简单很多
         type='FCOSHead',
         num_classes=80,
         in_channels=256,
