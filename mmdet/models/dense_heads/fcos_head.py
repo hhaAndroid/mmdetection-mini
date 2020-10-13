@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import cv2
+import numpy as np
+from mmdet import cv_core
 from mmdet.cv_core.cnn import Scale, normal_init
 from mmdet.det_core import distance2bbox, multi_apply, multiclass_nms
 from ..builder import HEADS, build_loss
@@ -87,6 +90,7 @@ class FCOSHead(AnchorFreeHead):
             norm_cfg=norm_cfg,
             **kwargs)
         self.loss_centerness = build_loss(loss_centerness)
+        self.debug = kwargs['train_cfg'].debug
 
     def _init_layers(self):
         """Initialize layers of the head."""
@@ -187,6 +191,46 @@ class FCOSHead(AnchorFreeHead):
                                            bbox_preds[0].device)
         labels, bbox_targets = self.get_targets(all_level_points, gt_bboxes,
                                                 gt_labels)
+
+        if self.debug:
+            # 可视化正样本区域
+            # 遍历每一张图片
+            batch_size = cls_scores[0].shape[0]
+            for i in range(batch_size):
+                gt_bbox = gt_bboxes[i]
+                img_meta = img_metas[i]
+                img = img_meta['img'].data.numpy()
+                mean = img_meta['img_norm_cfg']['mean']
+                std = img_meta['img_norm_cfg']['std']
+                # # 输入是bgr数据
+                img = np.transpose(img.copy(), (1, 2, 0))
+                img = img * std.reshape([1, 1, 3]) + mean.reshape([1, 1, 3])
+                img = img.astype(np.uint8)
+                img = cv_core.show_bbox(img, gt_bbox.cpu().numpy(), is_show=False, thickness=2, color=(0, 0, 255))
+
+                # 遍历每一个输出层
+                disp_img = []
+                for j in range(len(labels)):
+                    # bbox_target = bbox_targets[i]
+                    label = labels[j]
+                    level_label = label[i * len(label) // batch_size:(i + 1) * len(label) // batch_size]
+                    level_label = level_label.view(featmap_sizes[j][0], featmap_sizes[j][1])
+                    # 得到正样本位置
+                    pos_mask = (level_label >= 0) & (level_label < self.num_classes)
+                    if pos_mask.is_cuda:
+                        pos_mask = pos_mask.cpu()
+                    pos_mask = pos_mask.data.numpy()
+                    pos_mask = (pos_mask * 255).astype(np.uint8)
+                    # 特征图还原到原图尺寸
+                    # 先利用stride还原
+                    pos_mask = cv_core.imrescale(pos_mask, self.strides[j], interpolation="nearest")
+                    # 然后裁剪
+                    resize_pos_mask = pos_mask[0:img.shape[0], 0:img.shape[1]]
+                    # 转化bgr，方便add
+                    resize_pos_mask = cv_core.gray2bgr(resize_pos_mask)
+                    img_ = cv2.addWeighted(img, 0.5, resize_pos_mask, 0.5, 0)
+                    disp_img.append(img_)
+                cv_core.show_img(disp_img)
 
         num_imgs = cls_scores[0].size(0)
         # flatten cls_scores, bbox_preds and centerness
@@ -477,7 +521,7 @@ class FCOSHead(AnchorFreeHead):
                    gt_bboxes.new_zeros((num_points, 4))
 
         areas = (gt_bboxes[:, 2] - gt_bboxes[:, 0]) * (
-            gt_bboxes[:, 3] - gt_bboxes[:, 1])
+                gt_bboxes[:, 3] - gt_bboxes[:, 1])
         # TODO: figure out why these two are different
         # areas = areas[None].expand(num_points, num_gts)
         areas = areas[None].repeat(num_points, 1)
@@ -536,8 +580,8 @@ class FCOSHead(AnchorFreeHead):
         # condition2: limit the regression range for each location
         max_regress_distance = bbox_targets.max(-1)[0]
         inside_regress_range = (
-            (max_regress_distance >= regress_ranges[..., 0])
-            & (max_regress_distance <= regress_ranges[..., 1]))
+                (max_regress_distance >= regress_ranges[..., 0])
+                & (max_regress_distance <= regress_ranges[..., 1]))
 
         # if there are still more than one objects for a location,
         # we choose the one with minimal area
@@ -565,6 +609,6 @@ class FCOSHead(AnchorFreeHead):
         left_right = pos_bbox_targets[:, [0, 2]]
         top_bottom = pos_bbox_targets[:, [1, 3]]
         centerness_targets = (
-            left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * (
-                top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
+                                     left_right.min(dim=-1)[0] / left_right.max(dim=-1)[0]) * (
+                                     top_bottom.min(dim=-1)[0] / top_bottom.max(dim=-1)[0])
         return torch.sqrt(centerness_targets)
