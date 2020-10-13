@@ -23,7 +23,11 @@ train_pipeline = [
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels']),
+    # dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels']),
+    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'],
+         meta_keys=('filename', 'ori_filename', 'ori_shape',
+                    'img_shape', 'pad_shape', 'scale_factor', 'flip',
+                    'flip_direction', 'img_norm_cfg', 'img')),  # meta_keys新增‘img’，用于可视化调试
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
