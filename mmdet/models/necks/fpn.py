@@ -100,6 +100,13 @@ class FPN(nn.Module):
         if isinstance(add_extra_convs, str):
             # Extra_convs_source choices: 'on_input', 'on_lateral', 'on_output'
             assert add_extra_convs in ('on_input', 'on_lateral', 'on_output')
+        elif add_extra_convs:  # True
+            if extra_convs_on_inputs:
+                # For compatibility with previous release
+                # TODO: deprecate `extra_convs_on_inputs`
+                self.add_extra_convs = 'on_input'
+            else:
+                self.add_extra_convs = 'on_output'
 
         self.lateral_convs = nn.ModuleList()
         self.fpn_convs = nn.ModuleList()
