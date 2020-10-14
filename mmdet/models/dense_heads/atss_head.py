@@ -1,12 +1,45 @@
 import torch
 import torch.nn as nn
+import numpy as np
+from mmdet import cv_core
+import cv2
 from mmdet.cv_core.cnn import ConvModule, Scale, bias_init_with_prob, normal_init
 from mmdet.det_core import (anchor_inside_flags, build_assigner, build_sampler,
-                        images_to_levels, multi_apply, multiclass_nms, unmap)
+                            images_to_levels, multi_apply, multiclass_nms, unmap)
 from ..builder import HEADS, build_loss
 from .anchor_head import AnchorHead
 
 EPS = 1e-12
+
+
+def show_pos_anchor(img_meta, gt_anchors, gt_bboxes, is_show=True, disp_circle=True, show_anchor=False):
+    # 显示正样本
+    assert 'img' in img_meta, print('Collect类中的meta_keys需要新增‘img’，用于可视化调试')
+    img = img_meta['img'].data.numpy()
+    mean = img_meta['img_norm_cfg']['mean']
+    std = img_meta['img_norm_cfg']['std']
+    # 默认输入是rgb数据，需要切换为bgr显示
+    img = np.transpose(img.copy(), (1, 2, 0))[..., ::-1]
+    img = img * std.reshape([1, 1, 3])[..., ::-1] + mean.reshape([1, 1, 3])[..., ::-1]
+    img = img.astype(np.uint8)
+    gt_anchors = gt_anchors.cpu().numpy()
+    if gt_anchors.size > 0:
+        if show_anchor:
+            img = cv_core.show_bbox(img, gt_anchors, is_show=False, color=(0, 255, 0), thickness=2)
+        else:
+            img = img.copy()
+        anchors_cx = (gt_anchors[:, 2] + gt_anchors[:, 0]) / 2
+        anchors_cy = (gt_anchors[:, 3] + gt_anchors[:, 1]) / 2
+        # 绘制中心点
+        if disp_circle is False:
+            # 以点的形式绘制
+            img[anchors_cy.astype(np.int32), anchors_cx.astype(np.int32), :] = (0, 0, 255)
+        else:
+            # 以圆的形式绘制
+            for i in range(anchors_cx.shape[0]):
+                point = (int(anchors_cx[i]), int(anchors_cy[i]))
+                cv2.circle(img, point, 1, (0, 0, 255), 4)
+    return cv_core.show_bbox(img, gt_bboxes.cpu().numpy(), color=(255, 255, 255), is_show=is_show, thickness=2)
 
 
 @HEADS.register_module()
@@ -37,11 +70,13 @@ class ATSSHead(AnchorHead):
         super(ATSSHead, self).__init__(num_classes, in_channels, **kwargs)
 
         self.sampling = False
+        self.debug = False
         if self.train_cfg:
             self.assigner = build_assigner(self.train_cfg.assigner)
             # SSD sampling=False so use PseudoSampler
             sampler_cfg = dict(type='PseudoSampler')
             self.sampler = build_sampler(sampler_cfg, context=self)
+            self.debug = self.train_cfg.debug
         self.loss_centerness = build_loss(loss_centerness)
 
     def _init_layers(self):
@@ -268,17 +303,17 @@ class ATSSHead(AnchorHead):
         num_total_samples = num_total_pos
         num_total_samples = max(num_total_samples, 1.0)
 
-        losses_cls, losses_bbox, loss_centerness,\
-            bbox_avg_factor = multi_apply(
-                self.loss_single,
-                anchor_list,
-                cls_scores,
-                bbox_preds,
-                centernesses,
-                labels_list,
-                label_weights_list,
-                bbox_targets_list,
-                num_total_samples=num_total_samples)
+        losses_cls, losses_bbox, loss_centerness, \
+        bbox_avg_factor = multi_apply(
+            self.loss_single,
+            anchor_list,
+            cls_scores,
+            bbox_preds,
+            centernesses,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            num_total_samples=num_total_samples)
 
         bbox_avg_factor = sum(bbox_avg_factor)
         bbox_avg_factor = bbox_avg_factor.item()
@@ -498,16 +533,16 @@ class ATSSHead(AnchorHead):
             gt_labels_list = [None for _ in range(num_imgs)]
         (all_anchors, all_labels, all_label_weights, all_bbox_targets,
          all_bbox_weights, pos_inds_list, neg_inds_list) = multi_apply(
-             self._get_target_single,
-             anchor_list,
-             valid_flag_list,
-             num_level_anchors_list,
-             gt_bboxes_list,
-             gt_bboxes_ignore_list,
-             gt_labels_list,
-             img_metas,
-             label_channels=label_channels,
-             unmap_outputs=unmap_outputs)
+            self._get_target_single,
+            anchor_list,
+            valid_flag_list,
+            num_level_anchors_list,
+            gt_bboxes_list,
+            gt_bboxes_ignore_list,
+            gt_labels_list,
+            img_metas,
+            label_channels=label_channels,
+            unmap_outputs=unmap_outputs)
         # no valid anchors
         if any([labels is None for labels in all_labels]):
             return None
@@ -577,7 +612,7 @@ class ATSSHead(AnchorHead):
                                            img_meta['img_shape'][:2],
                                            self.train_cfg.allowed_border)
         if not inside_flags.any():
-            return (None, ) * 7
+            return (None,) * 7
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
 
@@ -590,10 +625,28 @@ class ATSSHead(AnchorHead):
         sampling_result = self.sampler.sample(assign_result, anchors,
                                               gt_bboxes)
 
+        # 正样本可视化
+        if self.debug:
+            gt_inds = assign_result.gt_inds  # 0 1 -1 正负忽略样本标志
+            index = gt_inds > 0
+            gt_inds = gt_inds[index]
+            print('单张图片中正样本anchor个数', len(gt_inds))
+            imgs = []
+            count = 0
+            for num_level in num_level_anchors:
+                gt_inds = assign_result.gt_inds[count:count + num_level]
+                anchor = anchors[count:count + num_level]
+                count += num_level
+                index = gt_inds > 0
+                gt_anchor = anchor[index]
+                img = show_pos_anchor(img_meta, gt_anchor, gt_bboxes, is_show=False)
+                imgs.append(img)
+            cv_core.show_img(imgs)
+
         num_valid_anchors = anchors.shape[0]
         bbox_targets = torch.zeros_like(anchors)
         bbox_weights = torch.zeros_like(anchors)
-        labels = anchors.new_full((num_valid_anchors, ),
+        labels = anchors.new_full((num_valid_anchors,),
                                   self.num_classes,
                                   dtype=torch.long)
         label_weights = anchors.new_zeros(num_valid_anchors, dtype=torch.float)
