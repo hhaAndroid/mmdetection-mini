@@ -41,7 +41,7 @@ model = dict(
         loss_centerness=dict(
             type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0)))
 # training and testing settings
-train_cfg = dict(
+train_cfg = dict(  # 在fcos里面是不需要的
     assigner=dict(
         type='MaxIoUAssigner',
         pos_iou_thr=0.5,
@@ -92,7 +92,7 @@ data = dict(
     test=dict(pipeline=test_pipeline))
 # optimizer
 optimizer = dict(
-    lr=0.01, paramwise_cfg=dict(bias_lr_mult=2., bias_decay_mult=0.))
+    lr=0.01, paramwise_cfg=dict(bias_lr_mult=2., bias_decay_mult=0.))  # bias不进行权重衰减，bias采用2倍学习率
 optimizer_config = dict(
     _delete_=True, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
