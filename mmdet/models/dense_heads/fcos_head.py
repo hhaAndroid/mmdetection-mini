@@ -196,6 +196,8 @@ class FCOSHead(AnchorFreeHead):
                                                 gt_labels)
 
         if self.debug:
+            is_upsample = False  # 是否采用上采样可视化模式
+            circle_ratio = [2, 4, 6, 8, 8]
             # 可视化正样本区域
             # 遍历每一张图片
             batch_size = cls_scores[0].shape[0]
@@ -209,29 +211,46 @@ class FCOSHead(AnchorFreeHead):
                 img = np.transpose(img.copy(), (1, 2, 0))
                 img = img * std.reshape([1, 1, 3]) + mean.reshape([1, 1, 3])
                 img = img.astype(np.uint8)
-                img = cv_core.show_bbox(img, gt_bbox.cpu().numpy(), is_show=False, thickness=2, color=(0, 0, 255))
+                img = cv_core.show_bbox(img, gt_bbox.cpu().numpy(), is_show=False, thickness=2, color=(255, 255, 255))
 
                 # 遍历每一个输出层
                 disp_img = []
                 for j in range(len(labels)):
-                    # bbox_target = bbox_targets[i]
+                    bbox_target = bbox_targets[j]
+                    bbox_target = bbox_target[i * len(bbox_target) // batch_size:(i + 1) * len(bbox_target) // batch_size]*self.strides[j]
                     label = labels[j]
                     level_label = label[i * len(label) // batch_size:(i + 1) * len(label) // batch_size]
+                    print(bbox_target[(level_label >= 0) & (level_label < self.num_classes)])
                     level_label = level_label.view(featmap_sizes[j][0], featmap_sizes[j][1])
                     # 得到正样本位置
                     pos_mask = (level_label >= 0) & (level_label < self.num_classes)
                     if pos_mask.is_cuda:
                         pos_mask = pos_mask.cpu()
                     pos_mask = pos_mask.data.numpy()
-                    pos_mask = (pos_mask * 255).astype(np.uint8)
+
                     # 特征图还原到原图尺寸
-                    # 先利用stride还原
-                    pos_mask = cv_core.imrescale(pos_mask, self.strides[j], interpolation="nearest")
-                    # 然后裁剪
-                    resize_pos_mask = pos_mask[0:img.shape[0], 0:img.shape[1]]
-                    # 转化bgr，方便add
-                    resize_pos_mask = cv_core.gray2bgr(resize_pos_mask)
-                    img_ = cv2.addWeighted(img, 0.5, resize_pos_mask, 0.5, 0)
+                    if is_upsample:
+                        # 先利用stride还原
+                        pos_mask = (pos_mask * 255).astype(np.uint8)
+                        pos_mask = cv_core.imrescale(pos_mask, self.strides[j], interpolation="nearest")
+                        # 然后裁剪
+                        resize_pos_mask = pos_mask[0:img.shape[0], 0:img.shape[1]]
+                        # 转化bgr，方便add
+                        resize_pos_mask = cv_core.gray2bgr(resize_pos_mask)
+                        img_ = cv2.addWeighted(img, 0.5, resize_pos_mask, 0.5, 0)
+                    else:
+                        pos_mask = pos_mask.astype(np.uint8)
+                        index = pos_mask.nonzero()
+                        index_xy = np.stack(index, axis=1)
+                        # 还原到原图尺度
+                        index_xy = index_xy * self.strides[j] + self.strides[j] // 2
+                        img_ = img.copy()
+                        # 圆形模式
+                        for z in range(index_xy.shape[0]):
+                            point = (int(index_xy[z, 1]), int(index_xy[z, 0]))
+                            cv2.circle(img_, point, 1, (0, 0, 255), circle_ratio[j])
+                        # 点模式
+                        # img_[index_xy[:, 0], index_xy[:, 1], :] = (0, 255, 0)
                     disp_img.append(img_)
                 cv_core.show_img(disp_img)
 
