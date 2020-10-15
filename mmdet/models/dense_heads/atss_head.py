@@ -12,7 +12,7 @@ from .anchor_head import AnchorHead
 EPS = 1e-12
 
 
-def show_pos_anchor(img_meta, gt_anchors, gt_bboxes, is_show=True, disp_circle=True, show_anchor=False):
+def show_pos_anchor(img_meta, gt_anchors, gt_bboxes, is_show=True, disp_circle=True, show_anchor=True):
     # 显示正样本
     assert 'img' in img_meta, print('Collect类中的meta_keys需要新增‘img’，用于可视化调试')
     img = img_meta['img'].data.numpy()
@@ -516,6 +516,13 @@ class ATSSHead(AnchorHead):
         num_imgs = len(img_metas)
         assert len(anchor_list) == len(valid_flag_list) == num_imgs
 
+        # 调试anchor
+        # imgs = []
+        # for an in anchor_list[0]:
+        #     img = show_pos_anchor(img_metas[0], an, gt_bboxes_list[0], is_show=False)
+        #     imgs.append(img)
+        # cv_core.show_img(imgs)
+
         # anchor number of multi levels
         num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
         num_level_anchors_list = [num_level_anchors] * num_imgs
@@ -608,13 +615,27 @@ class ATSSHead(AnchorHead):
                 neg_inds (Tensor): Indices of negative anchor with shape
                     (num_neg,).
         """
+        # pad_shape属性是图片没有经过collate函数右下pad后的图片size,也就是datalayer吐出的图片shape
+        # inside_flags会改变总anchor数目
         inside_flags = anchor_inside_flags(flat_anchors, valid_flags,
                                            img_meta['img_shape'][:2],
                                            self.train_cfg.allowed_border)
         if not inside_flags.any():
             return (None,) * 7
         # assign gt and sample anchors
+        # 要小心这个步骤，可能anchors变少了
         anchors = flat_anchors[inside_flags, :]
+
+        # 调试anchor
+        # imgs = []
+        # count = 0
+        # 由于anchors可能变少了，故num_level_anchors参数遍历是不对的
+        # for num_level in num_level_anchors:
+        #     an = flat_anchors[count:count + num_level]
+        #     count += num_level
+        #     img = show_pos_anchor(img_meta, an, gt_bboxes, is_show=False)
+        #     imgs.append(img)
+        # cv_core.show_img(imgs)
 
         num_level_anchors_inside = self.get_num_level_anchors_inside(
             num_level_anchors, inside_flags)
@@ -633,7 +654,7 @@ class ATSSHead(AnchorHead):
             print('单张图片中正样本anchor个数', len(gt_inds))
             imgs = []
             count = 0
-            for num_level in num_level_anchors:
+            for num_level in num_level_anchors_inside:  # 注意要用num_level_anchors_inside，而不是num_level_anchors
                 gt_inds = assign_result.gt_inds[count:count + num_level]
                 anchor = anchors[count:count + num_level]
                 count += num_level
