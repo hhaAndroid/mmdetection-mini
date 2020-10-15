@@ -7,13 +7,14 @@ from .iou_loss import (BoundedIoULoss, CIoULoss, DIoULoss, GIoULoss, IoULoss,
                        bounded_iou_loss, iou_loss)
 from .mse_loss import MSELoss, mse_loss
 from .smooth_l1_loss import L1Loss, SmoothL1Loss, l1_loss, smooth_l1_loss
+from .ghm_loss import GHMC, GHMR
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 
 __all__ = [
     'accuracy', 'Accuracy', 'cross_entropy', 'binary_cross_entropy',
     'mask_cross_entropy', 'CrossEntropyLoss', 'sigmoid_focal_loss',
-    'FocalLoss', 'smooth_l1_loss', 'SmoothL1Loss',  'mse_loss', 'MSELoss', 'iou_loss', 'bounded_iou_loss',
+    'FocalLoss', 'smooth_l1_loss', 'SmoothL1Loss', 'mse_loss', 'MSELoss', 'iou_loss', 'bounded_iou_loss',
     'IoULoss', 'BoundedIoULoss', 'GIoULoss', 'DIoULoss', 'CIoULoss',
-  'reduce_loss', 'weight_reduce_loss', 'weighted_loss', 'L1Loss',
-    'l1_loss',
+    'reduce_loss', 'weight_reduce_loss', 'weighted_loss', 'L1Loss',
+    'l1_loss', 'GHMC', 'GHMR'
 ]
