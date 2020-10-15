@@ -241,16 +241,16 @@ class FCOSHead(AnchorFreeHead):
                     else:
                         pos_mask = pos_mask.astype(np.uint8)
                         index = pos_mask.nonzero()
-                        index_xy = np.stack(index, axis=1)
+                        index_yx = np.stack(index, axis=1)
                         # 还原到原图尺度
-                        index_xy = index_xy * self.strides[j] + self.strides[j] // 2
+                        pos_img_yx = index_yx * self.strides[j] + self.strides[j] // 2
                         img_ = img.copy()
                         # 圆形模式
-                        for z in range(index_xy.shape[0]):
-                            point = (int(index_xy[z, 1]), int(index_xy[z, 0]))
+                        for z in range(pos_img_yx.shape[0]):
+                            point = (int(pos_img_yx[z, 1]), int(pos_img_yx[z, 0]))
                             cv2.circle(img_, point, 1, (0, 0, 255), circle_ratio[j])
                         # 点模式
-                        # img_[index_xy[:, 0], index_xy[:, 1], :] = (0, 255, 0)
+                        # img_[pos_img_yx[:, 0], pos_img_yx[:, 1], :] = (0, 255, 0)
                     disp_img.append(img_)
                 cv_core.show_img(disp_img)
 
