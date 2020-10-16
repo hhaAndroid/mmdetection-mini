@@ -5,7 +5,7 @@ cuda编译： python setup.py develop
 ../configs/retinanet/retinanet_r50_fpn_voc.py
 ../configs/fcos/fcos_center-normbbox-centeronreg-giou_r50_caffe_fpn_gn-head_4x4_1x_coco.py
 ../configs/atss/atss_r50_fpn_1x_coco.py
-
+../configs/ghm/retinanet_ghm_r50_fpn_1x_coco.py
 
 demo: demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth
 demo: bus.jpg ../configs/yolo/rr_yolov5_416_coco.py ../yolov5s.pth
