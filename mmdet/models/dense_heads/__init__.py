@@ -8,8 +8,9 @@ from .rr_yolov5_head import RRYolov5Head
 from .anchor_free_head import AnchorFreeHead
 from .fcos_head import FCOSHead
 from .atss_head import ATSSHead
+from .gfl_head import GFLHead
 
 __all__ = [
     'AnchorHead', 'RetinaHead', 'YOLOV3Head', 'RRYolov3Head', 'RRTinyYolov3Head', 'RRTinyYolov4Head', 'RRYolov5Head',
-    'AnchorFreeHead', 'FCOSHead', 'ATSSHead'
+    'AnchorFreeHead', 'FCOSHead', 'ATSSHead', 'GFLHead'
 ]
