@@ -34,9 +34,9 @@ class GHMC(nn.Module):
 
     def __init__(self, bins=10, momentum=0, use_sigmoid=True, loss_weight=1.0):
         super(GHMC, self).__init__()
-        self.bins = bins
+        self.bins = bins  # 应该论文中epsilon=2/bin
         self.momentum = momentum
-        edges = torch.arange(bins + 1).float() / bins
+        edges = torch.arange(bins + 1).float() / bins  # g纵坐标均匀切割范围
         self.register_buffer('edges', edges)
         self.edges[-1] += 1e-6
         if momentum > 0:
@@ -69,25 +69,29 @@ class GHMC(nn.Module):
         mmt = self.momentum
         weights = torch.zeros_like(pred)
 
-        # gradient length
+        # gradient length g函数
         g = torch.abs(pred.sigmoid().detach() - target)
 
         valid = label_weight > 0
         tot = max(valid.float().sum().item(), 1.0)
         n = 0  # n valid bins
         for i in range(self.bins):
+            # 计算在指定edges范围内的样本个数
             inds = (g >= edges[i]) & (g < edges[i + 1]) & valid
             num_in_bin = inds.sum().item()
+            # 如果某个区间范围内没有样本，则直接忽略
             if num_in_bin > 0:
                 if mmt > 0:
+                    # ema操作
                     self.acc_sum[i] = mmt * self.acc_sum[i] \
                         + (1 - mmt) * num_in_bin
                     weights[inds] = tot / self.acc_sum[i]
                 else:
-                    weights[inds] = tot / num_in_bin
+                    weights[inds] = tot / num_in_bin  # tot=论文中N，num_in_bin=论文中delta
                 n += 1
         if n > 0:
-            weights = weights / n
+            # weights=论文中beta 每个样本的权重
+            weights = weights / n  # n是有样本的区间个数即论文中的1/l(l是单位间隔)，n<=bin
 
         loss = F.binary_cross_entropy_with_logits(
             pred, target, weights, reduction='sum') / tot
