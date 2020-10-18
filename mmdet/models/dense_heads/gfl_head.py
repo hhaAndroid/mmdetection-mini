@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mmdet.cv_core.cnn import ConvModule, Scale, bias_init_with_prob, normal_init
 from mmdet.det_core import (anchor_inside_flags, bbox2distance, bbox_overlaps,
-                        build_assigner, build_sampler, distance2bbox,
-                        images_to_levels, multi_apply, multiclass_nms, unmap)
+                            build_assigner, build_sampler, distance2bbox,
+                            images_to_levels, multi_apply, multiclass_nms, unmap)
 from ..builder import HEADS, build_loss
 from .anchor_head import AnchorHead
 
@@ -40,7 +40,9 @@ class Integral(nn.Module):
             x (Tensor): Integral result of box locations, i.e., distance
                 offsets from the box center in four directions, shape (N, 4).
         """
+        # 映射为分布
         x = F.softmax(x.reshape(-1, self.reg_max + 1), dim=1)
+        # 积分操作，得到最终浮点值
         x = F.linear(x, self.project.type_as(x)).reshape(-1, 4)
         return x
 
@@ -245,22 +247,28 @@ class GFLHead(AnchorHead):
         score = label_weights.new_zeros(labels.shape)
 
         if len(pos_inds) > 0:
-            pos_bbox_targets = bbox_targets[pos_inds]
-            pos_bbox_pred = bbox_pred[pos_inds]
-            pos_anchors = anchors[pos_inds]
+            pos_bbox_targets = bbox_targets[pos_inds]  # gt bbox值，原图尺度
+            pos_bbox_pred = bbox_pred[pos_inds]  # 分布形式输出值，特征图维度
+            pos_anchors = anchors[pos_inds]  # 正方形anchor，原图尺度
+            # 正样本特征图上面点坐标，特征图尺度
             pos_anchor_centers = self.anchor_center(pos_anchors) / stride[0]
 
             weight_targets = cls_score.detach().sigmoid()
+            # 预测类别所对应的输出分值
             weight_targets = weight_targets.max(dim=1)[0][pos_inds]
+            # 转换为浮点坐标，代表距离4条边的距离，注意是特征图维度值，不是原图维度值，其实就是相差一个stride参数而已
             pos_bbox_pred_corners = self.integral(pos_bbox_pred)
+            # 还原得到bbox坐标，特征图维度
             pos_decode_bbox_pred = distance2bbox(pos_anchor_centers,
                                                  pos_bbox_pred_corners)
-            pos_decode_bbox_targets = pos_bbox_targets / stride[0]
+            pos_decode_bbox_targets = pos_bbox_targets / stride[0]  # 原图尺度转换为特征图尺度
+            # 计算iou，is_aligned=True表示bbox1和bbox2维度相同
             score[pos_inds] = bbox_overlaps(
                 pos_decode_bbox_pred.detach(),
                 pos_decode_bbox_targets,
                 is_aligned=True)
             pred_corners = pos_bbox_pred.reshape(-1, self.reg_max + 1)
+            # gt bbox编码，变成距离4条边的距离，特征图维度
             target_corners = bbox2distance(pos_anchor_centers,
                                            pos_decode_bbox_targets,
                                            self.reg_max).reshape(-1)
@@ -269,10 +277,10 @@ class GFLHead(AnchorHead):
             loss_bbox = self.loss_bbox(
                 pos_decode_bbox_pred,
                 pos_decode_bbox_targets,
-                weight=weight_targets,
+                weight=weight_targets,  # 注意，将分类分值作为权重，进一步加强一致性
                 avg_factor=1.0)
 
-            # dfl loss
+            # dfl loss 注意，将分类分值作为权重，进一步加强一致性
             loss_dfl = self.loss_dfl(
                 pred_corners,
                 target_corners,
@@ -283,7 +291,7 @@ class GFLHead(AnchorHead):
             loss_dfl = bbox_pred.sum() * 0
             weight_targets = torch.tensor(0).cuda()
 
-        # cls (qfl) loss
+        # cls (qfl) loss 注意要score
         loss_cls = self.loss_cls(
             cls_score, (labels, score),
             weight=label_weights,
@@ -343,17 +351,17 @@ class GFLHead(AnchorHead):
         num_total_samples = num_total_pos
         num_total_samples = max(num_total_samples, 1.0)
 
-        losses_cls, losses_bbox, losses_dfl,\
-            avg_factor = multi_apply(
-                self.loss_single,
-                anchor_list,
-                cls_scores,
-                bbox_preds,
-                labels_list,
-                label_weights_list,
-                bbox_targets_list,
-                self.anchor_generator.strides,
-                num_total_samples=num_total_samples)
+        losses_cls, losses_bbox, losses_dfl, \
+        avg_factor = multi_apply(
+            self.loss_single,
+            anchor_list,
+            cls_scores,
+            bbox_preds,
+            labels_list,
+            label_weights_list,
+            bbox_targets_list,
+            self.anchor_generator.strides,
+            num_total_samples=num_total_samples)
 
         avg_factor = sum(avg_factor)
         avg_factor = avg_factor.item()
@@ -413,7 +421,8 @@ class GFLHead(AnchorHead):
 
             scores = cls_score.permute(1, 2, 0).reshape(
                 -1, self.cls_out_channels).sigmoid()
-            bbox_pred = bbox_pred.permute(1, 2, 0)
+            bbox_pred = bbox_pred.permute(1, 2, 0)  # 输出是特征图维度
+            # 需要乘以stride，变成原图维度
             bbox_pred = self.integral(bbox_pred) * stride[0]
 
             nms_pre = cfg.get('nms_pre', -1)
@@ -483,16 +492,16 @@ class GFLHead(AnchorHead):
             gt_labels_list = [None for _ in range(num_imgs)]
         (all_anchors, all_labels, all_label_weights, all_bbox_targets,
          all_bbox_weights, pos_inds_list, neg_inds_list) = multi_apply(
-             self._get_target_single,
-             anchor_list,
-             valid_flag_list,
-             num_level_anchors_list,
-             gt_bboxes_list,
-             gt_bboxes_ignore_list,
-             gt_labels_list,
-             img_metas,
-             label_channels=label_channels,
-             unmap_outputs=unmap_outputs)
+            self._get_target_single,
+            anchor_list,
+            valid_flag_list,
+            num_level_anchors_list,
+            gt_bboxes_list,
+            gt_bboxes_ignore_list,
+            gt_labels_list,
+            img_metas,
+            label_channels=label_channels,
+            unmap_outputs=unmap_outputs)
         # no valid anchors
         if any([labels is None for labels in all_labels]):
             return None
@@ -563,7 +572,7 @@ class GFLHead(AnchorHead):
                                            img_meta['img_shape'][:2],
                                            self.train_cfg.allowed_border)
         if not inside_flags.any():
-            return (None, ) * 7
+            return (None,) * 7
         # assign gt and sample anchors
         anchors = flat_anchors[inside_flags, :]
 
@@ -579,7 +588,7 @@ class GFLHead(AnchorHead):
         num_valid_anchors = anchors.shape[0]
         bbox_targets = torch.zeros_like(anchors)
         bbox_weights = torch.zeros_like(anchors)
-        labels = anchors.new_full((num_valid_anchors, ),
+        labels = anchors.new_full((num_valid_anchors,),
                                   self.num_classes,
                                   dtype=torch.long)
         label_weights = anchors.new_zeros(num_valid_anchors, dtype=torch.float)

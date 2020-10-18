@@ -26,26 +26,29 @@ def quality_focal_loss(pred, target, beta=2.0):
     assert len(target) == 2, """target for QFL must be a tuple of two elements,
         including category label and quality label, respectively"""
     # label denotes the category id, score denotes the quality score
-    label, score = target
+    label, score = target  # label(N) 类别,score(N),预测bbox和gt bbox的iou
 
     # negatives are supervised by 0 quality score
-    pred_sigmoid = pred.sigmoid()
+    pred_sigmoid = pred.sigmoid()  # (N,class_num)
     scale_factor = pred_sigmoid
     zerolabel = scale_factor.new_zeros(pred.shape)
+    # 先假设所有label都是负样本，计算bce loss，乘上sigmoid^beta次方，达到focal效应
     loss = F.binary_cross_entropy_with_logits(
         pred, zerolabel, reduction='none') * scale_factor.pow(beta)
 
     # FG cat_id: [0, num_classes -1], BG cat_id: num_classes
     bg_class_ind = pred.size(1)
+    # 找出正样本索引
     pos = ((label >= 0) & (label < bg_class_ind)).nonzero().squeeze(1)
     pos_label = label[pos].long()
     # positives are supervised by bbox quality (IoU) score
-    scale_factor = score[pos] - pred_sigmoid[pos, pos_label]
+    scale_factor = score[pos] - pred_sigmoid[pos, pos_label]  # 正样本focal值
+    # 计算正样本处的bce loss，注意label=score，而不是1
     loss[pos, pos_label] = F.binary_cross_entropy_with_logits(
         pred[pos, pos_label], score[pos],
         reduction='none') * scale_factor.abs().pow(beta)
 
-    loss = loss.sum(dim=1, keepdim=False)
+    loss = loss.sum(dim=1, keepdim=False)  # (N,class_num)在1维度直接求和，变成(N,)
     return loss
 
 
@@ -65,12 +68,14 @@ def distribution_focal_loss(pred, label):
     Returns:
         torch.Tensor: Loss tensor with shape (N,).
     """
-    dis_left = label.long()
-    dis_right = dis_left + 1
+    dis_left = label.long()  # 坐标整数值
+    dis_right = dis_left + 1  # 右边整数值
+    # 线性权重
     weight_left = dis_right.float() - label
     weight_right = label - dis_left.float()
+    # 两个bce loss，并且加权，促使学到的分布是双峰分布，提高优化效率
     loss = F.cross_entropy(pred, dis_left, reduction='none') * weight_left \
-        + F.cross_entropy(pred, dis_right, reduction='none') * weight_right
+           + F.cross_entropy(pred, dis_right, reduction='none') * weight_right
     return loss
 
 
