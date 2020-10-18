@@ -45,6 +45,9 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] atss    
 - [x] ghm  
 - [x] gfl    
+- [ ] pisa  
+- [ ] paa  
+
 
 ## 4 模型仓库
 [文档链接](./docs/model_zoo.md)
@@ -149,7 +152,9 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第六篇：mmdetection最小复刻版(六)：FCOS深入可视化分析](https://www.zybuluo.com/huanghaian/note/1747551)   
 [第七篇：mmdetection最小复刻版(七)：anchor-base和anchor-free差异分析](https://www.zybuluo.com/huanghaian/note/1748811)      
 [第八篇：mmdetection最小复刻版(八)：梯度均衡机制GHM深入分析](https://www.zybuluo.com/huanghaian/note/1749031)   
-[第九篇：mmdetection最小复刻版(九)：广义FocalLoss深入分析](https://www.zybuluo.com/huanghaian/note/1749472)  
+[第九篇：mmdetection最小复刻版(九)：广义FocalLoss深入分析](https://www.zybuluo.com/huanghaian/note/1749472)    
+[第十篇：mmdetection最小复刻版(十)：Prime Sample Attention分析](https://www.zybuluo.com/huanghaian/note/1749740)    
+  
   
 ## 帮助
 
