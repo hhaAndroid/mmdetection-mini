@@ -9,6 +9,7 @@ from .mse_loss import MSELoss, mse_loss
 from .smooth_l1_loss import L1Loss, SmoothL1Loss, l1_loss, smooth_l1_loss
 from .ghm_loss import GHMC, GHMR
 from .gfocal_loss import QualityFocalLoss, DistributionFocalLoss
+from .pisa_loss import carl_loss, isr_p
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 
 __all__ = [
@@ -17,5 +18,5 @@ __all__ = [
     'FocalLoss', 'smooth_l1_loss', 'SmoothL1Loss', 'mse_loss', 'MSELoss', 'iou_loss', 'bounded_iou_loss',
     'IoULoss', 'BoundedIoULoss', 'GIoULoss', 'DIoULoss', 'CIoULoss',
     'reduce_loss', 'weight_reduce_loss', 'weighted_loss', 'L1Loss',
-    'l1_loss', 'GHMC', 'GHMR', 'QualityFocalLoss', 'DistributionFocalLoss'
+    'l1_loss', 'GHMC', 'GHMR', 'QualityFocalLoss', 'DistributionFocalLoss', 'carl_loss', 'isr_p'
 ]

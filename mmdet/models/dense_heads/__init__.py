@@ -9,8 +9,9 @@ from .anchor_free_head import AnchorFreeHead
 from .fcos_head import FCOSHead
 from .atss_head import ATSSHead
 from .gfl_head import GFLHead
+from .pisa_retinanet_head import PISARetinaHead
 
 __all__ = [
     'AnchorHead', 'RetinaHead', 'YOLOV3Head', 'RRYolov3Head', 'RRTinyYolov3Head', 'RRTinyYolov4Head', 'RRYolov5Head',
-    'AnchorFreeHead', 'FCOSHead', 'ATSSHead', 'GFLHead'
+    'AnchorFreeHead', 'FCOSHead', 'ATSSHead', 'GFLHead', 'PISARetinaHead'
 ]
