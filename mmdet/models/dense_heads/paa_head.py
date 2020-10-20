@@ -136,8 +136,6 @@ class PAAHead(ATSSHead):
                 anchor_list,
             )
             num_pos = sum(num_pos)
-            if num_pos == 0:
-                num_pos = len(img_metas)
         # convert all tensor list to a flatten tensor
         cls_scores = torch.cat(cls_scores, 0).view(-1, cls_scores[0].size(-1))
         bbox_preds = torch.cat(bbox_preds, 0).view(-1, bbox_preds[0].size(-1))
@@ -154,7 +152,10 @@ class PAAHead(ATSSHead):
                             (labels < self.num_classes)).nonzero().reshape(-1)
 
         losses_cls = self.loss_cls(
-            cls_scores, labels, labels_weight, avg_factor=num_pos)
+            cls_scores,
+            labels,
+            labels_weight,
+            avg_factor=max(num_pos, len(img_metas)))
         if num_pos:
             pos_bbox_pred = self.bbox_coder.decode(
                 flatten_anchors[pos_inds_flatten],
@@ -162,7 +163,7 @@ class PAAHead(ATSSHead):
             pos_bbox_target = bboxes_target[pos_inds_flatten]
             iou_target = bbox_overlaps(
                 pos_bbox_pred.detach(), pos_bbox_target, is_aligned=True)
-            losses_iou = self.loss_centerness(
+            losses_iou = self.loss_centerness(  # iou预测分支
                 iou_preds[pos_inds_flatten],
                 iou_target.unsqueeze(-1),
                 avg_factor=num_pos)
@@ -284,12 +285,16 @@ class PAAHead(ATSSHead):
         for gt_ind in range(num_gt):
             pos_inds_gmm = []
             pos_loss_gmm = []
+            # 找到所有负责该gt bbox的anchor索引
             gt_mask = pos_gt_inds == gt_ind
             for level in range(num_level):
                 level_mask = pos_level_mask[level]
+                # 找到该FPN层的所有正样本anchor
                 level_gt_mask = level_mask & gt_mask
+                # 按照loss降序进行topk操作
                 value, topk_inds = pos_losses[level_gt_mask].topk(
                     min(level_gt_mask.sum(), self.topk), largest=False)
+                # 此时就找到了某个gt bbox的某个输出层的候选样本
                 pos_inds_gmm.append(pos_inds[level_gt_mask][topk_inds])
                 pos_loss_gmm.append(value)
             pos_inds_gmm = torch.cat(pos_inds_gmm)
@@ -299,7 +304,7 @@ class PAAHead(ATSSHead):
                 continue
             device = pos_inds_gmm.device
             pos_loss_gmm, sort_inds = pos_loss_gmm.sort()
-            pos_inds_gmm = pos_inds_gmm[sort_inds]
+            pos_inds_gmm = pos_inds_gmm[sort_inds]  # 降序排列
             pos_loss_gmm = pos_loss_gmm.view(-1, 1).cpu().numpy()
             min_loss, max_loss = pos_loss_gmm.min(), pos_loss_gmm.max()
             means_init = [[min_loss], [max_loss]]
@@ -308,6 +313,7 @@ class PAAHead(ATSSHead):
             if skm is None:
                 raise ImportError('Please run "pip install sklearn" '
                                   'to install sklearn first.')
+            # gmm建模
             gmm = skm.GaussianMixture(
                 2,
                 weights_init=weights_init,
@@ -318,7 +324,7 @@ class PAAHead(ATSSHead):
             scores = gmm.score_samples(pos_loss_gmm)
             gmm_assignment = torch.from_numpy(gmm_assignment).to(device)
             scores = torch.from_numpy(scores).to(device)
-
+            # 进行正负样本分离
             pos_inds_temp, ignore_inds_temp = self.gmm_separation_scheme(
                 gmm_assignment, scores, pos_inds_gmm)
             pos_inds_after_paa.append(pos_inds_temp)
@@ -356,6 +362,7 @@ class PAAHead(ATSSHead):
                 - pos_inds_temp (Tensor): Indices of positive samples.
                 - ignore_inds_temp (Tensor): Indices of ignore samples.
         """
+        # 分离策略是论文中的c
         # The implementation is (c) in Fig.3 in origin paper intead of (b).
         # You can refer to issues such as
         # https://github.com/kkhoot/PAA/issues/8 and
@@ -365,7 +372,7 @@ class PAAHead(ATSSHead):
         ignore_inds_temp = fgs.new_tensor([], dtype=torch.long)
         if fgs.nonzero().numel():
             _, pos_thr_ind = scores[fgs].topk(1)
-            pos_inds_temp = pos_inds_gmm[fgs][:pos_thr_ind + 1]
+            pos_inds_temp = pos_inds_gmm[fgs][:pos_thr_ind + 1]  # 前面所有都是正样本
             ignore_inds_temp = pos_inds_gmm.new_tensor([])
         return pos_inds_temp, ignore_inds_temp
 

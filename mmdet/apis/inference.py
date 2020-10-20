@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from mmdet import cv_core
 import numpy as np
 import torch
+from mmdet.cv_core.ops import RoIPool
 from mmdet.cv_core.parallel import collate
 from mmdet.cv_core.runner import load_checkpoint
 
@@ -93,6 +94,10 @@ def inference_detector(model, img):
         data['img'][0] = data['img'][0].cuda()
         data['img_metas'] = data['img_metas'][0].data
     else:
+        for m in model.modules():
+            assert not isinstance(
+                m, RoIPool
+            ), 'CPU inference with RoIPool is not supported currently.'
         # just get the actual data from DataContainer
         data['img_metas'] = data['img_metas'][0].data
 

@@ -34,8 +34,8 @@ test:
 
 
 当前同步更新日期:
-    mmcv: add switch for onnx exporter (#607) robin Han* 2020/10/11 下午6:11
-    mmdetection: Merge pull request #3895 from yhcao6/get-started-verify-doc AemikaChow* 2020/10/14 下午1:17
+    mmcv: Skip opencv requirement if it's already installed in the env (i.e. via conda) (#616) David de la Iglesia Castro* 2020/10/17 下午5:58
+    mmdetection: [enhance]: Use RoIAlign implemented in MMCV for inference in CPU mode (#3930) RunningLeon* 2020/10/19 下午9:37
 
 
 ../configs/yolo/yolov3_d53_320_273e_coco.py  /home/hha/Downloads/yolov3_d53_320_273e_coco-421362b6.pth
