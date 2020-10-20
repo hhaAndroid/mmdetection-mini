@@ -149,7 +149,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第四篇：mmdetection最小复刻版(四)：独家yolo转化内幕](https://www.zybuluo.com/huanghaian/note/1744915)      
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/265950384)         
 [第五篇：mmdetection最小复刻版(五)：yolov5转化内幕](https://www.zybuluo.com/huanghaian/note/1745145)    
-或者[知乎文章](https://zhuanlan.zhihu.com/p/266916615)     
+或者 [知乎文章](https://zhuanlan.zhihu.com/p/266916615)     
 [第六篇：mmdetection最小复刻版(六)：FCOS深入可视化分析](https://www.zybuluo.com/huanghaian/note/1747551)   
 [第七篇：mmdetection最小复刻版(七)：anchor-base和anchor-free差异分析](https://www.zybuluo.com/huanghaian/note/1748811)      
 [第八篇：mmdetection最小复刻版(八)：梯度均衡机制GHM深入分析](https://www.zybuluo.com/huanghaian/note/1749031)   
