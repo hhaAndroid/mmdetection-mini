@@ -40,7 +40,7 @@ model = dict(
             gamma=2.0,
             alpha=0.25,
             loss_weight=1.0),
-        loss_bbox=dict(type='L1Loss', loss_weight=1.0)))
+        loss_bbox=dict(type='L1Loss', loss_weight=1.0)))  # 注意不是smooth l1，而是l1(mmdet改了，说效果更好)，原论文是sl1
 # training and testing settings
 train_cfg = dict(
     # 双阈值策略，下列设置会出现忽略样本，且可能引入低质量anchor
