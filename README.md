@@ -46,7 +46,7 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] ghm  
 - [x] gfl    
 - [x] pisa  
-- [ ] paa  
+- [x] paa  
 
 
 ## 4 模型仓库
