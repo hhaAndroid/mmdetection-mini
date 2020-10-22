@@ -1,8 +1,10 @@
 import numpy as np
 import torch
 
+from mmdet import cv_core
 from mmdet.det_core import multi_apply, multiclass_nms, bbox_overlaps
 
+from . import atss_head
 from .atss_head import ATSSHead
 from ..builder import HEADS
 
@@ -100,6 +102,7 @@ class PAAHead(ATSSHead):
         anchor_list, valid_flag_list = self.get_anchors(
             featmap_sizes, img_metas, device=device)
         label_channels = self.cls_out_channels if self.use_sigmoid_cls else 1
+        # 第一轮正负样本定义,由于阈值很低，非常多正样本
         cls_reg_targets = self.get_targets(
             anchor_list,
             valid_flag_list,
@@ -119,6 +122,7 @@ class PAAHead(ATSSHead):
         bbox_preds = [item.reshape(-1, 4) for item in bbox_preds]
         iou_preds = levels_to_images(iou_preds)
         iou_preds = [item.reshape(-1, 1) for item in iou_preds]
+        # 第二轮正负样本定义
         pos_losses_list, = multi_apply(self.get_pos_loss, anchor_list,
                                        cls_scores, bbox_preds, labels,
                                        labels_weight, bboxes_target,
@@ -136,6 +140,26 @@ class PAAHead(ATSSHead):
                 anchor_list,
             )
             num_pos = sum(num_pos)
+
+        # 正样本可视化
+        if self.debug:
+            for i in range(len(anchor_list)):  # 遍历图片数
+                anchors = anchor_list[i]
+                img_meta = img_metas[i]
+                label = labels[i]
+                gt_bbox = gt_bboxes[i]
+                imgs = []
+                count = 0
+                for j in range(len(anchors)):  # 遍历每个输出层
+                    anchor = anchors[j]
+                    label_ = label[count:count + len(anchor)]
+                    count += len(anchor)
+                    index = (label_ >= 0) & (label_ < self.num_classes)
+                    gt_anchor = anchor[index]
+                    img = atss_head.show_pos_anchor(img_meta, gt_anchor, gt_bbox, is_show=False)
+                    imgs.append(img)
+                cv_core.show_img(imgs)
+
         # convert all tensor list to a flatten tensor
         cls_scores = torch.cat(cls_scores, 0).view(-1, cls_scores[0].size(-1))
         bbox_preds = torch.cat(bbox_preds, 0).view(-1, bbox_preds[0].size(-1))
@@ -214,6 +238,7 @@ class PAAHead(ATSSHead):
         pos_bbox_target = bbox_target[pos_inds]
         pos_bbox_weight = bbox_weight[pos_inds]
         pos_anchors = anchors_all_level[pos_inds]
+        # 基于预测值还原为bbox
         pos_bbox_pred = self.bbox_coder.decode(pos_anchors, pos_bbox_pred)
 
         # to keep loss dimension
@@ -231,8 +256,8 @@ class PAAHead(ATSSHead):
             avg_factor=self.loss_cls.loss_weight,
             reduction_override='none')
 
-        loss_cls = loss_cls.sum(-1)
-        pos_loss = loss_bbox + loss_cls
+        loss_cls = loss_cls.sum(-1)  # 类别方向相加
+        pos_loss = loss_bbox + loss_cls  # 得到评估正负样本的分值
         return pos_loss,
 
     def paa_reassign(self, pos_losses, label, label_weight, bbox_weight,
@@ -276,22 +301,27 @@ class PAAHead(ATSSHead):
         num_anchors_each_level.insert(0, 0)
         inds_level_interval = np.cumsum(num_anchors_each_level)
         pos_level_mask = []
+        # 记录每个输出层样本mask，方便后面切割每层样本
         for i in range(num_level):
+            # pos_inds里面存储的是所有输出层flatten后的值，所以需要先把各输出层的数据提取出来
             mask = (pos_inds >= inds_level_interval[i]) & (
                     pos_inds < inds_level_interval[i + 1])
             pos_level_mask.append(mask)
         pos_inds_after_paa = []
         ignore_inds_after_paa = []
+        # 对每个gt bbox单独操作
         for gt_ind in range(num_gt):
             pos_inds_gmm = []
             pos_loss_gmm = []
-            # 找到所有负责该gt bbox的anchor索引
+            # 找到所有负责该gt bbox的所有anchor索引
             gt_mask = pos_gt_inds == gt_ind
+            # 对每层先进行topk操作，构成候选分值列表
             for level in range(num_level):
                 level_mask = pos_level_mask[level]
                 # 找到该FPN层的所有正样本anchor
                 level_gt_mask = level_mask & gt_mask
-                # 按照loss降序进行topk操作
+                # 按照loss升序进行topk操作，topk后面的就是负样本
+                # 为了加快计算速度，不知道这种操作对结果有多少影响？
                 value, topk_inds = pos_losses[level_gt_mask].topk(
                     min(level_gt_mask.sum(), self.topk), largest=False)
                 # 此时就找到了某个gt bbox的某个输出层的候选样本
@@ -301,14 +331,15 @@ class PAAHead(ATSSHead):
             pos_loss_gmm = torch.cat(pos_loss_gmm)
             # fix gmm need at least two sample
             if len(pos_inds_gmm) < 2:
+                # 如果样本就2个，没啥算的
                 continue
             device = pos_inds_gmm.device
             pos_loss_gmm, sort_inds = pos_loss_gmm.sort()
-            pos_inds_gmm = pos_inds_gmm[sort_inds]  # 降序排列
+            pos_inds_gmm = pos_inds_gmm[sort_inds]  # 升序排列
             pos_loss_gmm = pos_loss_gmm.view(-1, 1).cpu().numpy()
             min_loss, max_loss = pos_loss_gmm.min(), pos_loss_gmm.max()
             means_init = [[min_loss], [max_loss]]
-            weights_init = [0.5, 0.5]
+            weights_init = [0.5, 0.5]  # 每个样本属于正负样本概率都是0.5
             precisions_init = [[[1.0]], [[1.0]]]
             if skm is None:
                 raise ImportError('Please run "pip install sklearn" '
@@ -320,10 +351,13 @@ class PAAHead(ATSSHead):
                 means_init=means_init,
                 precisions_init=precisions_init)
             gmm.fit(pos_loss_gmm)
+            # 得到每个样本的分配结果
             gmm_assignment = gmm.predict(pos_loss_gmm)
+            # 得到每个样本的分配结果分数
             scores = gmm.score_samples(pos_loss_gmm)
             gmm_assignment = torch.from_numpy(gmm_assignment).to(device)
             scores = torch.from_numpy(scores).to(device)
+
             # 进行正负样本分离
             pos_inds_temp, ignore_inds_temp = self.gmm_separation_scheme(
                 gmm_assignment, scores, pos_inds_gmm)
@@ -334,9 +368,9 @@ class PAAHead(ATSSHead):
         ignore_inds_after_paa = torch.cat(ignore_inds_after_paa)
         reassign_mask = (pos_inds.unsqueeze(1) != pos_inds_after_paa).all(1)
         reassign_ids = pos_inds[reassign_mask]
-        label[reassign_ids] = self.num_classes
-        label_weight[ignore_inds_after_paa] = 0
-        bbox_weight[reassign_ids] = 0
+        label[reassign_ids] = self.num_classes  # 其余全部算负样本
+        label_weight[ignore_inds_after_paa] = 0  # 如果有忽略样本，则赋予0
+        bbox_weight[reassign_ids] = 0  # 如果有忽略样本，则赋予0
         num_pos = len(pos_inds_after_paa)
         return label, label_weight, bbox_weight, num_pos
 
@@ -367,14 +401,14 @@ class PAAHead(ATSSHead):
         # You can refer to issues such as
         # https://github.com/kkhoot/PAA/issues/8 and
         # https://github.com/kkhoot/PAA/issues/9.
-        fgs = gmm_assignment == 0
+        fgs = gmm_assignment == 0  # 0是表示正样本 1是负样本
         pos_inds_temp = fgs.new_tensor([], dtype=torch.long)
         ignore_inds_temp = fgs.new_tensor([], dtype=torch.long)
         if fgs.nonzero().numel():
-            _, pos_thr_ind = scores[fgs].topk(1)
+            _, pos_thr_ind = scores[fgs].topk(1)  # 找到论文红线最高点对应的索引
             pos_inds_temp = pos_inds_gmm[fgs][:pos_thr_ind + 1]  # 前面所有都是正样本
             ignore_inds_temp = pos_inds_gmm.new_tensor([])
-        return pos_inds_temp, ignore_inds_temp
+        return pos_inds_temp, ignore_inds_temp  # 没有忽略样本
 
     def get_targets(
             self,
@@ -442,6 +476,9 @@ class PAAHead(ATSSHead):
             gt_bboxes_ignore_list = [None for _ in range(num_imgs)]
         if gt_labels_list is None:
             gt_labels_list = [None for _ in range(num_imgs)]
+
+        num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
+
         results = multi_apply(
             self._get_targets_single,
             concat_anchor_list,
@@ -451,7 +488,8 @@ class PAAHead(ATSSHead):
             gt_labels_list,
             img_metas,
             label_channels=label_channels,
-            unmap_outputs=unmap_outputs)
+            unmap_outputs=unmap_outputs,
+            num_level_anchor=num_level_anchors)
 
         (labels, label_weights, bbox_targets, bbox_weights, valid_pos_inds,
          valid_neg_inds, sampling_result) = results
@@ -476,7 +514,8 @@ class PAAHead(ATSSHead):
                             gt_labels,
                             img_meta,
                             label_channels=1,
-                            unmap_outputs=True):
+                            unmap_outputs=True,
+                            num_level_anchor=None):
         """Compute regression and classification targets for anchors in a
         single image.
 
@@ -492,7 +531,8 @@ class PAAHead(ATSSHead):
             gt_labels,
             img_meta,
             label_channels=1,
-            unmap_outputs=True)
+            unmap_outputs=True,
+            num_level_anchors=num_level_anchor)
 
     def _get_bboxes_single(self,
                            cls_scores,
@@ -593,7 +633,7 @@ class PAAHead(ATSSHead):
                 - det_labels_voted (Tensor): Label of remaining bboxes
                     after voting, with shape (num_anchors,).
         """
-        candidate_mask = mlvl_nms_scores > score_thr
+        candidate_mask = mlvl_nms_scores > score_thr  # 候选bbox,没有经过nms
         candidate_mask_nozeros = candidate_mask.nonzero()
         candidate_inds = candidate_mask_nozeros[:, 0]
         candidate_labels = candidate_mask_nozeros[:, 1]
@@ -601,29 +641,33 @@ class PAAHead(ATSSHead):
         candidate_scores = mlvl_nms_scores[candidate_mask]
         det_bboxes_voted = []
         det_labels_voted = []
-        for cls in range(self.cls_out_channels):
-            candidate_cls_mask = candidate_labels == cls
+        for cls in range(self.cls_out_channels):  # 遍历每个类别
+            candidate_cls_mask = candidate_labels == cls  # 对应的候选bbox
             if not candidate_cls_mask.any():
                 continue
             candidate_cls_scores = candidate_scores[candidate_cls_mask]
             candidate_cls_bboxes = candidate_bboxes[candidate_cls_mask]
             det_cls_mask = det_labels == cls
+            # 对应类别检测出的所有bbox,经过nms
             det_cls_bboxes = det_bboxes[det_cls_mask].view(
                 -1, det_bboxes.size(-1))
+            # 计算检测bbox和候选bbox的iou
             det_candidate_ious = bbox_overlaps(det_cls_bboxes[:, :4],
                                                candidate_cls_bboxes)
-            for det_ind in range(len(det_cls_bboxes)):
-                single_det_ious = det_candidate_ious[det_ind]
+            for det_ind in range(len(det_cls_bboxes)):  # 遍历每个预测bbox
+                single_det_ious = det_candidate_ious[det_ind]  # 该预测bbox和其余所有候选bbox的iou
                 pos_ious_mask = single_det_ious > 0.01
                 pos_ious = single_det_ious[pos_ious_mask]
                 pos_bboxes = candidate_cls_bboxes[pos_ious_mask]
                 pos_scores = candidate_cls_scores[pos_ious_mask]
                 pis = (torch.exp(-(1 - pos_ious) ** 2 / 0.025) *
                        pos_scores)[:, None]
+                # bbox加权
                 voted_box = torch.sum(
                     pis * pos_bboxes, dim=0) / torch.sum(
                     pis, dim=0)
                 voted_score = det_cls_bboxes[det_ind][-1:][None, :]
+                # 新的bbox
                 det_bboxes_voted.append(
                     torch.cat((voted_box[None, :], voted_score), dim=1))
                 det_labels_voted.append(cls)
