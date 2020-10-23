@@ -22,10 +22,13 @@ class RPNHead(RPNTestMixin, AnchorHead):
 
     def _init_layers(self):
         """Initialize layers of the head."""
+        # 256-->256
         self.rpn_conv = nn.Conv2d(
             self.in_channels, self.feat_channels, 3, padding=1)
+        # 256-->3x1
         self.rpn_cls = nn.Conv2d(self.feat_channels,
                                  self.num_anchors * self.cls_out_channels, 1)
+        # 256-->3x4
         self.rpn_reg = nn.Conv2d(self.feat_channels, self.num_anchors * 4, 1)
 
     def init_weights(self):
