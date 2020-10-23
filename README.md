@@ -46,7 +46,8 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] ghm  
 - [x] gfl    
 - [x] pisa  
-- [x] paa  
+- [x] paa
+- [ ] faster rcnn   
 
 
 ## 4 模型仓库
@@ -156,7 +157,8 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第八篇：mmdetection最小复刻版(八)：梯度均衡机制GHM深入分析](https://www.zybuluo.com/huanghaian/note/1749031)   
 [第九篇：mmdetection最小复刻版(九)：广义FocalLoss深入分析](https://www.zybuluo.com/huanghaian/note/1749472)    
 [第十篇：mmdetection最小复刻版(十)：mAP和PISA深入分析](https://www.zybuluo.com/huanghaian/note/1749740)      
-[第十一篇:mmdetection最小复刻版(十一)：概率Anchor分配机制PAA深入分析](https://www.zybuluo.com/huanghaian/note/1750308)    
+[第十一篇:mmdetection最小复刻版(十一)：概率Anchor分配机制PAA深入分析](https://www.zybuluo.com/huanghaian/note/1750308)      
+[第十二篇：mmdetection最小复刻版(十二)：Faster RCNN深入分析](https://www.zybuluo.com/huanghaian/note/1751034)  
   
   
 ## 帮助

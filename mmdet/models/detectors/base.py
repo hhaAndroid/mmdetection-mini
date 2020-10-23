@@ -7,7 +7,6 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 from mmdet.cv_core.utils import print_log
-from mmdet.cv_core import DataContainer
 from mmdet.utils import get_root_logger
 
 

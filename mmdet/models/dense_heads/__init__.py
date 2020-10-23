@@ -1,3 +1,5 @@
+from .rpn_head import RPNHead
+from .rpn_test_mixin import RPNTestMixin
 from .anchor_head import AnchorHead
 from .retina_head import RetinaHead
 from .yolo_head import YOLOV3Head
@@ -13,6 +15,7 @@ from .pisa_retinanet_head import PISARetinaHead
 from .paa_head import PAAHead
 
 __all__ = [
-    'AnchorHead', 'RetinaHead', 'YOLOV3Head', 'RRYolov3Head', 'RRTinyYolov3Head', 'RRTinyYolov4Head', 'RRYolov5Head',
+    'RPNHead', 'RPNTestMixin', 'AnchorHead', 'RetinaHead', 'YOLOV3Head', 'RRYolov3Head', 'RRTinyYolov3Head',
+    'RRTinyYolov4Head', 'RRYolov5Head',
     'AnchorFreeHead', 'FCOSHead', 'ATSSHead', 'GFLHead', 'PISARetinaHead', 'PAAHead'
 ]
