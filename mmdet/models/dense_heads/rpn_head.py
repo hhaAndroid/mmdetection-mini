@@ -78,6 +78,8 @@ class RPNHead(RPNTestMixin, AnchorHead):
         return dict(
             loss_rpn_cls=losses['loss_cls'], loss_rpn_bbox=losses['loss_bbox'])
 
+    # 为啥要重写父类方法？原因是1首先配置不一样；2，不需要还原到最原始图比例rescale
+    # 理论上只需要简单兼容，其实这个子类函数不需要，我觉得可以
     def _get_bboxes_single(self,
                            cls_scores,
                            bbox_preds,

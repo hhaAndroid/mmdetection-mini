@@ -58,7 +58,9 @@ class CascadeRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
             bbox_head = [bbox_head for _ in range(self.num_stages)]
         assert len(bbox_roi_extractor) == len(bbox_head) == self.num_stages
         for roi_extractor, head in zip(bbox_roi_extractor, bbox_head):
+            # roialign
             self.bbox_roi_extractor.append(build_roi_extractor(roi_extractor))
+            # Shared2FCBBoxHead
             self.bbox_head.append(build_head(head))
 
     def init_mask_head(self, mask_roi_extractor, mask_head):
@@ -95,6 +97,7 @@ class CascadeRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
         self.bbox_sampler = []
         if self.train_cfg is not None:
             for idx, rcnn_train_cfg in enumerate(self.train_cfg):
+                # 正负样本定义和随机采样策略
                 self.bbox_assigner.append(
                     build_assigner(rcnn_train_cfg.assigner))
                 self.current_stage = idx
@@ -154,7 +157,8 @@ class CascadeRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
                             gt_labels, rcnn_train_cfg):
         """Run forward function and calculate loss for box head in training."""
         rois = bbox2roi([res.bboxes for res in sampling_results])
-        bbox_results = self._bbox_forward(stage, x, rois)
+        bbox_results = self._bbox_forward(stage, x, rois)  # head网络原始输出结果
+        # 对应的基于rois的变换targets，用于算loss
         bbox_targets = self.bbox_head[stage].get_targets(
             sampling_results, gt_bboxes, gt_labels, rcnn_train_cfg)
         loss_bbox = self.bbox_head[stage].loss(bbox_results['cls_score'],
@@ -274,13 +278,16 @@ class CascadeRoIHead(BaseRoIHead, BBoxTestMixin, MaskTestMixin):
             # refine bboxes
             if i < self.num_stages - 1:
                 pos_is_gts = [res.pos_is_gt for res in sampling_results]
-                # bbox_targets is a tuple
-                roi_labels = bbox_results['bbox_targets'][0]
+                # bbox_targets is a tuple 是上一次rcnn在计算loss前的算出来的bbox_targets
+                roi_labels = bbox_results['bbox_targets'][0]  # 里面存储了哪些位置是正样本背景样本信息
                 with torch.no_grad():
+                    # 如果是背景样本，则提取num_class个通道的最大预测索引值作为类别信息
+                    # 仅仅当self.reg_class_agnostic=Fasle才有用，需要该信息从回归的4xnum_class个通道里面提取有效的bbox预测值
                     roi_labels = torch.where(
                         roi_labels == self.bbox_head[i].num_classes,
                         bbox_results['cls_score'][:, :-1].argmax(1),
                         roi_labels)
+                    # 利用当前bbox_pred值和rois对其进行refine，得到信息的proposal_list，用于下一次迭代
                     proposal_list = self.bbox_head[i].refine_bboxes(
                         bbox_results['rois'], roi_labels,
                         bbox_results['bbox_pred'], pos_is_gts, img_metas)

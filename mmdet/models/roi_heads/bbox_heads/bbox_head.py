@@ -7,6 +7,7 @@ from mmdet.det_core import build_bbox_coder, multi_apply, multiclass_nms
 from mmdet.models.builder import HEADS, build_loss
 from mmdet.models.losses import accuracy
 
+# bboxhead其实特指rcnn head，也就是说仅仅用于two-stage
 
 @HEADS.register_module()
 class BBoxHead(nn.Module):
@@ -219,6 +220,7 @@ class BBoxHead(nn.Module):
 
             return det_bboxes, det_labels
 
+    # cascade rcnn需要不断refine，不需要nms,也不需要还原到原图尺寸
     def refine_bboxes(self, rois, labels, bbox_preds, pos_is_gts, img_metas):
         """Refine bboxes during training.
 
@@ -275,6 +277,7 @@ class BBoxHead(nn.Module):
 
         bboxes_list = []
         for i in range(len(img_metas)):
+            # 找出每张图片各自的rois
             inds = torch.nonzero(
                 rois[:, 0] == i, as_tuple=False).squeeze(dim=1)
             num_rois = inds.numel()
@@ -317,6 +320,7 @@ class BBoxHead(nn.Module):
             bbox_pred = torch.gather(bbox_pred, 1, inds)
         assert bbox_pred.size(1) == 4
 
+        # 这个refine操作非常简单，仅仅需要对所有预测值近解码即可
         if rois.size(1) == 4:
             new_rois = self.bbox_coder.decode(
                 rois, bbox_pred, max_shape=img_meta['img_shape'])

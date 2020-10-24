@@ -52,8 +52,11 @@ class BaseDenseHead(nn.Module, metaclass=ABCMeta):
         else:
             loss_inputs = outs + (gt_bboxes, gt_labels, img_metas)
         losses = self.loss(*loss_inputs, gt_bboxes_ignore=gt_bboxes_ignore)
+        # 核心操作，在训练过程中需要返回预测结果的，此时需要proposal_cfg不为none
+        # 例如RPN head，其需要给rcnn进行refine
         if proposal_cfg is None:
             return losses
         else:
+            # get_bboxes其实就是前向推理流程
             proposal_list = self.get_bboxes(*outs, img_metas, cfg=proposal_cfg)
             return losses, proposal_list
