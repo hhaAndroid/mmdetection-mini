@@ -5,6 +5,8 @@
 **(1) 新特性**
 - 新增dynamic rcnn模型
 - 新增dynamic rcnn文档和注释
+- 新增libra rcnn模型
+- 新增libra rcnn文档和注释
 
 
 ### 2020.10.24
