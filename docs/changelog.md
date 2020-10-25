@@ -1,6 +1,17 @@
 # ChangeLog
 
 ## V0.0.4
+### 2020.10.25
+**(1) 新特性**
+- 新增dynamic rcnn模型
+- 新增dynamic rcnn文档和注释
+
+
+### 2020.10.24
+**(1) 新特性**
+- 新增cascade rcnn模型
+- 新增cascade rcnn文档和注释
+
 ### 2020.10.23
 **(1) 新特性**
 - 新增faster rcnn模型

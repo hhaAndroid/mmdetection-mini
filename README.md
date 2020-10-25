@@ -48,9 +48,9 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] pisa  
 - [x] paa
 - [x] faster rcnn     
-- [ ] cascade rcnn     
+- [x] cascade rcnn     
 - [ ] libra rcnn
-- [ ] dynamic rcnn
+- [x] dynamic rcnn
 
 
 ## 4 模型仓库
