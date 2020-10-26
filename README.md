@@ -143,7 +143,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 
 ## 笔记(持续更新)
-
+[基于mmdetection的检测算法总结(持续)](https://zhuanlan.zhihu.com/p/268714239) 在docs文件夹下有对应脑图  
 [第一篇：mmdetection最小复刻版(一)：整体概览](https://www.zybuluo.com/huanghaian/note/1742545)  
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/252616317)   
 [第二篇：mmdetection最小复刻版(二)：RetinaNet和YoloV3分析](https://www.zybuluo.com/huanghaian/note/1742594)    
