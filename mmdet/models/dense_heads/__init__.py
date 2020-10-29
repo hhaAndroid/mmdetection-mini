@@ -13,9 +13,10 @@ from .atss_head import ATSSHead
 from .gfl_head import GFLHead
 from .pisa_retinanet_head import PISARetinaHead
 from .paa_head import PAAHead
+from .ssd_head import SSDHead
 
 __all__ = [
     'RPNHead', 'RPNTestMixin', 'AnchorHead', 'RetinaHead', 'YOLOV3Head', 'RRYolov3Head', 'RRTinyYolov3Head',
-    'RRTinyYolov4Head', 'RRYolov5Head',
+    'RRTinyYolov4Head', 'RRYolov5Head', 'SSDHead',
     'AnchorFreeHead', 'FCOSHead', 'ATSSHead', 'GFLHead', 'PISARetinaHead', 'PAAHead'
 ]

@@ -13,6 +13,7 @@ cuda编译： python setup.py develop
 ../configs/cascade_rcnn/cascade_rcnn_r50_fpn_1x_coco.py
 ../configs/dynamic_rcnn/dynamic_rcnn_r50_fpn_1x.py
 ../configs/libra_rcnn/libra_faster_rcnn_r50_fpn_1x_coco.py
+../configs/ssd/ssd300_coco.py
 
 
 
@@ -41,7 +42,7 @@ test:
 
 当前同步更新日期:
     mmcv: Skip opencv requirement if it's already installed in the env (i.e. via conda) (#616) David de la Iglesia Castro* 2020/10/17 下午5:58
-    mmdetection: [enhance]: Use RoIAlign implemented in MMCV for inference in CPU mode (#3930) RunningLeon* 2020/10/19 下午9:37
+    mmdetection: Merge pull request #4006 from v-qjqs/doc AemikaChow* 2020/10/28 下午7:25
 
 
 ../configs/yolo/yolov3_d53_320_273e_coco.py  /home/hha/Downloads/yolov3_d53_320_273e_coco-421362b6.pth
