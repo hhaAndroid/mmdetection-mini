@@ -155,6 +155,7 @@ class SSDHead(AnchorHead):
         num_neg_samples = self.train_cfg.neg_pos_ratio * num_pos_samples
         if num_neg_samples > neg_inds.size(0):
             num_neg_samples = neg_inds.size(0)
+        # ohem操作
         topk_loss_cls_neg, _ = loss_cls_all[neg_inds].topk(num_neg_samples)
         loss_cls_pos = loss_cls_all[pos_inds].sum()
         loss_cls_neg = topk_loss_cls_neg.sum()

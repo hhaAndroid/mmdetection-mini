@@ -55,20 +55,22 @@ class SSDVGG(VGG):
         self.features.add_module(
             str(len(self.features)),
             nn.MaxPool2d(kernel_size=3, stride=1, padding=1))
-        self.features.add_module(
+        self.features.add_module(  # conv6(fc6)
             str(len(self.features)),
             nn.Conv2d(512, 1024, kernel_size=3, padding=6, dilation=6))
         self.features.add_module(
             str(len(self.features)), nn.ReLU(inplace=True))
-        self.features.add_module(
+        self.features.add_module(  # conv7(fc7)
             str(len(self.features)), nn.Conv2d(1024, 1024, kernel_size=1))
         self.features.add_module(
             str(len(self.features)), nn.ReLU(inplace=True))
+        # 22是conv4_3，然后经过relu的输出特征图索引
+        # 34是conv7，然后经过relu的输出特征图索引
         self.out_feature_indices = out_feature_indices
 
         self.inplanes = 1024
         self.extra = self._make_extra_layers(self.extra_setting[input_size])
-        self.l2_norm = L2Norm(
+        self.l2_norm = L2Norm(  # 21才是conv4_3层输出特征图
             self.features[out_feature_indices[0] - 1].out_channels,
             l2_norm_scale)
 
@@ -105,12 +107,12 @@ class SSDVGG(VGG):
         for i, layer in enumerate(self.features):
             x = layer(x)
             if i in self.out_feature_indices:
-                outs.append(x)
+                outs.append(x)  # 注意都是存储relu后的特征图，不是conv
         for i, layer in enumerate(self.extra):
             x = F.relu(layer(x), inplace=True)
             if i % 2 == 1:
                 outs.append(x)
-        outs[0] = self.l2_norm(outs[0])
+        outs[0] = self.l2_norm(outs[0])  # 对conv4_3+relu后的输出图进行l2_norm
         if len(outs) == 1:
             return outs[0]
         else:
@@ -156,6 +158,8 @@ class L2Norm(nn.Module):
         """
         super(L2Norm, self).__init__()
         self.n_dims = n_dims
+        # 初始化操作：constant_init(self.l2_norm, self.l2_norm.scale)
+        # 意思是假设self.weight长度是1024，那么里面的1024个值初始化时候都是设置为scale值
         self.weight = nn.Parameter(torch.Tensor(self.n_dims))
         self.eps = eps
         self.scale = scale
@@ -164,6 +168,8 @@ class L2Norm(nn.Module):
         """Forward function."""
         # normalization layer convert to FP32 in FP16 training
         x_float = x.float()
+        # 对该特征图每个元素先进行平方操作，然后在通道方向计算l2范数，变成(b,1,h,w)
+        # 然后进行归一化操作，最后乘上每个通道各自的可学习参数
         norm = x_float.pow(2).sum(1, keepdim=True).sqrt() + self.eps
         return (self.weight[None, :, None, None].float().expand_as(x_float) *
                 x_float / norm).type_as(x)

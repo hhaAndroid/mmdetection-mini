@@ -383,22 +383,29 @@ class SSDAnchorGenerator(AnchorGenerator):
         assert cv_core.is_tuple_of(basesize_ratio_range, float)
 
         self.strides = [_pair(stride) for stride in strides]
-        self.input_size = input_size
+        self.input_size = input_size  # 300
+        # 特征图上(0,0)坐标点对应到原图上的坐标
         self.centers = [(stride[0] / 2., stride[1] / 2.)
                         for stride in self.strides]
+        # 基本min_ratio和max_ratio范围，voc是0.2,0.9
         self.basesize_ratio_range = basesize_ratio_range
 
         # calculate anchor ratios and sizes
         min_ratio, max_ratio = basesize_ratio_range
+        # 先将base ratio全部乘上100，并且取整
         min_ratio = int(min_ratio * 100)
         max_ratio = int(max_ratio * 100)
+        # 然后计算step
         step = int(np.floor(max_ratio - min_ratio) / (self.num_levels - 2))
         min_sizes = []
         max_sizes = []
+        # 计算第2个输出图和第self.num_levels个特征图anchor的min_size和max_size
         for ratio in range(int(min_ratio), int(max_ratio) + 1, step):
             min_sizes.append(int(self.input_size * ratio / 100))
             max_sizes.append(int(self.input_size * (ratio + step) / 100))
+        # 第1个输出图单独算min_size和max_size
         if self.input_size == 300:
+            # conv4_3层的anchor单独设置，不采用公式
             if basesize_ratio_range[0] == 0.15:  # SSD300 COCO
                 min_sizes.insert(0, int(self.input_size * 7 / 100))
                 max_sizes.insert(0, int(self.input_size * 15 / 100))
@@ -428,7 +435,9 @@ class SSDAnchorGenerator(AnchorGenerator):
         anchor_ratios = []
         anchor_scales = []
         for k in range(len(self.strides)):
+            # 每个输出特征图的尺度变化
             scales = [1., np.sqrt(max_sizes[k] / min_sizes[k])]
+            # 每个输出特征图的高宽比
             anchor_ratio = [1.]
             for r in ratios[k]:
                 anchor_ratio += [1 / r, r]  # 4 or 6 ratio
