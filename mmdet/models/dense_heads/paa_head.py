@@ -8,7 +8,7 @@ from . import atss_head
 from .atss_head import ATSSHead
 from ..builder import HEADS
 
-eps = 1e-12
+EPS = 1e-12
 try:
     import sklearn.mixture as skm
 except ImportError:
@@ -60,10 +60,16 @@ class PAAHead(ATSSHead):
         score_voting (bool): Whether to use score voting in post-process.
     """
 
-    def __init__(self, *args, topk=9, score_voting=True, **kwargs):
+    def __init__(self,
+                 *args,
+                 topk=9,
+                 score_voting=True,
+                 covariance_type='diag',
+                 **kwargs):
         # topk used in paa reassign process
         self.topk = topk
         self.with_score_voting = score_voting
+        self.covariance_type = covariance_type
         super(PAAHead, self).__init__(*args, **kwargs)
 
     def loss(self,
@@ -194,7 +200,7 @@ class PAAHead(ATSSHead):
             losses_bbox = self.loss_bbox(
                 pos_bbox_pred,
                 pos_bbox_target,
-                iou_target.clamp(min=eps),
+                iou_target.clamp(min=EPS),
                 avg_factor=iou_target.sum())
         else:
             losses_iou = iou_preds.sum() * 0
@@ -307,8 +313,8 @@ class PAAHead(ATSSHead):
             mask = (pos_inds >= inds_level_interval[i]) & (
                     pos_inds < inds_level_interval[i + 1])
             pos_level_mask.append(mask)
-        pos_inds_after_paa = []
-        ignore_inds_after_paa = []
+        pos_inds_after_paa = [label.new_tensor([])]
+        ignore_inds_after_paa = [label.new_tensor([])]
         # 对每个gt bbox单独操作
         for gt_ind in range(num_gt):
             pos_inds_gmm = []
@@ -338,18 +344,24 @@ class PAAHead(ATSSHead):
             pos_inds_gmm = pos_inds_gmm[sort_inds]  # 升序排列
             pos_loss_gmm = pos_loss_gmm.view(-1, 1).cpu().numpy()
             min_loss, max_loss = pos_loss_gmm.min(), pos_loss_gmm.max()
-            means_init = [[min_loss], [max_loss]]
-            weights_init = [0.5, 0.5]  # 每个样本属于正负样本概率都是0.5
-            precisions_init = [[[1.0]], [[1.0]]]
+            means_init = np.array([min_loss, max_loss]).reshape(2, 1)
+            weights_init = np.array([0.5, 0.5])
+            precisions_init = np.array([1.0, 1.0]).reshape(2, 1, 1)  # full
+            if self.covariance_type == 'spherical':
+                precisions_init = precisions_init.reshape(2)
+            elif self.covariance_type == 'diag':
+                precisions_init = precisions_init.reshape(2, 1)
+            elif self.covariance_type == 'tied':
+                precisions_init = np.array([[1.0]])
             if skm is None:
                 raise ImportError('Please run "pip install sklearn" '
                                   'to install sklearn first.')
-            # gmm建模
             gmm = skm.GaussianMixture(
                 2,
                 weights_init=weights_init,
                 means_init=means_init,
-                precisions_init=precisions_init)
+                precisions_init=precisions_init,
+                covariance_type=self.covariance_type)
             gmm.fit(pos_loss_gmm)
             # 得到每个样本的分配结果
             gmm_assignment = gmm.predict(pos_loss_gmm)
