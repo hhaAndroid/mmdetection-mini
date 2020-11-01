@@ -167,7 +167,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第十三篇：mmdetection最小复刻版(十三)：超强cascade rcnn算法分析](https://www.zybuluo.com/huanghaian/note/1751181)    
 [第十四篇：mmdetection最小复刻版(十四)：检测器不平衡处理Libra rcnn](https://www.zybuluo.com/huanghaian/note/1751369)    
 [第十五篇：mmdetection最小复刻版(十五)：two-stage动态版本dynamic rcnn](https://www.zybuluo.com/huanghaian/note/1751370)  
-[第十六篇: mmdetection最小复刻版(十六)：iou感知VarifocalNet深入分析](https://www.zybuluo.com/huanghaian/note/1753374)
+[第十六篇：mmdetection最小复刻版(十六)：iou感知VarifocalNet深入分析](https://www.zybuluo.com/huanghaian/note/1753374)
 
 
 ## other
