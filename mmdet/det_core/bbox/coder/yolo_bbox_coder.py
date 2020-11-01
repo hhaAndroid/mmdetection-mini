@@ -47,7 +47,8 @@ class YOLOBBoxCoder(BaseBBoxCoder):
         y_center = (bboxes[..., 1] + bboxes[..., 3]) * 0.5
         w = bboxes[..., 2] - bboxes[..., 0]
         h = bboxes[..., 3] - bboxes[..., 1]
-        # w h编码是 gt bbox的宽高/anchor宽高，加上log，保证大小bbox的宽高预测值不会差距很大(log可以拉近差距)，保证训练过程更加稳定而已
+        # w h编码是 gt bbox的宽高/anchor宽高，加上log，
+        # 保证大小bbox的宽高预测值不会差距很大(log可以拉近差距)，保证训练过程更加稳定而已
         w_target = torch.log((w_gt / w).clamp(min=self.eps))
         h_target = torch.log((h_gt / h).clamp(min=self.eps))
         # xy编码就是gt中心基于左上角网格点的偏移

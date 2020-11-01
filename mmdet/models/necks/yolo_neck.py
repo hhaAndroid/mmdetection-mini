@@ -111,20 +111,22 @@ class YOLOV3Neck(nn.Module):
     def forward(self, feats):
         assert len(feats) == self.num_scales
 
-        # processed from bottom (high-lvl) to top (low-lvl)
         outs = []
+        # P5->O5
         out = self.detect1(feats[-1])
         outs.append(out)
 
         for i, x in enumerate(reversed(feats[:-1])):
             conv = getattr(self, f'conv{i+1}')
+            # 先进行通道变换
             tmp = conv(out)
 
-            # Cat with low-lvl feats
+            # 2倍上采样插值，然后concat融合
             tmp = F.interpolate(tmp, scale_factor=2)
             tmp = torch.cat((tmp, x), 1)
 
             detect = getattr(self, f'detect{i+2}')
+            # 5个CBL模块
             out = detect(tmp)
             outs.append(out)
 
