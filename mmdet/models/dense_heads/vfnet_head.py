@@ -7,7 +7,7 @@ from mmdet.cv_core.ops import DeformConv2d
 
 from mmdet.det_core import (bbox2distance, bbox_overlaps, build_anchor_generator,
                             build_assigner, build_sampler, distance2bbox,
-                            multi_apply, multiclass_nms)
+                            multi_apply, multiclass_nms, build_bbox_coder)
 from ..builder import HEADS, build_loss
 from .atss_head import ATSSHead
 from .fcos_head import FCOSHead
@@ -99,6 +99,10 @@ class VFNetHead(ATSSHead, FCOSHead):
                  loss_bbox_refine=dict(type='GIoULoss', loss_weight=2.0),
                  norm_cfg=dict(type='GN', num_groups=32, requires_grad=True),
                  use_atss=True,
+                 bbox_coder=dict(
+                     type='DeltaXYWHBBoxCoder',
+                     target_means=[.0, .0, .0, .0],
+                     target_stds=[0.1, 0.1, 0.2, 0.2]),
                  anchor_generator=dict(
                      type='AnchorGenerator',
                      ratios=[1.0],
@@ -107,6 +111,8 @@ class VFNetHead(ATSSHead, FCOSHead):
                      center_offset=0.0,
                      strides=[8, 16, 32, 64, 128]),
                  **kwargs):
+
+        self.bbox_coder = build_bbox_coder(bbox_coder)
         # dcn base offsets, adapted from reppoints_head.py
         self.num_dconv_points = 9
         self.dcn_kernel = int(np.sqrt(self.num_dconv_points))
@@ -146,10 +152,12 @@ class VFNetHead(ATSSHead, FCOSHead):
         self.anchor_center_offset = anchor_generator['center_offset']
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
         self.sampling = False
+        self.debug = False
         if self.train_cfg:
             self.assigner = build_assigner(self.train_cfg.assigner)
             sampler_cfg = dict(type='PseudoSampler')
             self.sampler = build_sampler(sampler_cfg, context=self)
+            self.debug = self.train_cfg.debug
 
     def _init_layers(self):
         """Initialize layers of the head."""
