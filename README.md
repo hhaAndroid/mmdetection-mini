@@ -161,15 +161,15 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第七篇：mmdetection最小复刻版(七)：anchor-base和anchor-free差异分析](https://www.zybuluo.com/huanghaian/note/1748811)      
 [第八篇：mmdetection最小复刻版(八)：梯度均衡机制GHM深入分析](https://www.zybuluo.com/huanghaian/note/1749031)   
 [第九篇：mmdetection最小复刻版(九)：广义FocalLoss深入分析](https://www.zybuluo.com/huanghaian/note/1749472)   
-或者 [知乎文章](https://zhuanlan.zhihu.com/p/271636072) 
+或者 [知乎文章](https://zhuanlan.zhihu.com/p/271636072)   
 [第十篇：mmdetection最小复刻版(十)：mAP和PISA深入分析](https://www.zybuluo.com/huanghaian/note/1749740)      
 [第十一篇：mmdetection最小复刻版(十一)：概率Anchor分配机制PAA深入分析](https://www.zybuluo.com/huanghaian/note/1750308)      
 [第十二篇：mmdetection最小复刻版(十二)：Faster RCNN深入分析](https://www.zybuluo.com/huanghaian/note/1751034)    
 [第十三篇：mmdetection最小复刻版(十三)：超强cascade rcnn算法分析](https://www.zybuluo.com/huanghaian/note/1751181)    
 [第十四篇：mmdetection最小复刻版(十四)：检测器不平衡处理Libra rcnn](https://www.zybuluo.com/huanghaian/note/1751369)    
 [第十五篇：mmdetection最小复刻版(十五)：two-stage动态版本dynamic rcnn](https://www.zybuluo.com/huanghaian/note/1751370)  
-[第十六篇：mmdetection最小复刻版(十六)：iou感知VarifocalNet深入分析](https://www.zybuluo.com/huanghaian/note/1753374)
-
+[第十六篇：mmdetection最小复刻版(十六)：iou感知VarifocalNet深入分析](https://www.zybuluo.com/huanghaian/note/1753374)  
+或者 [知乎文章](https://zhuanlan.zhihu.com/p/271757527)  
 
 ## other
 
