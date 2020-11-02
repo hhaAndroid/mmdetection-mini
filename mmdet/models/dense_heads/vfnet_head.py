@@ -123,6 +123,7 @@ class VFNetHead(ATSSHead, FCOSHead):
         dcn_base_x = np.tile(dcn_base, self.dcn_kernel)
         dcn_base_offset = np.stack([dcn_base_y, dcn_base_x], axis=1).reshape(
             (-1))
+        # 3x3的位置offset
         self.dcn_base_offset = torch.tensor(dcn_base_offset).view(1, -1, 1, 1)
 
         super(FCOSHead, self).__init__(
@@ -255,15 +256,18 @@ class VFNetHead(ATSSHead, FCOSHead):
         cls_feat = x
         reg_feat = x
 
+        # 和retinanet一样，先对分类和回归分支特征图堆叠一系列卷积
+        # 输出通道统一为256
         for cls_layer in self.cls_convs:
             cls_feat = cls_layer(cls_feat)
 
         for reg_layer in self.reg_convs:
             reg_feat = reg_layer(reg_feat)
 
-        # predict the bbox_pred of different level
+        # 对回归分支特征图进行通道变换，输出4通道，进行初始化预测
         reg_feat_init = self.vfnet_reg_conv(reg_feat)
         if self.bbox_norm_type == 'reg_denom':
+            # 默认
             bbox_pred = scale(
                 self.vfnet_reg(reg_feat_init)).float().exp() * reg_denom
         elif self.bbox_norm_type == 'stride':
@@ -273,15 +277,19 @@ class VFNetHead(ATSSHead, FCOSHead):
             raise NotImplementedError
 
         # compute star deformable convolution offsets
+        # 回归分支输出的ltrb值作为dcn的offset，进行特征重采样
         dcn_offset = self.star_dcn_offset(bbox_pred, self.gradient_mul, stride)
 
-        # refine the bbox_pred
+        # refine特征输出
         reg_feat = self.relu(self.vfnet_reg_refine_dconv(reg_feat, dcn_offset))
+        # bbox refine输出
         bbox_pred_refine = scale_refine(
             self.vfnet_reg_refine(reg_feat)).float().exp()
+        # 注意需要乘上bbox_pred.detach()，才是最终值
         bbox_pred_refine = bbox_pred_refine * bbox_pred.detach()
 
         # predict the iou-aware cls score
+        # 分类分支也采用dcn处理，加强一致性
         cls_feat = self.relu(self.vfnet_cls_dconv(cls_feat, dcn_offset))
         cls_score = self.vfnet_cls(cls_feat)
 
@@ -299,19 +307,22 @@ class VFNetHead(ATSSHead, FCOSHead):
         Returns:
             dcn_offsets (Tensor): The offsets for deformable convolution.
         """
+        # 3x3的9个base坐标值即论文中pn坐标
         dcn_base_offset = self.dcn_base_offset.type_as(bbox_pred)
         bbox_pred_grad_mul = (1 - gradient_mul) * bbox_pred.detach() + \
                              gradient_mul * bbox_pred
-        # map to the feature map scale
+        # map to the feature map scale 特征图尺度计算
         bbox_pred_grad_mul = bbox_pred_grad_mul / stride
         N, C, H, W = bbox_pred.size()
-
-        x1 = bbox_pred_grad_mul[:, 0, :, :]
-        y1 = bbox_pred_grad_mul[:, 1, :, :]
-        x2 = bbox_pred_grad_mul[:, 2, :, :]
-        y2 = bbox_pred_grad_mul[:, 3, :, :]
+        # 取出特征图上面h,w个ltrb预测值
+        x1 = bbox_pred_grad_mul[:, 0, :, :]  # l
+        y1 = bbox_pred_grad_mul[:, 1, :, :]  # t
+        x2 = bbox_pred_grad_mul[:, 2, :, :]  # r
+        y2 = bbox_pred_grad_mul[:, 3, :, :]  # b
+        # z最终返回的h,w个位置的offset坐标值，论文中的delta p
         bbox_pred_grad_mul_offset = bbox_pred.new_zeros(
             N, 2 * self.num_dconv_points, H, W)
+        # 利用lbtr预测值，得到9个坐标点(x, y), (x-l’, y), (x, y-t’)....
         bbox_pred_grad_mul_offset[:, 0, :, :] = -1.0 * y1  # -y1
         bbox_pred_grad_mul_offset[:, 1, :, :] = -1.0 * x1  # -x1
         bbox_pred_grad_mul_offset[:, 2, :, :] = -1.0 * y1  # -y1
@@ -324,8 +335,9 @@ class VFNetHead(ATSSHead, FCOSHead):
         bbox_pred_grad_mul_offset[:, 14, :, :] = y2  # y2
         bbox_pred_grad_mul_offset[:, 16, :, :] = y2  # y2
         bbox_pred_grad_mul_offset[:, 17, :, :] = x2  # x2
+        # 为何是-dcn_base_offset，不是加？
         dcn_offset = bbox_pred_grad_mul_offset - dcn_base_offset
-
+        # 此时可以得到每个特征点上面9个新的采样点浮点坐标
         return dcn_offset
 
     def loss(self,
