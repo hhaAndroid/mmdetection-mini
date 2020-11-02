@@ -11,13 +11,14 @@ from .ghm_loss import GHMC, GHMR
 from .gfocal_loss import QualityFocalLoss, DistributionFocalLoss
 from .pisa_loss import carl_loss, isr_p
 from .balanced_l1_loss import BalancedL1Loss
+from .varifocal_loss import VarifocalLoss
 from .utils import reduce_loss, weight_reduce_loss, weighted_loss
 
 __all__ = [
     'accuracy', 'Accuracy', 'cross_entropy', 'binary_cross_entropy',
     'mask_cross_entropy', 'CrossEntropyLoss', 'sigmoid_focal_loss',
     'FocalLoss', 'smooth_l1_loss', 'SmoothL1Loss', 'mse_loss', 'MSELoss', 'iou_loss', 'bounded_iou_loss',
-    'IoULoss', 'BoundedIoULoss', 'GIoULoss', 'DIoULoss', 'CIoULoss',
+    'IoULoss', 'BoundedIoULoss', 'GIoULoss', 'DIoULoss', 'CIoULoss', 'VarifocalLoss',
     'reduce_loss', 'weight_reduce_loss', 'weighted_loss', 'L1Loss', 'BalancedL1Loss',
     'l1_loss', 'GHMC', 'GHMR', 'QualityFocalLoss', 'DistributionFocalLoss', 'carl_loss', 'isr_p'
 ]
