@@ -15,9 +15,11 @@ from .pisa_retinanet_head import PISARetinaHead
 from .paa_head import PAAHead
 from .ssd_head import SSDHead
 from .vfnet_head import VFNetHead
+from .guided_anchor_head import GuidedAnchorHead
+from .ga_retina_head import GARetinaHead
 
 __all__ = [
     'RPNHead', 'RPNTestMixin', 'AnchorHead', 'RetinaHead', 'YOLOV3Head', 'RRYolov3Head', 'RRTinyYolov3Head',
-    'RRTinyYolov4Head', 'RRYolov5Head', 'SSDHead', 'VFNetHead',
+    'RRTinyYolov4Head', 'RRYolov5Head', 'SSDHead', 'VFNetHead', 'GARetinaHead', 'GuidedAnchorHead',
     'AnchorFreeHead', 'FCOSHead', 'ATSSHead', 'GFLHead', 'PISARetinaHead', 'PAAHead'
 ]
