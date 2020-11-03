@@ -159,6 +159,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第六篇：mmdetection最小复刻版(六)：FCOS深入可视化分析](https://www.zybuluo.com/huanghaian/note/1747551)     
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/267346645)  
 [第七篇：mmdetection最小复刻版(七)：anchor-base和anchor-free差异分析](https://www.zybuluo.com/huanghaian/note/1748811)      
+或者 [知乎文章](https://zhuanlan.zhihu.com/p/272471302)     
 [第八篇：mmdetection最小复刻版(八)：梯度均衡机制GHM深入分析](https://www.zybuluo.com/huanghaian/note/1749031)   
 [第九篇：mmdetection最小复刻版(九)：广义FocalLoss深入分析](https://www.zybuluo.com/huanghaian/note/1749472)   
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/271636072)   
