@@ -33,6 +33,7 @@ model = dict(
             gamma=2.0,
             alpha=0.25,
             loss_weight=1.0),
+        # BoundedIoULoss是考虑xywh的，但是这里其实仅仅wh而已，考虑代码通用性
         loss_shape=dict(type='BoundedIoULoss', beta=0.2, loss_weight=1.0),
         loss_cls=dict(
             type='FocalLoss',

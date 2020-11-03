@@ -118,12 +118,15 @@ class ApproxMaxIoUAssigner(MaxIoUAssigner):
                 gt_bboxes_ignore = gt_bboxes_ignore.cpu()
             if gt_labels is not None:
                 gt_labels = gt_labels.cpu()
+        # 依然是anchor和gt bbox计算iou
         all_overlaps = self.iou_calculator(approxs, gt_bboxes)
 
         overlaps, _ = all_overlaps.view(approxs_per_octave, num_squares,
                                         num_gts).max(dim=0)
         overlaps = torch.transpose(overlaps, 0, 1)
 
+        # 如果考虑某些gt bbox忽略，则需要计算squares, gt_bboxes_ignore的iou
+        # 因为approxs_per_octave只是中间替代品，真正进行bbox编解码的是squares个gt bbox
         if (self.ignore_iof_thr > 0 and gt_bboxes_ignore is not None
                 and gt_bboxes_ignore.numel() > 0 and squares.numel() > 0):
             if self.ignore_wrt_candidates:
@@ -136,6 +139,7 @@ class ApproxMaxIoUAssigner(MaxIoUAssigner):
                 ignore_max_overlaps, _ = ignore_overlaps.max(dim=0)
             overlaps[:, ignore_max_overlaps > self.ignore_iof_thr] = -1
 
+        # 正负样本分配和squares没有关系
         assign_result = self.assign_wrt_overlaps(overlaps, gt_labels)
         if assign_on_cpu:
             assign_result.gt_inds = assign_result.gt_inds.to(device)

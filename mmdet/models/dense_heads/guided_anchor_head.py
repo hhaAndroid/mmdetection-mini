@@ -325,6 +325,7 @@ class GuidedAnchorHead(AnchorHead):
                 squares = squares_list[img_id][i]
                 shape_pred = shape_preds[i][img_id]
                 loc_pred = loc_preds[i][img_id]
+                # 利用anchor分支预测值得到新的anchors
                 guided_anchors, loc_mask = self._get_guided_anchors_single(
                     squares,
                     shape_pred,
@@ -521,9 +522,12 @@ class GuidedAnchorHead(AnchorHead):
         approxs = flat_approxs[expand_inside_flags, :]
         squares = flat_squares[inside_flags, :]
 
+        # 利用approxs和gt bbox，对shape分支进行重新正负样本分配
         assign_result = self.ga_assigner.assign(approxs, squares,
                                                 self.approxs_per_octave,
                                                 gt_bboxes, gt_bboxes_ignore)
+        # 随机采用有两个目的：随机采样正样本，但是最大目的其实是将assign_result和squares绑定
+        # squares相当于anchor
         sampling_result = self.ga_sampler.sample(assign_result, squares,
                                                  gt_bboxes)
 
@@ -534,7 +538,8 @@ class GuidedAnchorHead(AnchorHead):
         pos_inds = sampling_result.pos_inds
         neg_inds = sampling_result.neg_inds
         if len(pos_inds) > 0:
-            bbox_anchors[pos_inds, :] = sampling_result.pos_bboxes
+            # 这里可以发现，shape分支的预测target其实是squares和gt bbox的编码后结果
+            bbox_anchors[pos_inds, :] = sampling_result.pos_bboxes  # 就是对应的squares
             bbox_gts[pos_inds, :] = sampling_result.pos_gt_bboxes
             bbox_weights[pos_inds, :] = 1.0
 
@@ -620,14 +625,19 @@ class GuidedAnchorHead(AnchorHead):
         bbox_gts = bbox_gts.contiguous().view(-1, 4)
         anchor_weights = anchor_weights.contiguous().view(-1, 4)
         bbox_deltas = bbox_anchors.new_full(bbox_anchors.size(), 0)
-        bbox_deltas[:, 2:] += shape_pred
+        bbox_deltas[:, 2:] += shape_pred  # xy故意设置为0,不进行学习
         # filter out negative samples to speed-up weighted_bounded_iou_loss
         inds = torch.nonzero(
             anchor_weights[:, 0] > 0, as_tuple=False).squeeze(1)
         bbox_deltas_ = bbox_deltas[inds]
+        # bbox_anchors是4维度，其实就是squares
         bbox_anchors_ = bbox_anchors[inds]
         bbox_gts_ = bbox_gts[inds]
         anchor_weights_ = anchor_weights[inds]
+        # 对squares和shape_pred进行解码，此时就可以得到每个特征图位置上的预测gt bbox坐标
+        # 解码后的预测bbox的xy坐标始终是特征图上面点，也就是不可学习的，而wh是可学习的
+        # 也就是这个loss学到极限，也不可能是0，因为xy坐标始终无法和gt bbox的中心点完全重合
+        # 所以论文中只是写了wh的预测loss
         pred_anchors_ = self.anchor_coder.decode(
             bbox_anchors_, bbox_deltas_, wh_ratio_clip=1e-6)
         loss_shape = self.loss_shape(
@@ -664,10 +674,11 @@ class GuidedAnchorHead(AnchorHead):
         loc_targets, loc_weights, loc_avg_factor = self.ga_loc_targets(
             gt_bboxes, featmap_sizes)
 
-        # get sampled approxes
+        # anchor的shape预测分支所需要的anchor_list
         approxs_list, inside_flag_list = self.get_sampled_approxs(
             featmap_sizes, img_metas, device=device)
-        # get squares and guided anchors
+
+        # 利用anchor生成分支得到guided_anchors(稀疏值),用于后续训练原始分类和回归分支
         squares_list, guided_anchors_list, _ = self.get_anchors(
             featmap_sizes, shape_preds, loc_preds, img_metas, device=device)
 
@@ -677,6 +688,7 @@ class GuidedAnchorHead(AnchorHead):
                                               img_metas)
         if shape_targets is None:
             return None
+        # bbox_anchors_list就是squares_list
         (bbox_anchors_list, bbox_gts_list, anchor_weights_list, anchor_fg_num,
          anchor_bg_num) = shape_targets
         anchor_total_num = (
@@ -685,6 +697,9 @@ class GuidedAnchorHead(AnchorHead):
 
         # get anchor targets
         label_channels = self.cls_out_channels if self.use_sigmoid_cls else 1
+        # 原始分支的target计算，比较简单
+        # 需要注意的是guided_anchors_list是稀疏的，而且很多iou应该大于0.5,也就是此时该分支训练时候很多都是正样本
+        # 不平衡问题应该没有原来严重了
         cls_reg_targets = self.get_targets(
             guided_anchors_list,
             inside_flag_list,
@@ -712,6 +727,7 @@ class GuidedAnchorHead(AnchorHead):
                                            num_level_anchors)
 
         # get classification and bbox regression losses
+        # 原始分类和回归分支，和原来一样
         losses_cls, losses_bbox = multi_apply(
             self.loss_single,
             cls_scores,
