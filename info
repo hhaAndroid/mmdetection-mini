@@ -16,6 +16,7 @@ cuda编译： python setup.py develop
 ../configs/ssd/ssd300_coco.py
 ../configs/vfnet/vfnet_r50_fpn_1x_coco.py
 ../configs/guided_anchoring/ga_retinanet_r50_fpn_1x_coco.py
+../configs/sabl/sabl_retinanet_r50_fpn_1x_coco.py
 
 
 

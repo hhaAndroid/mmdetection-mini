@@ -54,7 +54,7 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] ssd
 - [x] vfnet 
 - [x] guided anchoring
-- [ ] sabl
+- [x] sabl
 
 
 ## 4 模型仓库

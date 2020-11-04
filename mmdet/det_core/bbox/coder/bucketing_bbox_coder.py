@@ -105,21 +105,28 @@ def generat_buckets(proposals, num_buckets, scale_factor=1.0):
             - t_buckets: Top buckets. Shape (n, ceil(side_num/2)).
             - d_buckets: Down buckets. Shape (n, ceil(side_num/2)).
     """
-    proposals = bbox_rescale(proposals, scale_factor)
+    # 先把proposal扩大scale_factor倍数，尽可能保证该proposals能够把整个gt bbox全部扩进来
+    proposals = bbox_rescale(proposals, scale_factor)  # x1y1x2y2
 
     # number of buckets in each side
+    #
     side_num = int(np.ceil(num_buckets / 2.0))
-    pw = proposals[..., 2] - proposals[..., 0]
+    pw = proposals[..., 2] - proposals[..., 0]  # 原图尺度
     ph = proposals[..., 3] - proposals[..., 1]
     px1 = proposals[..., 0]
     py1 = proposals[..., 1]
     px2 = proposals[..., 2]
     py2 = proposals[..., 3]
 
+    # 每个桶的长度,对于任何一条边都包括side_num个桶
     bucket_w = pw / num_buckets
     bucket_h = ph / num_buckets
 
     # left buckets
+    # 计算px1值和side_num个桶的距离，假设一共7个桶，而px1=200，每个桶占据bucket_w=10个像素
+    # 0.5表示桶的中心偏移
+    # 则输出表示200+0.5x10,200+1.5x10,200+2.5x10....,需要结合后面代码才知道为啥要如此些代码
+    # 输出shape=(N,side_num)
     l_buckets = px1[:, None] + (0.5 + torch.arange(
         0, side_num).to(proposals).float())[None, :] * bucket_w[:, None]
     # right buckets
@@ -171,8 +178,9 @@ def bbox2bucket(proposals,
     assert proposals.size() == gt.size()
 
     # generate buckets
-    proposals = proposals.float()
-    gt = gt.float()
+    proposals = proposals.float()  # 其实就是anchor或者rpn输出的roi
+    gt = gt.float()  # 对应负责的gt bbox
+    # 每个shape=(N,side_num)
     (bucket_w, bucket_h, l_buckets, r_buckets, t_buckets,
      d_buckets) = generat_buckets(proposals, num_buckets, scale_factor)
 
@@ -183,12 +191,21 @@ def bbox2bucket(proposals,
 
     # generate offset targets and weights
     # offsets from buckets to gts
+    # 计算当前边距离side_num个桶的相对距离
+    # 假设l_buckets的某条边输出值是：200+0.5x10,200+1.5x10,200+2.5x10....,
+    # gx1值假设为220，则l_offsets输出是 (200+0.5x10-200)/10=-1.5,....
+    # 肯定按照从小到大排列，其实abs(l_offsets)越小表示某个桶越和gt接近
+    # 表征每个桶中心距离坐标相对gt坐标的偏移值
+    # 假设有7个桶，那么每个桶都可以和同一个GT bbox算归一化的偏移
+    # 假设这7个桶里面有两个是正样本，那么对应的两个桶都负责该gt bbox边预测
     l_offsets = (l_buckets - gx1[:, None]) / bucket_w[:, None]
     r_offsets = (r_buckets - gx2[:, None]) / bucket_w[:, None]
     t_offsets = (t_buckets - gy1[:, None]) / bucket_h[:, None]
     d_offsets = (d_buckets - gy2[:, None]) / bucket_h[:, None]
 
     # select top-k nearset buckets
+    # top1肯定就是该gt bbox落在对应桶内的取值了，落在哪个桶和anchor的wh有关系
+    # top2是最近的一个邻居桶
     l_topk, l_label = l_offsets.abs().topk(
         offset_topk, dim=1, largest=False, sorted=True)
     r_topk, r_label = r_offsets.abs().topk(
@@ -205,40 +222,50 @@ def bbox2bucket(proposals,
     inds = torch.arange(0, proposals.size(0)).to(proposals).long()
 
     # generate offset weights of top-k nearset buckets
+    # 对于第二步refine回归问题来说，gt桶和最近邻居桶都是正样本
+    # 但是对于第一步分类来说，邻居桶是忽略位置，避免模糊样本
     for k in range(offset_topk):
         if k >= 1:
+            # 如果偏离gt bbox比较远，就当做背景
+            # 这个操作其实是把最近的邻居权重设置为1(也可能没有邻居)
             offset_l_weights[inds, l_label[:,
-                                           k]] = (l_topk[:, k] <
-                                                  offset_upperbound).float()
+                                   k]] = (l_topk[:, k] <
+                                          offset_upperbound).float()
             offset_r_weights[inds, r_label[:,
-                                           k]] = (r_topk[:, k] <
-                                                  offset_upperbound).float()
+                                   k]] = (r_topk[:, k] <
+                                          offset_upperbound).float()
             offset_t_weights[inds, t_label[:,
-                                           k]] = (t_topk[:, k] <
-                                                  offset_upperbound).float()
+                                   k]] = (t_topk[:, k] <
+                                          offset_upperbound).float()
             offset_d_weights[inds, d_label[:,
-                                           k]] = (d_topk[:, k] <
-                                                  offset_upperbound).float()
+                                   k]] = (d_topk[:, k] <
+                                          offset_upperbound).float()
         else:
             offset_l_weights[inds, l_label[:, k]] = 1.0
             offset_r_weights[inds, r_label[:, k]] = 1.0
             offset_t_weights[inds, t_label[:, k]] = 1.0
             offset_d_weights[inds, d_label[:, k]] = 1.0
 
+    # 该offsets要返回，用于算refine回归
     offsets = torch.cat([l_offsets, r_offsets, t_offsets, d_offsets], dim=-1)
+    # 以offset_l_weights为例，对于任何一个anchor，在确定其属于正样本后，还需要确定内部有多少个正样本，最多是7个
+    # 故还需要确定内部的7个，那几个才是正样本
     offsets_weights = torch.cat([
         offset_l_weights, offset_r_weights, offset_t_weights, offset_d_weights
     ],
-                                dim=-1)
+        dim=-1)
 
     # generate bucket labels and weight
     side_num = int(np.ceil(num_buckets / 2.0))
+    # bbox分类分支的label
     labels = torch.stack(
         [l_label[:, 0], r_label[:, 0], t_label[:, 0], d_label[:, 0]], dim=-1)
 
     batch_size = labels.size(0)
+    # 变成one-hot格式训练
     bucket_labels = F.one_hot(labels.view(-1), side_num).view(batch_size,
                                                               -1).float()
+    # l_offsets.abs()表示gt bbox落在对应桶和作用两个邻居桶位置权重设为为1
     bucket_cls_l_weights = (l_offsets.abs() < 1).float()
     bucket_cls_r_weights = (r_offsets.abs() < 1).float()
     bucket_cls_t_weights = (t_offsets.abs() < 1).float()
@@ -247,9 +274,12 @@ def bbox2bucket(proposals,
         bucket_cls_l_weights, bucket_cls_r_weights, bucket_cls_t_weights,
         bucket_cls_d_weights
     ],
-                                   dim=-1)
+        dim=-1)
     # ignore second nearest buckets for cls if necessay
     if cls_ignore_neighbor:
+        # bucket_labels == 0 背景
+        # bucket_cls_weights == 1 表示gt桶和邻居桶
+        # 实现忽略邻居位置的效果
         bucket_cls_weights = (~((bucket_cls_weights == 1) &
                                 (bucket_labels == 0))).float()
     else:
@@ -286,9 +316,11 @@ def bucket2bbox(proposals,
     cls_preds = cls_preds.view(-1, side_num)
     offset_preds = offset_preds.view(-1, side_num)
 
+    # bbox的桶分类分支
     scores = F.softmax(cls_preds, dim=1)
     score_topk, score_label = scores.topk(2, dim=1, largest=True, sorted=True)
 
+    # 也需要扩大，保证训练和测试一致
     rescaled_proposals = bbox_rescale(proposals, scale_factor)
 
     pw = rescaled_proposals[..., 2] - rescaled_proposals[..., 0]
@@ -301,10 +333,11 @@ def bucket2bbox(proposals,
     bucket_w = pw / num_buckets
     bucket_h = ph / num_buckets
 
-    score_inds_l = score_label[0::4, 0]
+    score_inds_l = score_label[0::4, 0]  # top1
     score_inds_r = score_label[1::4, 0]
     score_inds_t = score_label[2::4, 0]
     score_inds_d = score_label[3::4, 0]
+    # 落在哪个桶里面，已经还原成了原图坐标值了
     l_buckets = px1 + (0.5 + score_inds_l.float()) * bucket_w
     r_buckets = px2 - (0.5 + score_inds_r.float()) * bucket_w
     t_buckets = py1 + (0.5 + score_inds_t.float()) * bucket_h
@@ -312,11 +345,13 @@ def bucket2bbox(proposals,
 
     offsets = offset_preds.view(-1, 4, side_num)
     inds = torch.arange(proposals.size(0)).to(proposals).long()
+    # 桶内偏移预测
     l_offsets = offsets[:, 0, :][inds, score_inds_l]
     r_offsets = offsets[:, 1, :][inds, score_inds_r]
     t_offsets = offsets[:, 2, :][inds, score_inds_t]
     d_offsets = offsets[:, 3, :][inds, score_inds_d]
 
+    # 进行refine，得到最终坐标
     x1 = l_buckets - l_offsets * bucket_w
     x2 = r_buckets - r_offsets * bucket_w
     y1 = t_buckets - t_offsets * bucket_h
@@ -330,7 +365,7 @@ def bucket2bbox(proposals,
     bboxes = torch.cat([x1[:, None], y1[:, None], x2[:, None], y2[:, None]],
                        dim=-1)
 
-    # bucketing guided rescoring
+    # bbox预测置信度分值loc_confidence是对top2的预测分值进行加权
     loc_confidence = score_topk[:, 0]
     top2_neighbor_inds = (score_label[:, 0] - score_label[:, 1]).abs() == 1
     loc_confidence += score_topk[:, 1] * top2_neighbor_inds.float()
