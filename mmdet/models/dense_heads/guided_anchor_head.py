@@ -679,6 +679,8 @@ class GuidedAnchorHead(AnchorHead):
             featmap_sizes, img_metas, device=device)
 
         # 利用anchor生成分支得到guided_anchors(稀疏值),用于后续训练原始分类和回归分支
+        # 但是作者设置use_loc_filter=False，也就是对loc分支预测值不过滤
+        # squares_list长度和guided_anchors_list一样，可能是为了使得focal loss的参数不需要改变才这么设置吧
         squares_list, guided_anchors_list, _ = self.get_anchors(
             featmap_sizes, shape_preds, loc_preds, img_metas, device=device)
 
@@ -698,8 +700,8 @@ class GuidedAnchorHead(AnchorHead):
         # get anchor targets
         label_channels = self.cls_out_channels if self.use_sigmoid_cls else 1
         # 原始分支的target计算，比较简单
-        # 需要注意的是guided_anchors_list是稀疏的，而且很多iou应该大于0.5,也就是此时该分支训练时候很多都是正样本
-        # 不平衡问题应该没有原来严重了
+        # 需要注意的是如果guided_anchors_list是稀疏的，而且很多iou应该大于0.5,也就是此时该分支训练时候很多都是正样本
+        # 不平衡问题应该没有原来严重了，但是这里设置依然是密集的
         cls_reg_targets = self.get_targets(
             guided_anchors_list,
             inside_flag_list,
