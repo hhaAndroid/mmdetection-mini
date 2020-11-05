@@ -54,8 +54,8 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] ssd
 - [x] vfnet 
 - [x] guided anchoring
-- [x] sabl
-
+- [x] sabl  
+- [ ] reppoints  
 
 ## 4 模型仓库
 [文档链接](./docs/model_zoo.md)
@@ -176,7 +176,8 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第十六篇：mmdetection最小复刻版(十六)：iou感知VarifocalNet深入分析](https://www.zybuluo.com/huanghaian/note/1753374)  
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/271757527)     
 [第十七篇：mmdetection最小复刻版(十七)：语义导向anchor生成](https://www.zybuluo.com/huanghaian/note/1753795)    
-[第十八篇：mmdetection最小复刻版(十八)：Side-Aware边界框定位](https://www.zybuluo.com/huanghaian/note/1753776)    
+[第十八篇：mmdetection最小复刻版(十八)：Side-Aware边界框定位](https://www.zybuluo.com/huanghaian/note/1753776)      
+[第十九篇：mmdetection最小复刻版(十九)：点集表示法RepPoints](https://www.zybuluo.com/huanghaian/note/1754350)  
 
 
 ## other
