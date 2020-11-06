@@ -109,6 +109,7 @@ class RepPointsHead(AnchorFreeHead):
         self.relu = nn.ReLU(inplace=True)
         self.cls_convs = nn.ModuleList()
         self.reg_convs = nn.ModuleList()
+        # 常规4层卷积堆叠
         for i in range(self.stacked_convs):
             chn = self.in_channels if i == 0 else self.feat_channels
             self.cls_convs.append(
@@ -129,22 +130,30 @@ class RepPointsHead(AnchorFreeHead):
                     padding=1,
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg))
+        # self.num_points表示9个语义点
+        # 如果use_grid_points，则表示学习delta xywh模式
         pts_out_dim = 4 if self.use_grid_points else 2 * self.num_points
+        # 分类分支的dcn
         self.reppoints_cls_conv = DeformConv2d(self.feat_channels,
                                                self.point_feat_channels,
                                                self.dcn_kernel, 1,
                                                self.dcn_pad)
+        # 分类分支输出
         self.reppoints_cls_out = nn.Conv2d(self.point_feat_channels,
                                            self.cls_out_channels, 1, 1, 0)
+        # 第一次回归
         self.reppoints_pts_init_conv = nn.Conv2d(self.feat_channels,
                                                  self.point_feat_channels, 3,
                                                  1, 1)
+        # 第一次回归的点位置输出，每个位置都要输出pts_out_dim
         self.reppoints_pts_init_out = nn.Conv2d(self.point_feat_channels,
                                                 pts_out_dim, 1, 1, 0)
+        # 点回归分支的dcn
         self.reppoints_pts_refine_conv = DeformConv2d(self.feat_channels,
                                                       self.point_feat_channels,
                                                       self.dcn_kernel, 1,
                                                       self.dcn_pad)
+        # 最终回归点输出
         self.reppoints_pts_refine_out = nn.Conv2d(self.point_feat_channels,
                                                   pts_out_dim, 1, 1, 0)
 
@@ -193,15 +202,18 @@ class RepPointsHead(AnchorFreeHead):
             bbox_bottom = pts_y.max(dim=1, keepdim=True)[0]
             bbox = torch.cat([bbox_left, bbox_up, bbox_right, bbox_bottom],
                              dim=1)
-        elif self.transform_method == 'moment':
+        elif self.transform_method == 'moment':  # 中心矩
+            # 均值和方差就是gt bbox的中心点
             pts_y_mean = pts_y.mean(dim=1, keepdim=True)
             pts_x_mean = pts_x.mean(dim=1, keepdim=True)
             pts_y_std = torch.std(pts_y - pts_y_mean, dim=1, keepdim=True)
             pts_x_std = torch.std(pts_x - pts_x_mean, dim=1, keepdim=True)
+            # self.moment_transfer也进行梯度增强操作
             moment_transfer = (self.moment_transfer * self.moment_mul) + (
                     self.moment_transfer.detach() * (1 - self.moment_mul))
             moment_width_transfer = moment_transfer[0]
             moment_height_transfer = moment_transfer[1]
+            # 解码代码
             half_width = pts_x_std * torch.exp(moment_width_transfer)
             half_height = pts_y_std * torch.exp(moment_height_transfer)
             bbox = torch.cat([
@@ -221,10 +233,13 @@ class RepPointsHead(AnchorFreeHead):
         :param previous_boxes: previous bboxes.
         :return: generate grids on the regressed bboxes.
         """
+        # reg 预测的offset值(4个数)，previous_boxes是预设bbox
         b, _, h, w = reg.shape
         bxy = (previous_boxes[:, :2, ...] + previous_boxes[:, 2:, ...]) / 2.
         bwh = (previous_boxes[:, 2:, ...] -
                previous_boxes[:, :2, ...]).clamp(min=1e-6)
+        # 回归输出的offset(4个数，表示xywh预测相对值)含义是相对预设bbox(2个点坐标)的偏移值
+        # 也就是预测的两个点其实和faster rcnn里面的bbox编码规则一样
         grid_topleft = bxy + bwh * reg[:, :2, ...] - 0.5 * bwh * torch.exp(
             reg[:, 2:, ...])
         grid_wh = bwh * torch.exp(reg[:, 2:, ...])
@@ -232,16 +247,20 @@ class RepPointsHead(AnchorFreeHead):
         grid_top = grid_topleft[:, [1], ...]
         grid_width = grid_wh[:, [0], ...]
         grid_height = grid_wh[:, [1], ...]
+        # 网格模式输出grid_yx
+        # 因为reg预测的offset值是4个数，不是9个语义点，故需要转化为9个语义点，后面才可以继续算
+        # 故做法是得到bbox的左上右下坐标后，在该bbox内部，均匀采样9个点，就当做9个语义点即可
         intervel = torch.linspace(0., 1., self.dcn_kernel).view(
             1, self.dcn_kernel, 1, 1).type_as(reg)
         grid_x = grid_left + grid_width * intervel
         grid_x = grid_x.unsqueeze(1).repeat(1, self.dcn_kernel, 1, 1, 1)
-        grid_x = grid_x.view(b, -1, h, w)
+        grid_x = grid_x.view(b, -1, h, w)  # b,9,h,w
         grid_y = grid_top + grid_height * intervel
         grid_y = grid_y.unsqueeze(2).repeat(1, 1, self.dcn_kernel, 1, 1)
         grid_y = grid_y.view(b, -1, h, w)
         grid_yx = torch.stack([grid_y, grid_x], dim=2)
         grid_yx = grid_yx.view(b, -1, h, w)
+        # 变成xyxy格式
         regressed_bbox = torch.cat([
             grid_left, grid_top, grid_left + grid_width, grid_top + grid_height
         ], 1)
@@ -258,7 +277,9 @@ class RepPointsHead(AnchorFreeHead):
         #   from regular grid placed on a pre-defined bbox.
         if self.use_grid_points or not self.center_init:
             scale = self.point_base_scale / 2
+            # bbox预测模式
             points_init = dcn_base_offset / dcn_base_offset.max() * scale
+            # 初始bbox
             bbox_init = x.new_tensor([-scale, -scale, scale,
                                       scale]).view(1, 4, 1, 1)
         else:
@@ -269,26 +290,33 @@ class RepPointsHead(AnchorFreeHead):
             cls_feat = cls_conv(cls_feat)
         for reg_conv in self.reg_convs:
             pts_feat = reg_conv(pts_feat)
-        # initialize reppoints
+        # 初始化预测每个点的offset
         pts_out_init = self.reppoints_pts_init_out(
             self.relu(self.reppoints_pts_init_conv(pts_feat)))
         if self.use_grid_points:
+            # bbox模式，输出通道是4表示相当于anchor的bbox_init的wywh预测，可以还原得到bbox，然后利用用网格做法将其转化为9个语义点
             pts_out_init, bbox_out_init = self.gen_grid_from_reg(
                 pts_out_init, bbox_init.detach())
         else:
+            # 本身通道就是9个语义点offset，无须操作
             pts_out_init = pts_out_init + points_init
         # refine and classify reppoints
+        # 预测值不变，但是梯度乘上了self.gradient_mul
         pts_out_init_grad_mul = (1 - self.gradient_mul) * pts_out_init.detach(
         ) + self.gradient_mul * pts_out_init
+        # 很容易就可以得到dcn的offset新坐标
         dcn_offset = pts_out_init_grad_mul - dcn_base_offset
+        # 分类输出
         cls_out = self.reppoints_cls_out(
             self.relu(self.reppoints_cls_conv(cls_feat, dcn_offset)))
+        # 点offset输出refine
         pts_out_refine = self.reppoints_pts_refine_out(
             self.relu(self.reppoints_pts_refine_conv(pts_feat, dcn_offset)))
         if self.use_grid_points:
             pts_out_refine, bbox_out_refine = self.gen_grid_from_reg(
                 pts_out_refine, bbox_out_init.detach())
         else:
+            # 直接相加就可以得到最终offset
             pts_out_refine = pts_out_refine + pts_out_init.detach()
         return cls_out, pts_out_init, pts_out_refine
 
@@ -309,9 +337,12 @@ class RepPointsHead(AnchorFreeHead):
         # points center for one time
         multi_level_points = []
         for i in range(num_levels):
+            # 为特征图的每个点生成相对原图左上角坐标(没有偏移0.5)，额外stack上stride
+            # points shape=(wxh,3),3表示原图x,y坐标,stride
             points = self.point_generators[i].grid_points(
                 featmap_sizes[i], self.point_strides[i], device)
             multi_level_points.append(points)
+        # 每张图片都clone一遍，方便后面运算
         points_list = [[point.clone() for point in multi_level_points]
                        for _ in range(num_imgs)]
 
@@ -356,6 +387,7 @@ class RepPointsHead(AnchorFreeHead):
         for i_lvl in range(len(self.point_strides)):
             pts_lvl = []
             for i_img in range(len(center_list)):
+                # :2是特征图点对应的原图尺度左上角xy坐标值
                 pts_center = center_list[i_img][i_lvl][:, :2].repeat(
                     1, self.num_points)
                 pts_shift = pred_list[i_lvl][i_img]
@@ -365,6 +397,8 @@ class RepPointsHead(AnchorFreeHead):
                 x_pts_shift = yx_pts_shift[..., 1::2]
                 xy_pts_shift = torch.stack([x_pts_shift, y_pts_shift], -1)
                 xy_pts_shift = xy_pts_shift.view(*yx_pts_shift.shape[:-1], -1)
+                # 还原到原图坐标=预测offset乘上stride+原图左上角坐标值
+                # 可以看出预测的offset值是在特别图尺度，且实际上是相对于原图左上角偏移
                 pts = xy_pts_shift * self.point_strides[i_lvl] + pts_center
                 pts_lvl.append(pts)
             pts_lvl = torch.stack(pts_lvl, 0)
@@ -386,14 +420,17 @@ class RepPointsHead(AnchorFreeHead):
         # assign gt and sample proposals
         proposals = flat_proposals[inside_flags, :]
 
-        if stage == 'init':
+        if stage == 'init':  # 初始训练
             assigner = self.init_assigner
             pos_weight = self.train_cfg.init.pos_weight
-        else:
+        else:  # refine训练
             assigner = self.refine_assigner
             pos_weight = self.train_cfg.refine.pos_weight
+        # proposals实际上是point坐标，不是anchor坐标
+        # 得到特征图上面每个点应该负责哪个gt bbox
         assign_result = assigner.assign(proposals, gt_bboxes, gt_bboxes_ignore,
                                         None if self.sampling else gt_labels)
+        # 伪随机
         sampling_result = self.sampler.sample(assign_result, proposals,
                                               gt_bboxes)
 
@@ -546,6 +583,7 @@ class RepPointsHead(AnchorFreeHead):
         # points loss
         bbox_gt_init = bbox_gt_init.reshape(-1, 4)
         bbox_weights_init = bbox_weights_init.reshape(-1, 4)
+        # 需要转化为bbox才能计算loss
         bbox_pred_init = self.points2bbox(
             pts_pred_init.reshape(-1, 2 * self.num_points), y_first=False)
         bbox_gt_refine = bbox_gt_refine.reshape(-1, 4)
@@ -578,12 +616,14 @@ class RepPointsHead(AnchorFreeHead):
         device = cls_scores[0].device
         label_channels = self.cls_out_channels if self.use_sigmoid_cls else 1
 
-        # target for initial stage
+        # 为特征图上面每个点生成原图xy坐标，同时判断是否valid
         center_list, valid_flag_list = self.get_points(featmap_sizes,
                                                        img_metas, device)
+        # 此时可以得到特征图上每个预测offset在原图上面的坐标了，相当于进行了还原操作
+        # 后面就容易变成bbox了
         pts_coordinate_preds_init = self.offset_to_pts(center_list,
                                                        pts_preds_init)
-        if self.train_cfg.init.assigner['type'] == 'PointAssigner':
+        if self.train_cfg.init.assigner['type'] == 'PointAssigner':  # 默认
             # Assign target for center list
             candidate_list = center_list
         else:
@@ -591,6 +631,7 @@ class RepPointsHead(AnchorFreeHead):
             #   assign target for bbox list
             bbox_list = self.centers_to_bboxes(center_list)
             candidate_list = bbox_list
+        # 设置初始loss计算所需要的targets,此时没有分类分支
         cls_reg_targets_init = self.get_targets(
             candidate_list,
             valid_flag_list,
@@ -606,20 +647,23 @@ class RepPointsHead(AnchorFreeHead):
             num_total_pos_init +
             num_total_neg_init if self.sampling else num_total_pos_init)
 
-        # target for refinement stage
+        # 和前面操作完全相同
         center_list, valid_flag_list = self.get_points(featmap_sizes,
                                                        img_metas, device)
+        # 此时可以得到特征图上每个预测offset在原图上面的坐标了，相当于进行了还原操作
         pts_coordinate_preds_refine = self.offset_to_pts(
             center_list, pts_preds_refine)
         bbox_list = []
         for i_img, center in enumerate(center_list):
             bbox = []
+            # 为啥不直接用pts_coordinate_preds_init作为bbox，还重新算一遍？
             for i_lvl in range(len(pts_preds_refine)):
                 bbox_preds_init = self.points2bbox(
                     pts_preds_init[i_lvl].detach())
                 bbox_shift = bbox_preds_init * self.point_strides[i_lvl]
                 bbox_center = torch.cat(
                     [center[i_lvl][:, :2], center[i_lvl][:, :2]], dim=1)
+                # 其预测得到的bbox，作为下一个阶段的anchor
                 bbox.append(bbox_center +
                             bbox_shift[i_img].permute(1, 2, 0).reshape(-1, 4))
             bbox_list.append(bbox)

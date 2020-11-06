@@ -71,6 +71,7 @@ class PointAssigner(BaseAssigner):
         lvl_min, lvl_max = points_lvl.min(), points_lvl.max()
 
         # assign gt box
+        # 对于任何一个gt bbox，计算其应该属于哪个层预测，类似fpn的映射规则
         gt_bboxes_xy = (gt_bboxes[:, :2] + gt_bboxes[:, 2:]) / 2
         gt_bboxes_wh = (gt_bboxes[:, 2:] - gt_bboxes[:, :2]).clamp(min=1e-6)
         scale = self.scale
@@ -84,6 +85,7 @@ class PointAssigner(BaseAssigner):
         assigned_gt_dist = points.new_full((num_points, ), float('inf'))
         points_range = torch.arange(points.shape[0])
 
+        # 论文中写的pos_num=1，理论上代码应该没有这么复杂的，这里是为了考虑通用性
         for idx in range(num_gts):
             gt_lvl = gt_bboxes_lvl[idx]
             # get the index of points in this level
@@ -91,14 +93,16 @@ class PointAssigner(BaseAssigner):
             points_index = points_range[lvl_idx]
             # get the points in this level
             lvl_points = points_xy[lvl_idx, :]
-            # get the center point of gt
+            # get the center point of gt  gt bbox中心坐标
             gt_point = gt_bboxes_xy[[idx], :]
             # get width and height of gt
             gt_wh = gt_bboxes_wh[[idx], :]
             # compute the distance between gt center and
             #   all points in this level
+            # 计算特征图上面任何一点距离gt bbox中心点坐标的距离
             points_gt_dist = ((lvl_points - gt_point) / gt_wh).norm(dim=1)
             # find the nearest k points to gt center in this level
+            # 选择出topk个位置作为正样本
             min_dist, min_dist_index = torch.topk(
                 points_gt_dist, self.pos_num, largest=False)
             # the index of nearest k points to gt center in this level
@@ -107,6 +111,8 @@ class PointAssigner(BaseAssigner):
             #   of min_dist that is less then the assigned_gt_dist. Where
             #   assigned_gt_dist stores the dist from previous assigned gt
             #   (if exist) to each point.
+            # 假设有多个gt bbox重合度比较高，那么topk选择的正样本点就会冲突
+            # 这里做法就是取谁距离最近就负责预测谁
             less_than_recorded_index = min_dist < assigned_gt_dist[
                 min_dist_points_index]
             # The min_dist_points_index stores the index of points satisfy:

@@ -15,6 +15,7 @@ class PointGenerator(object):
             return yy, xx
 
     def grid_points(self, featmap_size, stride=16, device='cuda'):
+        # 为特征图的每个点生成相对原图左上角坐标(没有偏移0.5)，额外stack上stride
         feat_h, feat_w = featmap_size
         shift_x = torch.arange(0., feat_w, device=device) * stride
         shift_y = torch.arange(0., feat_h, device=device) * stride
@@ -25,6 +26,7 @@ class PointGenerator(object):
         return all_points
 
     def valid_flags(self, featmap_size, valid_size, device='cuda'):
+        # 生成每个点是否有效的flag图
         feat_h, feat_w = featmap_size
         valid_h, valid_w = valid_size
         assert valid_h <= feat_h and valid_w <= feat_w
