@@ -153,6 +153,7 @@ class RepPointsV2Head(AnchorFreeHead):
                     conv_cfg=self.conv_cfg,
                     norm_cfg=self.norm_cfg))
 
+        # cornnernet
         self.hem_tl = TLPool(self.feat_channels, self.conv_cfg, self.norm_cfg, first_kernel_size=self.first_kernel_size,
                              kernel_size=self.kernel_size, corner_dim=self.corner_dim)
         self.hem_br = BRPool(self.feat_channels, self.conv_cfg, self.norm_cfg, first_kernel_size=self.first_kernel_size,
@@ -162,8 +163,8 @@ class RepPointsV2Head(AnchorFreeHead):
 
         cls_in_channels = self.feat_channels + 6
         self.reppoints_cls_conv = DeformConv2d(cls_in_channels,
-                                             self.point_feat_channels,
-                                             self.dcn_kernel, 1, self.dcn_pad)
+                                               self.point_feat_channels,
+                                               self.dcn_kernel, 1, self.dcn_pad)
         self.reppoints_cls_out = nn.Conv2d(self.point_feat_channels,
                                            self.cls_out_channels, 1, 1, 0)
 
@@ -173,18 +174,21 @@ class RepPointsV2Head(AnchorFreeHead):
                                                 pts_out_dim, 1, 1, 0)
         pts_in_channels = self.feat_channels + 6
         self.reppoints_pts_refine_conv = DeformConv2d(pts_in_channels,
-                                                    self.point_feat_channels,
-                                                    self.dcn_kernel, 1,
-                                                    self.dcn_pad)
+                                                      self.point_feat_channels,
+                                                      self.dcn_kernel, 1,
+                                                      self.dcn_pad)
         self.reppoints_pts_refine_out = nn.Conv2d(self.point_feat_channels,
                                                   pts_out_dim, 1, 1, 0)
 
+        # cornernet验证任务输出：score是两个关键点的高斯热图，offset是量化误差，就一个通道说明不考虑类别了
         self.reppoints_hem_tl_score_out = nn.Conv2d(self.feat_channels, 1, 3, 1, 1)
         self.reppoints_hem_br_score_out = nn.Conv2d(self.feat_channels, 1, 3, 1, 1)
         self.reppoints_hem_tl_offset_out = nn.Conv2d(self.feat_channels, 2, 3, 1, 1)
         self.reppoints_hem_br_offset_out = nn.Conv2d(self.feat_channels, 2, 3, 1, 1)
 
+        # 前景分割验证认为输出：考虑类别
         self.reppoints_sem_out = nn.Conv2d(self.feat_channels, self.cls_out_channels, 1, 1, 0)
+        # 特征融合embed模块
         self.reppoints_sem_embedding = ConvModule(
             self.feat_channels,
             self.feat_channels,
@@ -336,12 +340,14 @@ class RepPointsV2Head(AnchorFreeHead):
         sem_feat = shared_feat
         hem_feat = shared_feat
 
+        # 前景分割图
         sem_scores_out = self.reppoints_sem_out(sem_feat)
         sem_feat = self.reppoints_sem_embedding(sem_feat)
 
-        cls_feat = cls_feat + sem_feat
-        pts_feat = pts_feat + sem_feat
-        hem_feat = hem_feat + sem_feat
+        # 融合后的三个分支输出
+        cls_feat = cls_feat + sem_feat  # 分类分支特征图
+        pts_feat = pts_feat + sem_feat  # bbox分支特征图
+        hem_feat = hem_feat + sem_feat  # cornernet的hem特征图
 
         # generate heatmap and offset
         hem_tl_feat = self.hem_tl(hem_feat)
@@ -366,6 +372,7 @@ class RepPointsV2Head(AnchorFreeHead):
         dcn_offset = pts_out_init_grad_mul - dcn_base_offset
 
         hem_feat = torch.cat([hem_score_out, hem_offset_out], dim=1)
+        # 又进行融合？ 可以提供更多的线索？
         cls_feat = torch.cat([cls_feat, hem_feat], dim=1)
         pts_feat = torch.cat([pts_feat, hem_feat], dim=1)
 
@@ -737,6 +744,7 @@ class RepPointsV2Head(AnchorFreeHead):
         # points loss
         bbox_gt_init = bbox_gt_init.reshape(-1, 4)
         bbox_weights_init = bbox_weights_init.reshape(-1, 4)
+        # 需要转化为bbox才能计算loss
         bbox_pred_init = self.points2bbox(pts_pred_init.reshape(-1, 2 * self.num_points), y_first=False)
         bbox_gt_refine = bbox_gt_refine.reshape(-1, 4)
         bbox_weights_refine = bbox_weights_refine.reshape(-1, 4)
@@ -753,7 +761,7 @@ class RepPointsV2Head(AnchorFreeHead):
             bbox_weights_refine,
             avg_factor=num_total_samples_refine)
 
-        # heatmap cls loss
+        # 计算cornernet的hm和offset loss
         hm_score = hm_score.permute(0, 2, 3, 1).reshape(-1, 2)
         hm_score_tl, hm_score_br = torch.chunk(hm_score, 2, dim=-1)
         hm_score_tl = hm_score_tl.squeeze(1).sigmoid()
@@ -827,8 +835,10 @@ class RepPointsV2Head(AnchorFreeHead):
         assert len(featmap_sizes) == len(self.point_generators)
         label_channels = self.cls_out_channels
 
-        # target for initial stage
+        # 为特征图上面每个点生成原图xy坐标，同时判断是否valid
         center_list, valid_flag_list = self.get_points(featmap_sizes, img_metas)
+        # 此时可以得到特征图上每个预测offset在原图上面的坐标了，相当于进行了还原操作
+        # 后面就容易变成bbox了
         pts_coordinate_preds_init = self.offset_to_pts(center_list, pts_preds_init)
         if self.train_cfg.init.assigner['type'] != 'MaxIoUAssigner':
             # Assign target for center list
@@ -838,6 +848,7 @@ class RepPointsV2Head(AnchorFreeHead):
             #   assign target for bbox list
             bbox_list = self.centers_to_bboxes(center_list)
             candidate_list = bbox_list
+        # 设置初始loss计算所需要的targets,此时没有分类分支
         cls_reg_targets_init = self.get_targets(
             candidate_list,
             valid_flag_list,
@@ -862,8 +873,9 @@ class RepPointsV2Head(AnchorFreeHead):
          gt_hm_br_list, gt_offset_br_list, gt_hm_br_weight_list, gt_offset_br_weight_list,
          num_total_pos_tl, num_total_neg_tl, num_total_pos_br, num_total_neg_br) = heatmap_targets
 
-        # target for refinement stage
+        # 和前面操作完全相同
         center_list, valid_flag_list = self.get_points(featmap_sizes, img_metas)
+        # 此时可以得到特征图上每个预测offset在原图上面的坐标了，相当于进行了还原操作
         pts_coordinate_preds_refine = self.offset_to_pts(center_list, pts_preds_refine)
         bbox_list = []
         for i_img, center in enumerate(center_list):
@@ -873,6 +885,7 @@ class RepPointsV2Head(AnchorFreeHead):
                     pts_preds_init[i_lvl].detach())
                 bbox_shift = bbox_preds_init * self.point_strides[i_lvl]
                 bbox_center = torch.cat([center[i_lvl][:, :2], center[i_lvl][:, :2]], dim=1)
+                # 其预测得到的bbox，作为下一个阶段的anchor
                 bbox.append(bbox_center + bbox_shift[i_img].permute(1, 2, 0).reshape(-1, 4))
             bbox_list.append(bbox)
         cls_reg_targets_refine = self.get_targets(
@@ -959,7 +972,9 @@ class RepPointsV2Head(AnchorFreeHead):
                    cfg=None,
                    rescale=False,
                    nms=True):
+        # sem_scores在测试时候不需要
         assert len(cls_scores) == len(pts_preds_refine)
+        # 对pts_pred_refine得到bbox，还是特征图尺度
         bbox_preds_refine = [self.points2bbox(pts_pred_refine) for pts_pred_refine in pts_preds_refine]
         num_levels = len(cls_scores)
         mlvl_points = [
@@ -1006,6 +1021,9 @@ class RepPointsV2Head(AnchorFreeHead):
             score_map = score_map.sigmoid()
             score_map_original = score_map.clone()
 
+            # nms一致，得到该分支图上某种图片中所有物体的某个左上或者右下角点的点坐标indices
+            # 在高斯范围内的所有点的indices坐标都是一样
+            # 故后面的indices[y_round, x_round]只要在高斯范围内就可以进行refine，如果预测不在范围内可能也会有问题吧
             score_map, indices = F.max_pool2d_with_indices(score_map.unsqueeze(0), kernel_size=ks, stride=1,
                                                            padding=(ks - 1) // 2)
 
@@ -1016,9 +1034,11 @@ class RepPointsV2Head(AnchorFreeHead):
             else:
                 round_func = torch.round
 
+            # 最近初始点
             x_round = round_func((x / self.point_strides[i]).clamp(min=0, max=score_map.shape[-1] - 1))
             y_round = round_func((y / self.point_strides[i]).clamp(min=0, max=score_map.shape[-2] - 1))
 
+            # refine后点
             select_indices = indices[y_round.to(torch.long), x_round.to(torch.long)]
             new_x = select_indices % W
             new_y = select_indices // W
@@ -1034,18 +1054,20 @@ class RepPointsV2Head(AnchorFreeHead):
         assert len(cls_scores) == len(bbox_preds) == len(mlvl_points)
         mlvl_bboxes = []
         mlvl_scores = []
+        # 遍历每一层预测值
         for i_lvl, (cls_score, bbox_pred, points) in enumerate(zip(cls_scores, bbox_preds, mlvl_points)):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
-            scores = cls_score.permute(1, 2, 0).reshape(-1, self.cls_out_channels).sigmoid()
-            bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4)
+            scores = cls_score.permute(1, 2, 0).reshape(-1, self.cls_out_channels).sigmoid()  # 分类分支
+            bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4)  # bbox refine分支，已经得到特征图尺度的bbox
             nms_pre = cfg.get('nms_pre', -1)
             if nms_pre > 0 and scores.shape[0] > nms_pre:
-                max_scores, _ = scores.max(dim=1)
-                _, topk_inds = max_scores.topk(nms_pre)
+                max_scores, _ = scores.max(dim=1)  # 预测对应类别的最大分值
+                _, topk_inds = max_scores.topk(nms_pre)  # 先剔除分值低的
                 points = points[topk_inds, :]
                 bbox_pred = bbox_pred[topk_inds, :]
                 scores = scores[topk_inds, :]
             bbox_pos_center = torch.cat([points[:, :2], points[:, :2]], dim=1)
+            # 原图尺度
             bboxes = bbox_pred * self.point_strides[i_lvl] + bbox_pos_center
             x1 = bboxes[:, 0].clamp(min=0, max=img_shape[1])
             y1 = bboxes[:, 1].clamp(min=0, max=img_shape[0])
@@ -1061,6 +1083,7 @@ class RepPointsV2Head(AnchorFreeHead):
                 hm_offset = hm_offsets[i].permute(1, 2, 0)
                 point_stride = self.point_strides[i]
 
+                # 利用refine分支输出的bbox坐标作为初始化点，然后在cornernet的输出上面找出，得到更精确点
                 x1 = ((x1_new + hm_offset[y1_new.to(torch.long), x1_new.to(torch.long), 0]) * point_stride).clamp(min=0,
                                                                                                                   max=
                                                                                                                   img_shape[
