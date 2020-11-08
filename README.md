@@ -56,6 +56,8 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] guided anchoring
 - [x] sabl  
 - [x] reppoints    
+- [ ] reppointsv2  
+
 
 ## 4 模型仓库
 [文档链接](./docs/model_zoo.md)

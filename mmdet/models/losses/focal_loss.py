@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmdet.cv_core.ops import sigmoid_focal_loss as _sigmoid_focal_loss
@@ -153,4 +154,68 @@ class FocalLoss(nn.Module):
                 avg_factor=avg_factor)
         else:
             raise NotImplementedError
+        return loss_cls
+
+
+def separate_sigmoid_focal_loss(pred,
+                                target,
+                                weight=None,
+                                gamma=2.0,
+                                alpha=0.25,
+                                reduction='mean',
+                                avg_factor=None):
+    pred_sigmoid = pred.sigmoid()
+    target = target.type_as(pred)
+
+    pos_inds = target.eq(1)
+    neg_inds = target.lt(1)
+
+    pos_weights = weight[pos_inds]
+
+    pos_pred = pred_sigmoid[pos_inds]
+    neg_pred = pred_sigmoid[neg_inds]
+
+    pos_loss = -torch.log(pos_pred) * torch.pow(1 - pos_pred, gamma) * pos_weights * alpha
+    neg_loss = -torch.log(1 - neg_pred) * torch.pow(neg_pred, gamma) * (1 - alpha)
+
+    if pos_pred.nelement() == 0:
+        loss = neg_loss.sum() / avg_factor
+    else:
+        loss = pos_loss.sum() / pos_weights.sum() + neg_loss.sum() / avg_factor
+
+    return loss
+
+
+@LOSSES.register_module()
+class SEPFocalLoss(nn.Module):
+
+    def __init__(self,
+                 gamma=2.0,
+                 alpha=0.25,
+                 reduction='mean',
+                 loss_weight=1.0):
+        super(SEPFocalLoss, self).__init__()
+        self.gamma = gamma
+        self.alpha = alpha
+        self.reduction = reduction
+        self.loss_weight = loss_weight
+
+    def forward(self,
+                pred,
+                target,
+                weight=None,
+                avg_factor=None,
+                reduction_override=None):
+        assert reduction_override in (None, 'none', 'mean', 'sum')
+        reduction = (
+            reduction_override if reduction_override else self.reduction)
+        loss_cls = self.loss_weight * separate_sigmoid_focal_loss(
+            pred,
+            target,
+            weight,
+            gamma=self.gamma,
+            alpha=self.alpha,
+            reduction=reduction,
+            avg_factor=avg_factor)
+
         return loss_cls

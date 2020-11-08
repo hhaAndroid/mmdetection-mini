@@ -1,7 +1,7 @@
 from .bbox import bbox_overlaps
 from .carafe import CARAFE, CARAFENaive, CARAFEPack, carafe, carafe_naive
 from .cc_attention import CrissCrossAttention
-from .corner_pool import CornerPool
+from .corner_pool import CornerPool, TLPool, BRPool
 from .deform_conv import DeformConv2d, DeformConv2dPack, deform_conv2d
 from .deform_roi_pool import (DeformRoIPool, DeformRoIPoolPack,
                               ModulatedDeformRoIPoolPack, deform_roi_pool)
@@ -21,10 +21,9 @@ from .roi_pool import RoIPool, roi_pool
 from .sync_bn import SyncBatchNorm
 from .tin_shift import TINShift, tin_shift
 
-
 __all__ = [
     'bbox_overlaps', 'CARAFE', 'CARAFENaive', 'CARAFEPack', 'carafe',
-    'carafe_naive', 'CornerPool', 'DeformConv2d', 'DeformConv2dPack',
+    'carafe_naive', 'CornerPool', 'TLPool', 'BRPool', 'DeformConv2d', 'DeformConv2dPack',
     'deform_conv2d', 'DeformRoIPool', 'DeformRoIPoolPack',
     'ModulatedDeformRoIPoolPack', 'deform_roi_pool', 'SigmoidFocalLoss',
     'SoftmaxFocalLoss', 'sigmoid_focal_loss', 'softmax_focal_loss',
