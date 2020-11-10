@@ -57,7 +57,7 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] sabl  
 - [x] reppoints    
 - [x] reppointsv2    
-- [ ] cornernet  
+- [x] cornernet    
 
 
 ## 4 模型仓库

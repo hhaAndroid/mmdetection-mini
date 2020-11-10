@@ -125,6 +125,7 @@ class CornerHead(BaseDenseHead):
         super(CornerHead, self).__init__()
         self.num_classes = num_classes
         self.in_channels = in_channels
+        # 嵌入向量就1个数就行了
         self.corner_emb_channels = corner_emb_channels
         self.with_corner_emb = self.corner_emb_channels > 0
         self.corner_offset_channels = 2
@@ -405,6 +406,7 @@ class CornerHead(BaseDenseHead):
                 label = gt_labels[batch_id][box_id]
 
                 # Use coords in the feature level to generate ground truth
+                # 特征图尺度值的浮点坐标值
                 scale_left = left * width_ratio
                 scale_right = right * width_ratio
                 scale_top = top * height_ratio
@@ -413,6 +415,7 @@ class CornerHead(BaseDenseHead):
                 scale_center_y = center_y * height_ratio
 
                 # Int coords on feature map/ground truth tensor
+                # 取整操作
                 left_idx = int(min(scale_left, width - 1))
                 right_idx = int(min(scale_right, width - 1))
                 top_idx = int(min(scale_top, height - 1))
@@ -432,6 +435,7 @@ class CornerHead(BaseDenseHead):
                     radius)
 
                 # Generate corner offset
+                # 直接算偏移即可，特征图尺度
                 left_offset = scale_left - left_idx
                 top_offset = scale_top - top_idx
                 right_offset = scale_right - right_idx
@@ -444,6 +448,7 @@ class CornerHead(BaseDenseHead):
 
                 # Generate corner embedding
                 if with_corner_emb:
+                    # 每一行代表当前gt bbox的两个关键点在特征图上面的坐标
                     corner_match.append([[top_idx, left_idx],
                                          [bottom_idx, right_idx]])
                 # Generate guiding shift
@@ -615,6 +620,7 @@ class CornerHead(BaseDenseHead):
         # The value of real corner would be 1 in heatmap ground truth.
         # The mask is computed in class agnostic mode and its shape is
         # batch * 1 * width * height.
+        # mask是作为权重计算的，只有正样本位置才是1，其余位置全部是0
         tl_off_mask = gt_tl_hmp.eq(1).sum(1).gt(0).unsqueeze(1).type_as(
             gt_tl_hmp)
         br_off_mask = gt_br_hmp.eq(1).sum(1).gt(0).unsqueeze(1).type_as(

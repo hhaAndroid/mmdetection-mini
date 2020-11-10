@@ -34,11 +34,14 @@ def ae_loss_per_image(tl_preds, br_preds, match):
         push_loss = tl_preds.sum() * 0.
     else:
         for m in match:
+            # 同一组
             [tl_y, tl_x], [br_y, br_x] = m
+            # 同一组预测值
             tl_e = tl_preds[:, tl_y, tl_x].view(-1, 1)
             br_e = br_preds[:, br_y, br_x].view(-1, 1)
             tl_list.append(tl_e)
             br_list.append(br_e)
+            # 同一组预测的平均值
             me_list.append((tl_e + br_e) / 2.0)
 
         tl_list = torch.cat(tl_list)
@@ -49,7 +52,7 @@ def ae_loss_per_image(tl_preds, br_preds, match):
 
         # N is object number in image, M is dimension of embedding vector
         N, M = tl_list.size()
-
+        # 拉的loss
         pull_loss = (tl_list - me_list).pow(2) + (br_list - me_list).pow(2)
         pull_loss = pull_loss.sum() / N
 
@@ -58,9 +61,11 @@ def ae_loss_per_image(tl_preds, br_preds, match):
         # confusion matrix of push loss
         conf_mat = me_list.expand((N, N, M)).permute(1, 0, 2) - me_list
         conf_weight = 1 - torch.eye(N).type_as(me_list)
+        # 计算任意组的距离
         conf_mat = conf_weight * (margin - conf_mat.sum(-1).abs())
 
         if N > 1:  # more than one object in current image
+            # 距离要大
             push_loss = F.relu(conf_mat).sum() / (N * (N - 1))
         else:
             push_loss = tl_preds.sum() * 0.
@@ -91,7 +96,9 @@ class AssociativeEmbeddingLoss(nn.Module):
         """Forward function."""
         batch = pred.size(0)
         pull_all, push_all = 0.0, 0.0
+        # 单张图片处理
         for i in range(batch):
+            # match是利用label算出来的分组关系，match[i]里面的list每行代表同一组关键点坐标
             pull, push = ae_loss_per_image(pred[i], target[i], match[i])
 
             pull_all += self.pull_weight * pull
