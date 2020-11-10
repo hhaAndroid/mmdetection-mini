@@ -57,7 +57,8 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [x] sabl  
 - [x] reppoints    
 - [x] reppointsv2    
-- [x] cornernet    
+- [x] cornernet   
+- [ ] centripetalnet    
 
 
 ## 4 模型仓库
@@ -182,7 +183,8 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 [第十八篇：mmdetection最小复刻版(十八)：Side-Aware边界框定位](https://www.zybuluo.com/huanghaian/note/1753776)      
 [第十九篇：mmdetection最小复刻版(十九)：点集表示法RepPoints](https://www.zybuluo.com/huanghaian/note/1754350)     
 [第二十篇：mmdetection最小复刻版(二十)：加入验证任务的RepPointsV2](https://www.zybuluo.com/huanghaian/note/1754857)     
-[第二十一篇：mmdetection最小复刻版(二十一)：关键点检测思路CornerNet分析](https://www.zybuluo.com/huanghaian/note/1755495)  
+[第二十一篇：mmdetection最小复刻版(二十一)：关键点检测思路CornerNet分析](https://www.zybuluo.com/huanghaian/note/1755495)    
+[第二十二篇：mmdetection最小复刻版(二十二)：引入向心力解决CornerNet虚检问题](https://www.zybuluo.com/huanghaian/note/1755583)  
 
 
 ## other
