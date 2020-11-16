@@ -2,7 +2,10 @@
 mmdetection的mini版本，主要包括一阶段目标检测器，结构和
 mmdetection完全一致，系统通过从头构建整个框架来熟悉所有细节
 
-## 0 为何而生
+## 0 蓝图
+本仓库属于长期项目，计划分成n个阶段，每个阶段做啥事情我已经有打算了，目前还处于第一阶段：**解读mmdet已经复现的算法**。这个阶段主要是对mmdet已经复现的代码进行深度分析，每个算法都会有配套的详细论文和代码实现解读(后续会增加视频解读和汇总版解读文档)。故如果大家早当前阶段想利用本框架进行重新训练，最好还是直接用mmdet官方代码库，在后续阶段会重构训练逻辑代码，新增对比实验等等操作，请各位朋友不要着急！
+
+## 1 为何而生
 很多人可能有疑问：mmdetection那么好用，你为啥要自己又写一遍呢？没事干？
 其实不然，基于我目前的理解，出于以下几点原因：
 
@@ -19,7 +22,7 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 如果直接加到mmdetection上面，会改动一些代码，一旦pull又有冲突。由于同步mmdetection过程是手动的，新增特征
 也不会出现冲突
 
-## 1 介绍
+## 2 介绍
 
 完全基于mmdetection框架结构,简称mmdet最简学习版，**基于最简实现，第一原则就是简洁，不会加入一些乱七八糟的功能，一步一步构建一阶段目标检测器**。
 主要目的为在从0构建整个框架的基础上，掌握整个目标检测实现细节。 并且方便新增自己想要实现的部分。
@@ -30,10 +33,10 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 
 **更新可能是快时慢。在掌握每个细节后才会增加新代码，欢迎有兴趣的朋友共同学习，也欢迎提出意见。**
 
-## 2 提交日志
+## 3 提交日志
 [文档链接](./docs/changelog.md)
 
-## 3 已实现模型
+## 4 已实现模型
 - [x] retinanet
 - [x] yolov3
 - [x] darknet-yolov3
@@ -61,11 +64,11 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - [ ] centripetalnet    
 
 
-## 4 模型仓库
+## 5 模型仓库
 [文档链接](./docs/model_zoo.md)
 
 
-## 5 安装说明
+## 6 安装说明
 可选安装流程：
 [文档链接](./docs/install.md)  
 
@@ -78,7 +81,7 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 也就是说mmdet/cv_core/ops/csrc里面的代码是废弃的。我们目前采用的环境是 pytorch1.3+Python 3.6+CUDA10.1+MMCV1.1.5
 
 
-## 6 统一数据集
+## 7 统一数据集
    由于coco训练集图片太多了，跑到论文效果需要非常多时间，而本框架目的主要目的是快速验证
 思想和算法(代码和mmdetection一致，应该没有错误)，故对主要以voc为主：
 - coco
@@ -86,8 +89,8 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 - wider face
 
 
-## 7 使用说明
-### 7.1 训练、测试和demo使用说明
+## 8 使用说明
+### 8.1 训练、测试和demo使用说明
 
 开启训练过程和mmdetection完全一致，例如：
 
@@ -110,7 +113,7 @@ python test.py ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs
 python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../tools/work_dirs/retinanet_r50_fpn_coco/latest.pth
 ```
 
-### 7.2 darknet权重转化为mmdetection
+### 8.2 darknet权重转化为mmdetection
 
 转化脚本在tools/darknet里面
 
@@ -127,7 +130,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 4. 然后就可以直接训练或者测试了
 
 
-### 7.3 yolov5权重转化为mmdetection
+### 8.3 yolov5权重转化为mmdetection
 
 转化脚本在tools/darknet里面。以yolov5s为例
 
@@ -138,7 +141,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 支持yolov5所有模型
 
-## 8 mmdetection-mini独有特性
+## 9 mmdetection-mini独有特性
 
 - loss分析工具 tools/loss_analyze.py
 - anchor分析工具 tools/anchor_analyze.py
@@ -154,7 +157,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 - yolov5转化工具tools/darknet/convert_yolov5_weights_step2.py
 
 
-## 9 mmdetection-mini工具汇总
+## 10 mmdetection-mini工具汇总
 - voc2coco工具 tools/convert/voc2coco
 - 数据浏览工具 tools/browse_dataset
 
@@ -210,4 +213,4 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 
 
 
-       
+​       
