@@ -66,7 +66,16 @@ mmdetection无疑是非常优异的目标检测框架，但是其整个框架代
 
 
 ## 5 安装说明
-[文档链接](./docs/install.md)
+可选安装流程：
+[文档链接](./docs/install.md)  
+
+推荐安装流程：
+考虑到很多人反映cuda无法编译成功，故本仓库将直接采用mmcv里面已经编译好的代码,新安装流程是：
+
+1. 提前安装mmcv-full对应的最新版本,参考https://github.com/open-mmlab/mmdetection/blob/master/docs/get_started.md
+2. 不再需要python setup.py develop
+
+也就是说mmdet/cv_core/ops/csrc里面的代码是废弃的。我们目前采用的环境是 pytorch1.3+Python 3.6+CUDA10.1+MMCV1.1.5
 
 
 ## 6 统一数据集
