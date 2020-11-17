@@ -184,7 +184,7 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 或者 [知乎文章](https://zhuanlan.zhihu.com/p/271636072)   
 [第十篇：mmdetection最小复刻版(十)：mAP和PISA深入分析](https://www.zybuluo.com/huanghaian/note/1749740)      
 [第十一篇：mmdetection最小复刻版(十一)：概率Anchor分配机制PAA深入分析](https://www.zybuluo.com/huanghaian/note/1750308)      
-[第十二篇：mmdetection最小复刻版(十二)：Faster RCNN深入分析](https://www.zybuluo.com/huanghaian/note/1751034)    
+[第十二篇：mmdetection最小复刻版(十二)：Faster RCNN深入分析]()    
 [第十三篇：mmdetection最小复刻版(十三)：超强cascade rcnn算法分析](https://www.zybuluo.com/huanghaian/note/1751181)    
 [第十四篇：mmdetection最小复刻版(十四)：检测器不平衡处理Libra rcnn](https://www.zybuluo.com/huanghaian/note/1751369)    
 [第十五篇：mmdetection最小复刻版(十五)：two-stage动态版本dynamic rcnn](https://www.zybuluo.com/huanghaian/note/1751370)   
@@ -207,7 +207,9 @@ python image_demo.py demo.jpg ../configs/retinanet/retinanet_r50_fpn_coco.py ../
 4. yolov2深入解读
 5. yolov3深入解读
 6. retinanet深入解读
-7. faster rcnn深入解读
+7. rpn深度解读
+8. faster rcnn深入解读
+9. fpn深入解读
 
 
 
