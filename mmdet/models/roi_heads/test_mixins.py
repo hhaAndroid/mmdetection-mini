@@ -8,46 +8,9 @@ from mmdet.det_core import (bbox2roi, bbox_mapping, merge_aug_bboxes,
 
 logger = logging.getLogger(__name__)
 
-if sys.version_info >= (3, 7):
-    from mmdet.utils.contextmanagers import completed
-
 
 class BBoxTestMixin(object):
 
-    if sys.version_info >= (3, 7):
-
-        async def async_test_bboxes(self,
-                                    x,
-                                    img_metas,
-                                    proposals,
-                                    rcnn_test_cfg,
-                                    rescale=False,
-                                    bbox_semaphore=None,
-                                    global_lock=None):
-            """Asynchronized test for box head without augmentation."""
-            rois = bbox2roi(proposals)
-            roi_feats = self.bbox_roi_extractor(
-                x[:len(self.bbox_roi_extractor.featmap_strides)], rois)
-            if self.with_shared_head:
-                roi_feats = self.shared_head(roi_feats)
-            sleep_interval = rcnn_test_cfg.get('async_sleep_interval', 0.017)
-
-            async with completed(
-                    __name__, 'bbox_head_forward',
-                    sleep_interval=sleep_interval):
-                cls_score, bbox_pred = self.bbox_head(roi_feats)
-
-            img_shape = img_metas[0]['img_shape']
-            scale_factor = img_metas[0]['scale_factor']
-            det_bboxes, det_labels = self.bbox_head.get_bboxes(
-                rois,
-                cls_score,
-                bbox_pred,
-                img_shape,
-                scale_factor,
-                rescale=rescale,
-                cfg=rcnn_test_cfg)
-            return det_bboxes, det_labels
 
     def simple_test_bboxes(self,
                            x,
