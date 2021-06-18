@@ -1,0 +1,5 @@
+albumentations>=0.3.2
+cityscapesscripts
+imagecorruptions
+scipy
+sklearn
