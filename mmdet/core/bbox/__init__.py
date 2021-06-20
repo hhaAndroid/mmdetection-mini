@@ -2,7 +2,7 @@ from .assigners import (AssignResult, BaseAssigner, CenterRegionAssigner,
                         MaxIoUAssigner, RegionAssigner)
 from .builder import build_assigner, build_bbox_coder, build_sampler
 from .coder import (BaseBBoxCoder, DeltaXYWHBBoxCoder, PseudoBBoxCoder,
-                    TBLRBBoxCoder)
+                    TBLRBBoxCoder, YOLOV5BBoxCoder)
 from .iou_calculators import BboxOverlaps2D, bbox_overlaps
 from .samplers import (BaseSampler, CombinedSampler,
                        InstanceBalancedPosSampler, IoUBalancedNegSampler,
@@ -23,5 +23,5 @@ __all__ = [
     'build_bbox_coder', 'BaseBBoxCoder', 'PseudoBBoxCoder',
     'DeltaXYWHBBoxCoder', 'TBLRBBoxCoder', 'CenterRegionAssigner',
     'bbox_rescale', 'bbox_cxcywh_to_xyxy', 'bbox_xyxy_to_cxcywh',
-    'RegionAssigner'
+    'RegionAssigner', 'YOLOV5BBoxCoder'
 ]
