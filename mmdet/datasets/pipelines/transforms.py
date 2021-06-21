@@ -357,7 +357,7 @@ class LetterResize(object):
             # 为了得到指定输出size，可能需要pad,pad参数
             dw, dh = self.image_size_hw[1] - new_unpad[0], self.image_size_hw[0] - new_unpad[1]  # wh padding
             if self.auto:  # minimum rectangle
-                dw, dh = np.mod(dw, 64), np.mod(dh, 64)  # wh padding
+                dw, dh = np.mod(dw, 32), np.mod(dh, 32)  # wh padding
             elif self.scaleFill:  # stretch
                 dw, dh = 0.0, 0.0
                 # 直接强制拉伸成指定输出

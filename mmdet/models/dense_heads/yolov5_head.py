@@ -15,6 +15,7 @@ from mmdet.core import (build_anchor_generator, build_assigner,
                         build_bbox_coder, build_sampler, images_to_levels,
                         multi_apply, multiclass_nms)
 
+
 def _make_divisible(x, divisor, width_multiple):
     return math.ceil(x * width_multiple / divisor) * divisor
 
@@ -47,7 +48,8 @@ class YOLOV5Head(YOLOV3Head):
         model.append(up1)  # 1
         cont1 = vn_layer.Concat()
         model.append(cont1)  # 2
-        bsp1 = vn_layer.C3(make_div8_fun(512)+make_div8_fun(self.in_channels[0]), make_div8_fun(512), make_round_fun(3), shortcut=False)
+        bsp1 = vn_layer.C3(make_div8_fun(512) + make_div8_fun(self.in_channels[0]), make_div8_fun(512),
+                           make_round_fun(3), shortcut=False)
         model.append(bsp1)  # 3
 
         conv2 = vn_layer.Conv(make_div8_fun(512), make_div8_fun(256))
@@ -56,14 +58,16 @@ class YOLOV5Head(YOLOV3Head):
         model.append(up2)  # 5
         cont2 = vn_layer.Concat()
         model.append(cont2)  # 6
-        bsp2 = vn_layer.C3(make_div8_fun(256)+make_div8_fun(self.in_channels[1]), make_div8_fun(256), make_round_fun(3), shortcut=False)
+        bsp2 = vn_layer.C3(make_div8_fun(256) + make_div8_fun(self.in_channels[1]), make_div8_fun(256),
+                           make_round_fun(3), shortcut=False)
         model.append(bsp2)  # 7
 
         conv3 = vn_layer.Conv(make_div8_fun(256), make_div8_fun(256), k=3, s=2)
         model.append(conv3)  # 8
         cont3 = vn_layer.Concat()
         model.append(cont3)  # 9
-        bsp3 = vn_layer.C3(make_div8_fun(256)+make_div8_fun(256), make_div8_fun(512), make_round_fun(3), shortcut=False)
+        bsp3 = vn_layer.C3(make_div8_fun(256) + make_div8_fun(256), make_div8_fun(512), make_round_fun(3),
+                           shortcut=False)
         model.append(bsp3)  # 10
 
         conv4 = vn_layer.Conv(make_div8_fun(512), make_div8_fun(512), k=3, s=2)
@@ -139,18 +143,21 @@ class YOLOV5Head(YOLOV3Head):
                 pred_maps[i][img_id].detach() for i in range(num_levels)
             ]
             scale_factor = img_metas[img_id]['scale_factor']
+            if 'pad_param' in img_metas[img_id]:
+                pad_param = img_metas[img_id]['pad_param']
+            else:
+                pad_param = None
             proposals = self._get_bboxes_single(pred_maps_list, scale_factor,
-                                                cfg, rescale, with_nms)
+                                                cfg, rescale, with_nms, pad_param)
             result_list.append(proposals)
         return result_list
 
-
     def _get_bboxes_single1(self,
-                           pred_maps_list,
-                           scale_factor,
-                           cfg,
-                           rescale=False,
-                           with_nms=True):
+                            pred_maps_list,
+                            scale_factor,
+                            cfg,
+                            rescale=False,
+                            with_nms=True):
         """Transform outputs for a single batch item into bbox predictions.
         Args:
             pred_maps_list (list[Tensor]): Prediction maps for different scales
@@ -230,7 +237,8 @@ class YOLOV5Head(YOLOV3Head):
                            scale_factor,
                            cfg,
                            rescale=False,
-                           with_nms=True):
+                           with_nms=True,
+                           pad_param=None):
         """Transform outputs for a single batch item into bbox predictions.
         Args:
             pred_maps_list (list[Tensor]): Prediction maps for different scales
@@ -270,47 +278,46 @@ class YOLOV5Head(YOLOV3Head):
             # (h, w, num_anchors*num_attrib) -> (h*w*num_anchors, num_attrib)
             pred_map = pred_map.permute(1, 2, 0).reshape(-1, self.num_attrib)
 
-
             pred_map = torch.sigmoid(pred_map)
             pred_map[..., :4] = self.bbox_coder.decode(multi_lvl_anchors[i],
-                                               pred_map[..., :4], stride)
-
+                                                       pred_map[..., :4], stride)
             multi_pred_map.append(pred_map)
 
         conf_thr = cfg.get('conf_thr', -1)
 
         mlvl_pred_map = torch.cat(multi_pred_map)
         if conf_thr > 0:
-            conf_inds = mlvl_pred_map[...,4].ge(conf_thr).nonzero(
-                    as_tuple=False).squeeze(1)
-
+            conf_inds = mlvl_pred_map[..., 4].ge(conf_thr).nonzero(
+                as_tuple=False).squeeze(1)
             mlvl_pred_map = mlvl_pred_map[conf_inds, :]
+
+        if mlvl_pred_map.shape[0] == 0:
+            return mlvl_pred_map[:, :4], mlvl_pred_map[:, 4]
 
         mlvl_pred_map[:, 5:] *= mlvl_pred_map[:, 4:5]  # conf = obj_conf * cls_conf
 
+        conf, j = mlvl_pred_map[:, 5:].max(1, keepdim=True)
+        mlvl_pred_map = torch.cat((mlvl_pred_map[:, :4], conf, j.float()), 1)
+        if conf_thr > 0:
+            mlvl_pred_map = mlvl_pred_map[conf.view(-1) > conf_thr, :]
 
-        conf, j= mlvl_pred_map[:, 5:].max(1, keepdim=True)
-        mlvl_pred_map = torch.cat((mlvl_pred_map[:,:4], conf, j.float()), 1)
-        if conf_thr>0:
-            mlvl_pred_map=mlvl_pred_map[conf.view(-1) > conf_thr,:]
-
-
-        n = mlvl_pred_map.shape[0]  # number of boxes
-        if not n:  # no boxes
-            pass
-        elif n > 30000:  # excess boxes
+        if mlvl_pred_map.shape[0] == 0:
+            return mlvl_pred_map[:, :4], mlvl_pred_map[:, 4]
+        elif mlvl_pred_map.shape[0] > 30000:  # excess boxes
             mlvl_pred_map = mlvl_pred_map[mlvl_pred_map[:, 4].argsort(descending=True)[:30000]]  # sort by confidence
 
-        mlvl_bboxes=mlvl_pred_map[:,:4]
+        mlvl_bboxes = mlvl_pred_map[:, :4]
         if rescale:
+            if pad_param is not None:
+                mlvl_bboxes -= mlvl_bboxes.new_tensor(
+                    [pad_param[2], pad_param[0], pad_param[2], pad_param[0]])
             mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
 
-        mlvl_scores=mlvl_pred_map[:, 4]
-        mlvl_labels=mlvl_pred_map[:, 5]
+        mlvl_scores = mlvl_pred_map[:, 4]
+        mlvl_labels = mlvl_pred_map[:, 5]
 
         det_bboxes, keep = batched_nms(mlvl_bboxes, mlvl_scores.contiguous(), mlvl_labels, cfg.nms)
         return det_bboxes, mlvl_labels[keep]
-
 
     def _bbox_post_process(self,
                            mlvl_scores,
@@ -350,4 +357,3 @@ class YOLOV5Head(YOLOV3Head):
                 return mlvl_bboxes, mlvl_scores, mlvl_score_factor
             else:
                 return mlvl_bboxes, mlvl_scores
-

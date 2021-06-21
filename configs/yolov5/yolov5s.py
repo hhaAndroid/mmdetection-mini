@@ -13,7 +13,7 @@ model = dict(
         type='YOLOV5Head',
         num_classes=80,
         in_channels=[512, 256, 128],
-        out_channels=[0.33, 0.5,1],
+        out_channels=[0.33, 0.5, 1],
         anchor_generator=dict(
             type='YOLOAnchorGenerator',
             base_sizes=[[(116, 90), (156, 198), (373, 326)],
@@ -40,23 +40,18 @@ model = dict(
         loss_wh=dict(type='MSELoss', loss_weight=2.0, reduction='sum')
     ),
     # test
-    # test_cfg = dict(
-    #     nms_pre=1000,
+    # test_cfg=dict(
     #     min_bbox_size=0,
-    #     score_thr=0.0000001,
     #     conf_thr=0.001,
     #     nms=dict(type='nms', iou_threshold=0.65),
-    #     max_per_img=300)  # 1000
+    #     max_per_img=1000)  # 1000
     # image_demo
-    test_cfg = dict(
+    test_cfg=dict(
         min_bbox_size=0,
-        score_thr=0,
         conf_thr=0.25,
         nms=dict(type='nms', iou_threshold=0.45),
         max_per_img=1000)  # 1000
-
 )
-
 
 img_norm_cfg = dict(mean=[0, 0, 0], std=[255., 255., 255.], to_rgb=True)
 
@@ -81,4 +76,3 @@ test_pipeline = [
 
 data = dict(
     test=dict(pipeline=test_pipeline))
-
