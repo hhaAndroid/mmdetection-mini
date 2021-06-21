@@ -157,7 +157,8 @@ class YOLOV5Head(YOLOV3Head):
                             scale_factor,
                             cfg,
                             rescale=False,
-                            with_nms=True):
+                            with_nms=True,
+                            pad_param=None):
         """Transform outputs for a single batch item into bbox predictions.
         Args:
             pred_maps_list (list[Tensor]): Prediction maps for different scales
@@ -181,7 +182,7 @@ class YOLOV5Head(YOLOV3Head):
         """
         cfg = self.test_cfg if cfg is None else cfg
         assert len(pred_maps_list) == self.num_levels
-        nms_pre = cfg.get('nms_pre', -1)
+        nms_pre = 1000
         conf_thr = cfg.get('conf_thr', -1)
 
         multi_lvl_bboxes = []
@@ -230,7 +231,7 @@ class YOLOV5Head(YOLOV3Head):
 
         return self._bbox_post_process(multi_lvl_cls_scores, multi_lvl_bboxes,
                                        scale_factor, cfg, rescale, with_nms,
-                                       multi_lvl_conf_scores)
+                                       multi_lvl_conf_scores, pad_param)
 
     def _get_bboxes_single(self,
                            pred_maps_list,
@@ -327,9 +328,13 @@ class YOLOV5Head(YOLOV3Head):
                            rescale=False,
                            with_nms=True,
                            mlvl_score_factor=None,
+                           pad_param=None,
                            **kwargs):
         mlvl_bboxes = torch.cat(mlvl_bboxes)
         if rescale:
+            if pad_param is not None:
+                mlvl_bboxes -= mlvl_bboxes.new_tensor(
+                    [pad_param[2], pad_param[0], pad_param[2], pad_param[0]])
             mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
         mlvl_scores = torch.cat(mlvl_scores)
 
@@ -347,7 +352,7 @@ class YOLOV5Head(YOLOV3Head):
             det_bboxes, det_labels = multiclass_nms(
                 mlvl_bboxes,
                 mlvl_scores,
-                cfg.score_thr,
+                0,
                 cfg.nms,
                 cfg.max_per_img,
                 score_factors=mlvl_score_factor)

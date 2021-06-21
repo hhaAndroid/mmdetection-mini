@@ -40,17 +40,17 @@ model = dict(
         loss_wh=dict(type='MSELoss', loss_weight=2.0, reduction='sum')
     ),
     # test
-    # test_cfg=dict(
-    #     min_bbox_size=0,
-    #     conf_thr=0.001,
-    #     nms=dict(type='nms', iou_threshold=0.65),
-    #     max_per_img=1000)  # 1000
-    # image_demo
     test_cfg=dict(
         min_bbox_size=0,
-        conf_thr=0.25,
-        nms=dict(type='nms', iou_threshold=0.45),
+        conf_thr=0.001,
+        nms=dict(type='nms', iou_threshold=0.65),
         max_per_img=1000)  # 1000
+    # image_demo
+    # test_cfg=dict(
+    #     min_bbox_size=0,
+    #     conf_thr=0.25,
+    #     nms=dict(type='nms', iou_threshold=0.45),
+    #     max_per_img=1000)  # 1000
 )
 
 img_norm_cfg = dict(mean=[0, 0, 0], std=[255., 255., 255.], to_rgb=True)
