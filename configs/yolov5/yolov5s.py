@@ -41,8 +41,10 @@ model = dict(
     ),
     test_cfg=dict(
         use_v3=False,  # 是否使用 mmdet v3 原本的后处理策略
+        score_thr=0.05,  # 仅仅当use_v3 为 True 才有效
+        nms_pre=1000,   # 仅仅当use_v3 为 True 才有效
         agnostic=False,  # 是否区分类别进行 nms，False 表示要区分
-        multi_label=False,  # 是否考虑多标签， 单张图检测是为 False，test 时候为 True，可以提高 mAP
+        multi_label=True,  # 是否考虑多标签， 单张图检测是为 False，test 时候为 True，可以提高 1 个点的 mAP
         min_bbox_size=0,
         # detect: conf_thr=0.25 iou_threshold=0.45
         # test: conf_thr=0.001 iou_threshold=0.65

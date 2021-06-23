@@ -192,7 +192,7 @@ class YOLOV5Head(YOLOV3Head):
         """
         cfg = self.test_cfg if cfg is None else cfg
         assert len(pred_maps_list) == self.num_levels
-        nms_pre = 1000
+        nms_pre = cfg.nms_pre
         conf_thr = cfg.get('conf_thr', -1)
 
         multi_lvl_bboxes = []
@@ -275,7 +275,7 @@ class YOLOV5Head(YOLOV3Head):
             det_bboxes, det_labels = multiclass_nms(
                 mlvl_bboxes,
                 mlvl_scores,
-                0.01,
+                cfg.score_thr,
                 cfg.nms,
                 cfg.max_per_img,
                 score_factors=mlvl_score_factor)
