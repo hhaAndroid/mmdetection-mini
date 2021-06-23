@@ -264,12 +264,11 @@ class YOLOV5Head(YOLOV3Head):
         if mlvl_score_factor is not None:
             mlvl_score_factor = torch.cat(mlvl_score_factor)
 
-        if False:
-            # Add a dummy background class to the backend when using sigmoid
-            # remind that we set FG labels to [0, num_class-1] since mmdet v2.0
-            # BG cat_id: num_class
-            padding = mlvl_scores.new_zeros(mlvl_scores.shape[0], 1)
-            mlvl_scores = torch.cat([mlvl_scores, padding], dim=1)
+        # Add a dummy background class to the backend when using sigmoid
+        # remind that we set FG labels to [0, num_class-1] since mmdet v2.0
+        # BG cat_id: num_class
+        padding = mlvl_scores.new_zeros(mlvl_scores.shape[0], 1)
+        mlvl_scores = torch.cat([mlvl_scores, padding], dim=1)
 
         if with_nms:
             det_bboxes, det_labels = multiclass_nms(
