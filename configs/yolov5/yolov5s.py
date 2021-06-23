@@ -39,18 +39,16 @@ model = dict(
             reduction='sum'),
         loss_wh=dict(type='MSELoss', loss_weight=2.0, reduction='sum')
     ),
-    # test
     test_cfg=dict(
+        use_v3=False,  # 是否使用 mmdet v3 原本的后处理策略
+        agnostic=False,  # 是否区分类别进行 nms，False 表示要区分
+        multi_label=False,  # 是否考虑多标签， 单张图检测是为 False，test 时候为 True，可以提高 mAP
         min_bbox_size=0,
+        # detect: conf_thr=0.25 iou_threshold=0.45
+        # test: conf_thr=0.001 iou_threshold=0.65
         conf_thr=0.001,
         nms=dict(type='nms', iou_threshold=0.65),
-        max_per_img=1000)  # 1000
-    # image_demo
-    # test_cfg=dict(
-    #     min_bbox_size=0,
-    #     conf_thr=0.25,
-    #     nms=dict(type='nms', iou_threshold=0.45),
-    #     max_per_img=1000)  # 1000
+        max_per_img=300)
 )
 
 img_norm_cfg = dict(mean=[0, 0, 0], std=[255., 255., 255.], to_rgb=True)
@@ -62,7 +60,8 @@ test_pipeline = [
         img_scale=(640, 640),
         flip=False,
         transforms=[
-            dict(type='LetterResize', img_scale=(640, 640)),
+            dict(type='ShapeLetterResize', img_scale=(640, 640), scaleup=True, auto=False),  # test
+            # dict(type='LetterResize', img_scale=(640, 640), scaleup=True, auto=True),  # detect
             dict(type='RandomFlip'),
             dict(type='Normalize', **img_norm_cfg),
             dict(type='Pad', size_divisor=32),

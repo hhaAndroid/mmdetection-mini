@@ -386,6 +386,83 @@ class LetterResize(object):
             results['pad_param'] = np.array([top, bottom, left, right], dtype=np.float32)
         return results
 
+
+@PIPELINES.register_module()
+class ShapeLetterResize(object):
+    def __init__(self,
+                 img_scale=None,
+                 color=(114, 114, 114),
+                 auto=True,
+                 scaleFill=False,
+                 scaleup=True,
+                 backend='cv2'):
+        self.image_size_hw = img_scale
+        self.color = color
+        self.auto = auto
+        self.scaleFill = scaleFill
+        self.scaleup = scaleup
+        self.backend = backend
+        self.batch_shapes = np.load('batch_shapes.npy')
+        self.file_name = []
+        with open('image_name.txt', 'r') as f:
+            file_name = f.readlines()
+            for file in file_name:
+                file = file.replace('\n', "")
+                self.file_name.append(file)
+
+    def __call__(self, results):
+        ori_filename = results['ori_filename']
+        index = self.file_name.index(ori_filename)
+
+        self.image_size_hw = self.batch_shapes[index]
+
+        for key in results.get('img_fields', ['img']):
+            img = results[key]
+
+            shape = img.shape[:2]  # current shape [height, width]
+            # if isinstance(self.image_size_hw, int):
+            #     self.image_size_hw = (self.image_size_hw, self.image_size_hw)
+
+            # Scale ratio (new / old)
+            r = min(self.image_size_hw[0] / shape[0], self.image_size_hw[1] / shape[1])
+            if not self.scaleup:  # only scale down, do not scale up (for better test mAP)
+                r = min(r, 1.0)
+            ratio = r, r
+            # 保存图片宽高缩放的最佳size
+            new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+            # 为了得到指定输出size，可能需要pad,pad参数
+            dw, dh = self.image_size_hw[1] - new_unpad[0], self.image_size_hw[0] - new_unpad[1]  # wh padding
+            if self.auto:  # minimum rectangle
+                dw, dh = np.mod(dw, 32), np.mod(dh, 32)  # wh padding
+            elif self.scaleFill:  # stretch
+                dw, dh = 0.0, 0.0
+                # 直接强制拉伸成指定输出
+                new_unpad = (self.image_size_hw[1], self.image_size_hw[0])
+                ratio = self.image_size_hw[1] / shape[1], self.image_size_hw[0] / shape[0]  # width, height ratios
+
+            # 左右padding
+            dw /= 2  # divide padding into 2 sides
+            dh /= 2
+
+            # 没有padding前
+            if shape[::-1] != new_unpad:  # resize
+                img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+            results['img_shape'] = img.shape
+            scale_factor = np.array([ratio[0], ratio[1], ratio[0], ratio[1]], dtype=np.float32)
+            results['scale_factor'] = scale_factor
+
+            # padding
+            top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+            left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+            img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=self.color)  # add border
+
+            results[key] = img
+
+            results['pad_shape'] = img.shape
+            results['pad_param'] = np.array([top, bottom, left, right], dtype=np.float32)
+        return results
+
+
 @PIPELINES.register_module()
 class RandomFlip:
     """Flip the image & bbox & mask.
@@ -602,7 +679,7 @@ class RandomShift:
                 bbox_w = bboxes[..., 2] - bboxes[..., 0]
                 bbox_h = bboxes[..., 3] - bboxes[..., 1]
                 valid_inds = (bbox_w > self.filter_thr_px) & (
-                    bbox_h > self.filter_thr_px)
+                        bbox_h > self.filter_thr_px)
                 # If the shift does not contain any gt-bbox area, skip this
                 # image.
                 if key == 'gt_bboxes' and not valid_inds.any():
@@ -786,7 +863,7 @@ class RandomCrop:
                  allow_negative_crop=False,
                  bbox_clip_border=True):
         if crop_type not in [
-                'relative_range', 'relative', 'absolute', 'absolute_range'
+            'relative_range', 'relative', 'absolute', 'absolute_range'
         ]:
             raise ValueError(f'Invalid crop_type {crop_type}.')
         if crop_type in ['absolute', 'absolute_range']:
@@ -849,7 +926,7 @@ class RandomCrop:
                 bboxes[:, 0::2] = np.clip(bboxes[:, 0::2], 0, img_shape[1])
                 bboxes[:, 1::2] = np.clip(bboxes[:, 1::2], 0, img_shape[0])
             valid_inds = (bboxes[:, 2] > bboxes[:, 0]) & (
-                bboxes[:, 3] > bboxes[:, 1])
+                    bboxes[:, 3] > bboxes[:, 1])
             # If the crop does not contain any gt-bbox area and
             # allow_negative_crop is False, skip this image.
             if (key == 'gt_bboxes' and not valid_inds.any()
@@ -866,7 +943,7 @@ class RandomCrop:
             if mask_key in results:
                 results[mask_key] = results[mask_key][
                     valid_inds.nonzero()[0]].crop(
-                        np.asarray([crop_x1, crop_y1, crop_x2, crop_y2]))
+                    np.asarray([crop_x1, crop_y1, crop_x2, crop_y2]))
 
         # crop semantic seg
         for key in results.get('seg_fields', []):
@@ -1014,7 +1091,7 @@ class PhotoMetricDistortion:
                 'Only single img_fields is allowed'
         img = results['img']
         assert img.dtype == np.float32, \
-            'PhotoMetricDistortion needs the input image of dtype np.float32,'\
+            'PhotoMetricDistortion needs the input image of dtype np.float32,' \
             ' please set "to_float32=True" in "LoadImageFromFile" pipeline'
         # random brightness
         if random.randint(2):
@@ -1294,7 +1371,7 @@ class MinIoURandomCrop:
                 # seg fields
                 for key in results.get('seg_fields', []):
                     results[key] = results[key][patch[1]:patch[3],
-                                                patch[0]:patch[2]]
+                                   patch[0]:patch[2]]
                 return results
 
     def __repr__(self):
@@ -1719,8 +1796,8 @@ class RandomCenterCropPad:
         """
         center = (boxes[:, :2] + boxes[:, 2:]) / 2
         mask = (center[:, 0] > patch[0]) * (center[:, 1] > patch[1]) * (
-            center[:, 0] < patch[2]) * (
-                center[:, 1] < patch[3])
+                center[:, 0] < patch[2]) * (
+                       center[:, 1] < patch[3])
         return mask
 
     def _crop_image_and_paste(self, image, center, size):
@@ -1770,7 +1847,7 @@ class RandomCenterCropPad:
             cropped_center_y - top, cropped_center_y + bottom,
             cropped_center_x - left, cropped_center_x + right
         ],
-                          dtype=np.float32)
+            dtype=np.float32)
 
         return cropped_img, border, patch
 
@@ -1824,7 +1901,7 @@ class RandomCenterCropPad:
                         bboxes[:, 0:4:2] = np.clip(bboxes[:, 0:4:2], 0, new_w)
                         bboxes[:, 1:4:2] = np.clip(bboxes[:, 1:4:2], 0, new_h)
                     keep = (bboxes[:, 2] > bboxes[:, 0]) & (
-                        bboxes[:, 3] > bboxes[:, 1])
+                            bboxes[:, 3] > bboxes[:, 1])
                     bboxes = bboxes[keep]
                     results[key] = bboxes
                     if key in ['gt_bboxes']:
