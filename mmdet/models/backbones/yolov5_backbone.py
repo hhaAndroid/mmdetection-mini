@@ -1,3 +1,4 @@
+import numpy as np
 import torch.nn as nn
 import math
 import functools
@@ -57,15 +58,23 @@ class YOLOV5Backbone(nn.Module):
         bsp4 = vn_layer.C3(make_div8_fun(1024), make_div8_fun(1024), make_round_fun(3), shortcut=False)
         model.append(bsp4)  # 第三个输出层
         self.backbone = nn.Sequential(*model)
-        self.init_weights()
+        # self.init_weights()
 
-    def init_weights(self):
-        pass
+    # for test
+    # def init_weights(self):
+    #     from mmcv.cnn import constant_init
+    #     for m in self.modules():
+    #         if isinstance(m, nn.Conv2d):
+    #             constant_init(m, 1)
+    #         elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+    #             constant_init(m, 1)
 
     def forward(self, x):
+        # np.save('image.npy', x.detach().cpu().numpy())
         out = []
         for i, m in enumerate(self.backbone):
             x = m(x)
+            # print(m, x.sum(), x.mean())
             if i in self.return_index:
                 out.append(x)
         return out  # 从大到小

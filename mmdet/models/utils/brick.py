@@ -228,6 +228,7 @@ class Conv(nn.Module):
         # note: momentum and eps
         self.bn = nn.BatchNorm2d(c2, momentum=0.03, eps=0.001)
         self.act = nn.SiLU(inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        # self.act = nn.SiLU(inplace=False) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))

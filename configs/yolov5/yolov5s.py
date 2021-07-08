@@ -1,6 +1,6 @@
+# custom_imports = dict(imports=['tools/misc/custom_optimizer.py', 'tools/misc/one_cycle_lr_update.py'])
+
 _base_ = [
-    '../_base_/datasets/coco_detection.py',
-    '../_base_/schedules/schedule_1x.py',
     '../_base_/default_runtime.py'
 ]
 
@@ -42,7 +42,7 @@ model = dict(
     test_cfg=dict(
         use_v3=False,  # 是否使用 mmdet v3 原本的后处理策略
         score_thr=0.05,  # 仅仅当 use_v3 为 True 才有效
-        nms_pre=1000,   # 仅仅当 use_v3 为 True 才有效
+        nms_pre=1000,  # 仅仅当 use_v3 为 True 才有效
         agnostic=False,  # 是否区分类别进行 nms，False 表示要区分
         multi_label=True,  # 是否考虑多标签， 单张图检测是为 False，test 时候为 True，可以提高 1 个点的 mAP
         min_bbox_size=0,
@@ -53,7 +53,19 @@ model = dict(
         max_per_img=300)
 )
 
-img_norm_cfg = dict(mean=[0, 0, 0], std=[255., 255., 255.], to_rgb=True)
+img_norm_cfg = dict(mean=[0., 0., 0.], std=[255., 255., 255.], to_rgb=True)
+
+# dataset settings
+dataset_type = 'YOLOV5CocoDataset'
+# data_root = '/home/PJLAB/huanghaian/dataset/coco/'
+data_root = 'data/coco/'
+
+train_pipeline = [
+    dict(type='Normalize', **img_norm_cfg),
+    dict(type='DefaultFormatBundle'),
+    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'],
+         meta_keys=('img_norm_cfg',)),
+]
 
 test_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -76,4 +88,32 @@ test_pipeline = [
 ]
 
 data = dict(
-    test=dict(pipeline=test_pipeline))
+    samples_per_gpu=64,
+    workers_per_gpu=4,
+    train=dict(
+        type=dataset_type,
+        ann_file=data_root + 'annotations/instances_val2017.json',
+        img_prefix=data_root + 'val2017/',
+        pipeline=train_pipeline,
+        filter_empty_gt=True),
+    val=dict(
+        type=dataset_type,
+        ann_file=data_root + 'annotations/instances_val2017.json',
+        img_prefix=data_root + 'val2017/',
+        pipeline=test_pipeline),
+    test=dict(
+        type=dataset_type,
+        ann_file=data_root + 'annotations/instances_val2017.json',
+        img_prefix=data_root + 'val2017/',
+        pipeline=test_pipeline))
+
+evaluation = dict(interval=10, metric='bbox')
+checkpoint_config = dict(interval=10)
+
+# optimizer
+optimizer = dict(constructor='CustomOptimizer', type='SGD', lr=0.01, momentum=0.937, nesterov=True)
+optimizer_config = dict(grad_clip=None)
+
+# learning policy
+lr_config = dict(policy='OneCycle')
+runner = dict(type='EpochBasedRunner', max_epochs=300)
