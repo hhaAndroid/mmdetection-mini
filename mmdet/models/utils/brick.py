@@ -46,6 +46,7 @@ class Conv2dBatchLeaky(nn.Module):
         x = self.layers(x)
         return x
 
+
 # spp模块
 class SpatialPyramidPooling(nn.Module):
     def __init__(self, pool_sizes=[5, 9, 13]):
@@ -120,7 +121,6 @@ class FuseStage(nn.Module):
         if self.right_conv:
             right = self.right_conv(right)
         return torch.cat((left, right), dim=1)
-
 
 
 class StageBlock(nn.Module):
@@ -213,6 +213,14 @@ class Identity(nn.Module):
         return input
 
 
+class SiLU(nn.Module):
+    def __init__(self, inplace=True):
+        super(SiLU, self).__init__()
+
+    def forward(self, inputs):
+        return inputs * torch.sigmoid(inputs)
+
+
 def autopad(k, p=None):  # kernel, padding
     # Pad to 'same'
     if p is None:
@@ -228,7 +236,7 @@ class Conv(nn.Module):
         # note: momentum and eps
         self.bn = nn.BatchNorm2d(c2, momentum=0.03, eps=0.001)
         self.act = nn.SiLU(inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
-        # self.act = nn.SiLU(inplace=False) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        # self.act = SiLU(inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
@@ -302,6 +310,7 @@ class BottleneckCSP(nn.Module):
         y1 = self.cv3(self.m(self.cv1(x)))
         y2 = self.cv2(x)
         return self.cv4(self.act(self.bn(torch.cat((y1, y2), dim=1))))
+
 
 class C3(nn.Module):
     # CSP Bottleneck with 3 convolutions
