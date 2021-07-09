@@ -48,7 +48,7 @@ class OneCycleLrUpdaterHook(Hook):
         optimizer = runner.optimizer
 
         # The minimum warmup is 1000
-        warmup_total_iters = max(round(self.warmup_epochs * len(runner.data_loader)), 200)
+        warmup_total_iters = max(round(self.warmup_epochs * len(runner.data_loader)), 1000)
         xi = [0, warmup_total_iters]
 
         if cur_iters <= warmup_total_iters:
