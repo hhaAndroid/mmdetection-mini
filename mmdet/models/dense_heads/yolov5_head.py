@@ -550,7 +550,7 @@ class ComputeLoss:
             bbox[:, 0::2] = bbox[:, 0::2] / (img_shape[1] * 1.0)  # normalized width 0-1
 
             index = gt_labels[i].new_full((len(gt_bboxes[i]),), i)
-            target = torch.cat((index[:, None], gt_labels[i][:, None], bbox), dim=1)
+            target = torch.cat((index[:, None].float(), gt_labels[i][:, None].float(), bbox), dim=1)
             target_list.append(target)
 
         targets = torch.cat(target_list, dim=0)
