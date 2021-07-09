@@ -115,9 +115,9 @@ class YOLOV5Head(YOLOV3Head):
 
         self.det = nn.Sequential(*model)
         self.head = nn.Sequential(
-            nn.Conv2d(make_div8_fun(256), 255, 1),
-            nn.Conv2d(make_div8_fun(512), 255, 1),
-            nn.Conv2d(make_div8_fun(1024), 255, 1),
+            nn.Conv2d(make_div8_fun(256), (5+self.num_classes)*self.num_anchors, 1),
+            nn.Conv2d(make_div8_fun(512), (5+self.num_classes)*self.num_anchors, 1),
+            nn.Conv2d(make_div8_fun(1024), (5+self.num_classes)*self.num_anchors, 1),
         )
 
     def forward(self, feats):
@@ -155,7 +155,7 @@ class YOLOV5Head(YOLOV3Head):
             for mi, s in zip(model, stride):  # from
                 b = mi.bias.view(3, -1)  # conv.bias(255) to (3,85)
                 b.data[:, 4] += math.log(8 / (640 / s) ** 2)  # obj (8 objects per 640 image)
-                b.data[:, 5:] += math.log(0.6 / (80 - 0.99)) if cf is None else torch.log(cf / cf.sum())  # cls
+                b.data[:, 5:] += math.log(0.6 / (self.num_classes - 0.99)) if cf is None else torch.log(cf / cf.sum())  # cls
                 mi.bias = torch.nn.Parameter(b.view(-1), requires_grad=True)
 
         _initialize_biases(self.head)
@@ -472,8 +472,8 @@ class ComputeLoss:
 
         self.na = 3
         self.nl = 3
-        self.nc = 80
-        self.no = 85
+        self.nc = model.num_classes
+        self.no = model.num_classes+5
 
         # 暂时调整位置
         base_sizes = anchor_generator.base_sizes[::-1]
