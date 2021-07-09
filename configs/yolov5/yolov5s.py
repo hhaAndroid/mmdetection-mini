@@ -112,7 +112,7 @@ checkpoint_config = dict(interval=10)
 
 # optimizer
 optimizer = dict(constructor='CustomOptimizer', type='SGD', lr=0.01, momentum=0.937, nesterov=True)
-optimizer_config = dict(grad_clip=None)
+optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
 lr_config = dict(policy='OneCycle')
