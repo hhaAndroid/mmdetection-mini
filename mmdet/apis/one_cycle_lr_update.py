@@ -68,5 +68,5 @@ class OneCycleLrUpdaterHook(Hook):
             optimizer = runner.optimizer
             for j, x in enumerate(optimizer.param_groups):
                 # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                x['lr'] = self.lf(cur_epoch)
+                x['lr'] = self.base_lr[j]*self.lf(cur_epoch)
             # print('xxxxx-ni=', 1, [x['lr'] for x in optimizer.param_groups])
