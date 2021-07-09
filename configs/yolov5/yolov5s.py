@@ -117,3 +117,5 @@ optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(policy='OneCycle')
 runner = dict(type='EpochBasedRunner', max_epochs=300)
+
+log_config = dict(interval=30)
