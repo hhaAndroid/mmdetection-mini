@@ -405,11 +405,11 @@ class ShapeLetterResize(object):
         self.scaleFill = scaleFill
         self.scaleup = scaleup
         self.backend = backend
-        self.batch_shapes = np.load(os.getcwd()+'/../batch_shapes.npy')
-        # self.batch_shapes = np.load('batch_shapes.npy')
+        # self.batch_shapes = np.load(os.getcwd()+'/../batch_shapes.npy')
+        self.batch_shapes = np.load('batch_shapes.npy')
         self.file_name = []
-        with open(os.getcwd()+'/../image_name.txt', 'r') as f:
-        # with open('image_name.txt', 'r') as f:
+        # with open(os.getcwd()+'/../image_name.txt', 'r') as f:
+        with open('image_name.txt', 'r') as f:
             file_name = f.readlines()
             for file in file_name:
                 file = file.replace('\n', "")
