@@ -397,22 +397,24 @@ class ShapeLetterResize(object):
                  auto=True,
                  scaleFill=False,
                  scaleup=True,
-                 backend='cv2'):
+                 backend='cv2',
+                 with_yolov5=False):
         self.image_size_hw = img_scale
         self.color = color
         self.auto = auto
         self.scaleFill = scaleFill
         self.scaleup = scaleup
         self.backend = backend
-        # self.batch_shapes = np.load(os.getcwd()+'/../batch_shapes.npy')
-        self.batch_shapes = np.load('batch_shapes.npy')
+        self.batch_shapes = np.load(os.getcwd()+'/../batch_shapes.npy')
+        # self.batch_shapes = np.load('batch_shapes.npy')
         self.file_name = []
-        # with open(os.getcwd()+'/../image_name.txt', 'r') as f:
-        with open('image_name.txt', 'r') as f:
+        with open(os.getcwd()+'/../image_name.txt', 'r') as f:
+        # with open('image_name.txt', 'r') as f:
             file_name = f.readlines()
             for file in file_name:
                 file = file.replace('\n', "")
                 self.file_name.append(file)
+        self.with_yolov5 = with_yolov5
 
     def __call__(self, results):
         ori_filename = results['ori_filename']
@@ -424,14 +426,23 @@ class ShapeLetterResize(object):
             img = results[key]
 
             shape = img.shape[:2]  # current shape [height, width]
-            # if isinstance(self.image_size_hw, int):
-            #     self.image_size_hw = (self.image_size_hw, self.image_size_hw)
+            r1 = 1
+            if self.with_yolov5:
+                h0, w0 = img.shape[:2]  # orig hw
+                r1 = 640 / max(h0, w0)  # ratio
+                if r1 != 1:  # if sizes are not equal
+                    img = cv2.resize(img, (int(w0 * r1), int(h0 * r1)),
+                                     interpolation=cv2.INTER_AREA if r1 < 1 else cv2.INTER_LINEAR)
+
+                shape = img.shape[:2]
 
             # Scale ratio (new / old)
             r = min(self.image_size_hw[0] / shape[0], self.image_size_hw[1] / shape[1])
             if not self.scaleup:  # only scale down, do not scale up (for better test mAP)
                 r = min(r, 1.0)
-            ratio = r, r
+
+            ratio = r * r1, r * r1
+
             # 保存图片宽高缩放的最佳size
             new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
             # 为了得到指定输出size，可能需要pad,pad参数
@@ -463,6 +474,8 @@ class ShapeLetterResize(object):
             results[key] = img
 
             results['pad_shape'] = img.shape
+            # yolov5的写法是如下，但是明显是错误的，但是实测发现对性能没有影响
+            # results['pad_param'] = np.array([dh, dh, dw, dw], dtype=np.float32)
             results['pad_param'] = np.array([top, bottom, left, right], dtype=np.float32)
         return results
 

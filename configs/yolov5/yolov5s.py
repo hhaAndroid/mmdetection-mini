@@ -74,7 +74,8 @@ test_pipeline = [
         img_scale=(640, 640),
         flip=False,
         transforms=[
-            dict(type='ShapeLetterResize', img_scale=(640, 640), scaleup=True, auto=False),  # test
+            # dict(type='ShapeLetterResize', img_scale=(640, 640), scaleup=True, auto=False),  # test
+            dict(type='ShapeLetterResize', img_scale=(640, 640), scaleup=False, auto=False, with_yolov5=True),  #  test，和原始v5完全一致的写法
             # dict(type='LetterResize', img_scale=(640, 640), scaleup=True, auto=True),  # detect
             dict(type='RandomFlip'),
             dict(type='Normalize', **img_norm_cfg),

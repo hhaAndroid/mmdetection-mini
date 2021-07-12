@@ -399,7 +399,9 @@ class YOLOV5Head(YOLOV3Head):
             stride = self.featmap_strides[i]
 
             # (h, w, num_anchors*num_attrib) -> (h*w*num_anchors, num_attrib)
-            pred_map = pred_map.permute(1, 2, 0).reshape(-1, self.num_attrib)
+            # pred_map = pred_map.permute(1, 2, 0).reshape(-1, self.num_attrib)
+            # 是否有 contiguous 对数值有影响
+            pred_map = pred_map.permute(1, 2, 0).reshape(-1, self.num_attrib).contiguous()
 
             pred_map = torch.sigmoid(pred_map)
             pred_map[..., :4] = self.bbox_coder.decode(multi_lvl_anchors[i],
@@ -442,11 +444,22 @@ class YOLOV5Head(YOLOV3Head):
                     [pad_param[2], pad_param[0], pad_param[2], pad_param[0]])
             mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
 
-        mlvl_scores = mlvl_pred_map[:, 4]
-        mlvl_labels = mlvl_pred_map[:, 5]
-
-        det_bboxes, keep = batched_nms(mlvl_bboxes, mlvl_scores.contiguous(), mlvl_labels, cfg.nms, cfg.agnostic)
-        return det_bboxes, mlvl_labels[keep]
+        use_torchvision = False
+        if use_torchvision:
+            c = mlvl_pred_map[:, 5:6] * 4096  # classes
+            boxes, scores = mlvl_pred_map[:, :4] + c, mlvl_pred_map[:, 4]  # boxes (offset by class), scores
+            import torchvision
+            i = torchvision.ops.nms(boxes, scores, 0.65)  # NMS
+            if i.shape[0] > 300:  # limit detections
+                i = i[:300]
+            det_bboxes = mlvl_pred_map[:, :5][i]
+            det_label = mlvl_pred_map[:, 5][i]
+            return det_bboxes, det_label
+        else:
+            mlvl_scores = mlvl_pred_map[:, 4]
+            mlvl_labels = mlvl_pred_map[:, 5]
+            det_bboxes, keep = batched_nms(mlvl_bboxes, mlvl_scores.contiguous(), mlvl_labels, cfg.nms, cfg.agnostic)
+            return det_bboxes, mlvl_labels[keep]
 
 
 class ComputeLoss:
