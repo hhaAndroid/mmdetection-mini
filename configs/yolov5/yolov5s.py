@@ -89,12 +89,12 @@ test_pipeline = [
 ]
 
 data = dict(
-    samples_per_gpu=64,
+    samples_per_gpu=8,  # total=64 8gpu
     workers_per_gpu=4,
     train=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
+        ann_file=data_root + 'annotations/instances_train2017.json',
+        img_prefix=data_root + 'train2017/',
         pipeline=train_pipeline,
         filter_empty_gt=True),
     val=dict(
