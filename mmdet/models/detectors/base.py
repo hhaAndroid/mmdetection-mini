@@ -152,8 +152,8 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
             assert 'proposals' not in kwargs
             return self.aug_test(imgs, img_metas, **kwargs)
 
-    @auto_fp16(apply_to=('img', ))
-    def forward(self, img, img_metas, return_loss=True, **kwargs):
+    @auto_fp16(apply_to=('img',))
+    def _forward(self, data, return_loss=True, **kwargs):
         """Calls either :func:`forward_train` or :func:`forward_test` depending
         on whether ``return_loss`` is ``True``.
 
@@ -163,9 +163,22 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
         should be double nested (i.e.  List[Tensor], List[List[dict]]), with
         the outer list indicating test time augmentations.
         """
-        if torch.onnx.is_in_onnx_export():
-            assert len(img_metas) == 1
-            return self.onnx_export(img[0], img_metas[0])
+        if self.training:
+            imgs_ = []
+            img_metas = []
+            gt_bboxes = []
+            gt_labels = []
+            for single in data:
+                img_metas.append(single['img_metas'].data)
+                gt_bboxes.append(single['gt_bboxes'].data.cuda())
+                gt_labels.append(single['gt_labels'].data.cuda())
+                imgs_.append(single['img'].data)
+            img = torch.stack(imgs_, dim=0).cuda()
+            data = {'gt_bboxes': gt_bboxes, "gt_labels": gt_labels}
+            kwargs.update(data)
+        else:
+            img_metas = [[data[0]['img_metas'][0].data]]
+            img = [data[0]['img'][0].data[None].cuda()]
 
         if return_loss:
             return self.forward_train(img, img_metas, **kwargs)
@@ -207,7 +220,7 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
 
         return loss, log_vars
 
-    def train_step(self, data, optimizer):
+    def forward(self, data, optimizer):
         """The iteration step during training.
 
         This method defines an iteration step during training, except for the
@@ -234,11 +247,11 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
                 DDP, it means the batch size on each GPU), which is used for \
                 averaging the logs.
         """
-        losses = self(**data)
+        losses = self._forward(data)
         loss, log_vars = self._parse_losses(losses)
 
         outputs = dict(
-            loss=loss, log_vars=log_vars, num_samples=len(data['img_metas']))
+            loss=loss, log_vars=log_vars, num_samples=len(data))
 
         return outputs
 
