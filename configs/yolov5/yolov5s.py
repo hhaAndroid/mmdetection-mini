@@ -120,3 +120,6 @@ lr_config = dict(policy='OneCycle')
 runner = dict(type='EpochBasedRunner', max_epochs=300)
 
 log_config = dict(interval=30)
+
+# fp16 settings
+fp16 = dict(loss_scale='dynamic')

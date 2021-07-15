@@ -171,6 +171,7 @@ class YOLOV5Head(YOLOV3Head):
         #     elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
         #         constant_init(m, 1)
 
+    @force_fp32(apply_to=('pred_maps',))
     def loss(self,
              pred_maps,
              gt_bboxes,
