@@ -57,7 +57,7 @@ img_norm_cfg = dict(mean=[0., 0., 0.], std=[255., 255., 255.], to_rgb=True)
 
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'
-# data_root = '/home/PJLAB/huanghaian/dataset/coco/'
+# data_root = '/home/PJLAB/huanghaian/dataset/test_data/coco/'
 data_root = 'data/coco/'
 
 train_pipeline = [

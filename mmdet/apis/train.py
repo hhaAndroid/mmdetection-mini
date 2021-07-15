@@ -4,6 +4,7 @@ from torch.nn.parallel.distributed import DistributedDataParallel
 from torch.nn.parallel import DataParallel
 
 import numpy as np
+import torch.nn as nn
 import torch
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
@@ -22,9 +23,13 @@ class VMMDistributedDataParallel(DistributedDataParallel):
         return self.forward(*inputs, **kwargs)
 
 
-class VMMDataParallel(DataParallel):
+class VMMDataParallel(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
     def train_step(self, *inputs, **kwargs):
-        return self.forward(*inputs, **kwargs)
+        return self.model.forward(*inputs, **kwargs)
 
 
 def set_random_seed(seed, deterministic=False):
@@ -93,8 +98,7 @@ def train_detector(model,
             broadcast_buffers=False,
             find_unused_parameters=find_unused_parameters)
     else:
-        model = VMMDataParallel(
-            model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+        model = VMMDataParallel(model).cuda(cfg.gpu_ids[0])
 
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)
