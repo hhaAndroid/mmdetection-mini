@@ -72,7 +72,8 @@ def load_mosaic(self, index):
         padh = y1a - y1b
 
         # Labels
-        ann_info = self.get_ann_info(index)
+        # ann_info = self.get_ann_info(index)
+        ann_info = self.data[index]
         bboxes = ann_info['bboxes'].copy()
         labels = ann_info['labels'].copy()
 
@@ -228,6 +229,18 @@ class YOLOV5CocoDataset(CocoDataset):
         self.hyp = {'fl_gamma': 0.0, 'hsv_h': 0.015, 'hsv_s': 0.7, 'hsv_v': 0.4, 'degrees': 0.0, 'translate': 0.1,
                     'scale': 0.5, 'shear': 0.0, 'perspective': 0.0, 'flipud': 0.0, 'fliplr': 0.5, 'mosaic': 1.0,
                     'mixup': 0.0}
+
+        # 提前解析，测试速度
+        self.data = self._parse_label()
+
+    def _parse_label(self):
+        print('====start parse====')
+        data = []
+        for i in range(len(self)):
+            ann_info = self.get_ann_info(i)
+            data.append(ann_info)
+        print('====end parse====')
+        return data
 
     def __getitem__(self, idx):
         if self.test_mode:
