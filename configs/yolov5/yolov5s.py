@@ -121,5 +121,17 @@ runner = dict(type='EpochBasedRunner', max_epochs=300)
 
 log_config = dict(interval=30)
 
+# 注意：暂时 fp16 和 AccumulateOptimizerHook 不兼容，只能开一个
+# 如果你总 batch大于等于 64，那么不需要 AccumulateOptimizerHook，可以开启 fp16
+# 如果你想使用梯度累积，那么就需要注释 fp16 配置
+# 如果 batch 大于等于64，并且显卡不支持fp16，那么全部注释即可
+
 # fp16 settings
-fp16 = dict(loss_scale='dynamic')
+# fp16 = dict(loss_scale='dynamic')
+#
+# std_batch = 64
+# total_batch = 16
+# optimizer_config = dict(type="AccumulateOptimizerHook",
+#                         grad_clip=dict(max_norm=35, norm_type=2),
+#                         update_iterval=int(std_batch / total_batch))
+
