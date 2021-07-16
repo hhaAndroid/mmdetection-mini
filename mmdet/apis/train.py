@@ -38,6 +38,7 @@ class MyMMDistributedDataParallel(MMDistributedDataParallel):
       flexible control of input data.
     - It implement two APIs ``train_step()`` and ``val_step()``.
     """
+
     def to_kwargs(self, inputs, kwargs, device_id):
         # Use `self.to_kwargs` instead of `self.scatter` in pytorch1.8
         # to move all tensors to device_id
@@ -66,7 +67,18 @@ def scatter(inputs, target_gpus, dim=0):
                 return obj.data
             else:
                 # return Scatter.forward(target_gpus, obj.data)
-                return Scatter.apply(target_gpus, None, dim, obj.data)  # -------
+                # import pdb
+                # pdb.set_trace()
+                data = obj.data
+                if isinstance(data, list) and len(data) > 0:
+                    out = list(map(list, zip(*map(scatter_map, data))))
+                    if len(out) == 1:
+                        # img
+                        return out[0]
+                    # gt bbox ;gt label
+                    return out
+                # print(type(obj.data[0]), obj.data[0])
+                # return Scatter.apply(target_gpus, None, dim, obj.data[0])  # -------
         if isinstance(obj, tuple) and len(obj) > 0:
             return list(zip(*map(scatter_map, obj)))
         if isinstance(obj, list) and len(obj) > 0:
