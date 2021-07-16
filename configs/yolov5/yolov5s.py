@@ -57,7 +57,7 @@ img_norm_cfg = dict(mean=[0., 0., 0.], std=[255., 255., 255.], to_rgb=True)
 
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'
-# data_root = '/home/PJLAB/huanghaian/dataset/test_data/coco/'
+# data_root = '/home/PJLAB/huanghaian/dataset/coco/'
 data_root = 'data/coco/'
 
 train_pipeline = [
@@ -88,15 +88,26 @@ test_pipeline = [
         ])
 ]
 
+repeat_num = 3
+max_epoch = 300 // 3
+
 data = dict(
     samples_per_gpu=8,  # total=64 8gpu
     workers_per_gpu=4,
     train=dict(
-        type=dataset_type,
-        ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
-        pipeline=train_pipeline,
-        filter_empty_gt=True),
+        _delete_=True,
+        type='RepeatDataset',
+        times=repeat_num,
+        dataset=dict(
+            type=dataset_type,
+            ann_file=data_root + 'annotations/instances_train2017.json',
+            img_prefix=data_root + 'train2017/',
+            pipeline=train_pipeline)),
+    # train=dict(
+    #     type=dataset_type,
+    #     ann_file=data_root + 'annotations/instances_val2017.json',
+    #     img_prefix=data_root + 'val2017/',
+    #     pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_val2017.json',
@@ -108,30 +119,34 @@ data = dict(
         img_prefix=data_root + 'val2017/',
         pipeline=test_pipeline))
 
-evaluation = dict(interval=10, metric='bbox')
-checkpoint_config = dict(interval=10)
+evaluation = dict(interval=5, metric='bbox')
+checkpoint_config = dict(interval=5)
 
 # optimizer
 optimizer = dict(constructor='CustomOptimizer', type='SGD', lr=0.01, momentum=0.937, nesterov=True)
 optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
-lr_config = dict(policy='OneCycle')
-runner = dict(type='EpochBasedRunner', max_epochs=300)
+lr_config = dict(policy='OneCycle', repeat_num=repeat_num, max_epoch=max_epoch)
+runner = dict(type='EpochBasedRunner', max_epochs=max_epoch)
 
 log_config = dict(interval=30)
+
+custom_hooks = [dict(type='EMAHook', priority=49)]
 
 # 注意：暂时 fp16 和 AccumulateOptimizerHook 不兼容，只能开一个
 # 如果你总 batch大于等于 64，那么不需要 AccumulateOptimizerHook，可以开启 fp16
 # 如果你想使用梯度累积，那么就需要注释 fp16 配置
 # 如果 batch 大于等于64，并且显卡不支持fp16，那么全部注释即可
 
+
 # fp16 settings
 # fp16 = dict(loss_scale='dynamic')
-#
+
+
 # std_batch = 64
 # total_batch = 16
 # optimizer_config = dict(type="AccumulateOptimizerHook",
 #                         grad_clip=dict(max_norm=35, norm_type=2),
-#                         update_iterval=int(std_batch / total_batch))
-
+#                         update_iterval=int(std_batch / total_batch),
+#                         repeat_num=repeat_num)

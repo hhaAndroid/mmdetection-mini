@@ -9,11 +9,13 @@ class AccumulateOptimizerHook(Hook):
     def __init__(self,
                  grad_clip=None,
                  update_iterval=1,
-                 warm_iter=1000):
+                 warm_iter=1000,
+                 repeat_num=1):
         self.grad_clip = grad_clip
         self.update_iterval = update_iterval
         # self.warm_iter = warm_iter
         self.warmup_epochs = 3
+        self.repeat_num = repeat_num
 
     def clip_grads(self, params):
         params = list(
@@ -22,7 +24,8 @@ class AccumulateOptimizerHook(Hook):
             return clip_grad.clip_grad_norm_(params, **self.grad_clip)
 
     def after_train_iter(self, runner):
-        warmup_total_iters = max(round(self.warmup_epochs * len(runner.data_loader)), 1000)
+        dataloader_len = len(runner.data_loader) // self.repeat_num
+        warmup_total_iters = max(round(self.warmup_epochs * dataloader_len), 1000)
         accumulate = max(1, np.interp(runner.iter, [0, warmup_total_iters], [1, self.update_iterval]).round())
         runner.outputs['loss'].backward()
 
@@ -35,6 +38,3 @@ class AccumulateOptimizerHook(Hook):
         if runner.iter % accumulate == 0:
             runner.optimizer.step()
             runner.optimizer.zero_grad()
-
-
-

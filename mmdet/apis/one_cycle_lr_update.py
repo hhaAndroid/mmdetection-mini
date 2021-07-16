@@ -12,15 +12,16 @@ def one_cycle(y1=0.0, y2=1.0, steps=100):
 
 @HOOKS.register_module(force=True)
 class OneCycleLrUpdaterHook(Hook):
-    def __init__(self, **kwargs):
+    def __init__(self, repeat_num=1, max_epoch=300, **kwargs):
         super(OneCycleLrUpdaterHook, self).__init__(**kwargs)
         # self.warmup_iters = 1000
         # self.xi = [0, self.warmup_iters]
         self.warmup_bias_lr = 0.1
         self.warmup_momentum = 0.8
         self.warmup_epochs = 3
+        self.repeat_num = repeat_num
         self.momentum = 0.937
-        self.lf = one_cycle(1, 0.2, 300)  # max_epoch =300
+        self.lf = one_cycle(1, 0.2, max_epoch)
         self.warmup_end = False
 
     def before_run(self, runner):
@@ -48,7 +49,8 @@ class OneCycleLrUpdaterHook(Hook):
         optimizer = runner.optimizer
 
         # The minimum warmup is 1000
-        warmup_total_iters = max(round(self.warmup_epochs * len(runner.data_loader)), 1000)
+        dataloader_len = len(runner.data_loader) // self.repeat_num
+        warmup_total_iters = max(round(self.warmup_epochs * dataloader_len), 1000)
         xi = [0, warmup_total_iters]
 
         if cur_iters <= warmup_total_iters:
@@ -68,5 +70,5 @@ class OneCycleLrUpdaterHook(Hook):
             optimizer = runner.optimizer
             for j, x in enumerate(optimizer.param_groups):
                 # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-                x['lr'] = self.base_lr[j]*self.lf(cur_epoch)
+                x['lr'] = self.base_lr[j] * self.lf(cur_epoch)
             # print('xxxxx-ni=', 1, [x['lr'] for x in optimizer.param_groups])
