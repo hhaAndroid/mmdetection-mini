@@ -1,7 +1,10 @@
 import random
 import warnings
+from torch.nn.parallel.distributed import DistributedDataParallel
+from torch.nn.parallel import DataParallel
 
 import numpy as np
+import torch.nn as nn
 import torch
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import (HOOKS, DistSamplerSeedHook, EpochBasedRunner,
@@ -13,6 +16,20 @@ from mmdet.core import DistEvalHook, EvalHook
 from mmdet.datasets import (build_dataloader, build_dataset,
                             replace_ImageToTensor)
 from mmdet.utils import get_root_logger
+
+
+class VMMDistributedDataParallel(DistributedDataParallel):
+    def train_step(self, *inputs, **kwargs):
+        return self.forward(*inputs, **kwargs)
+
+
+class VMMDataParallel(nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def train_step(self, *inputs, **kwargs):
+        return self.model.forward(*inputs, **kwargs)
 
 
 def set_random_seed(seed, deterministic=False):
@@ -75,14 +92,13 @@ def train_detector(model,
         find_unused_parameters = cfg.get('find_unused_parameters', False)
         # Sets the `find_unused_parameters` parameter in
         # torch.nn.parallel.DistributedDataParallel
-        model = MMDistributedDataParallel(
+        model = VMMDistributedDataParallel(
             model.cuda(),
             device_ids=[torch.cuda.current_device()],
             broadcast_buffers=False,
             find_unused_parameters=find_unused_parameters)
     else:
-        model = MMDataParallel(
-            model.cuda(cfg.gpu_ids[0]), device_ids=cfg.gpu_ids)
+        model = VMMDataParallel(model).cuda(cfg.gpu_ids[0])
 
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)

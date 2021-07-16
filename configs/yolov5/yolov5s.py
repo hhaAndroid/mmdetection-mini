@@ -57,7 +57,7 @@ img_norm_cfg = dict(mean=[0., 0., 0.], std=[255., 255., 255.], to_rgb=True)
 
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'
-# data_root = '/home/PJLAB/huanghaian/dataset/coco/'
+# data_root = '/home/PJLAB/huanghaian/dataset/test_data/coco/'
 data_root = 'data/coco/'
 
 train_pipeline = [
@@ -93,8 +93,8 @@ data = dict(
     workers_per_gpu=4,
     train=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations/instances_train2017.json',
-        img_prefix=data_root + 'train2017/',
+        ann_file=data_root + 'annotations/instances_val2017.json',
+        img_prefix=data_root + 'val2017/',
         pipeline=train_pipeline,
         filter_empty_gt=True),
     val=dict(
