@@ -92,7 +92,7 @@ repeat_num = 3
 max_epoch = 300 // 3
 
 data = dict(
-    samples_per_gpu=8,  # total=64 8gpu
+    samples_per_gpu=16,  # total=64 8gpu
     workers_per_gpu=4,
     train=dict(
         _delete_=True,
@@ -100,8 +100,8 @@ data = dict(
         times=repeat_num,
         dataset=dict(
             type=dataset_type,
-            ann_file=data_root + 'annotations/instances_train2017.json',
-            img_prefix=data_root + 'train2017/',
+            ann_file=data_root + 'annotations/instances_val2017.json',
+            img_prefix=data_root + 'val2017/',
             pipeline=train_pipeline)),
     # train=dict(
     #     type=dataset_type,
