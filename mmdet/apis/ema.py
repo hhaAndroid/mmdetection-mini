@@ -53,7 +53,8 @@ class EMAHook(Hook):
         if is_parallel(model):
             model = model.module
         self.param_ema_buffer = {}
-        self.model_parameters = dict(model.named_parameters(recurse=True))
+        # self.model_parameters = dict(model.named_parameters(recurse=True))
+        self.model_parameters = model.state_dict()  # BN also needs ema
         for name, value in self.model_parameters.items():
             # "." is not allowed in module's buffer name
             buffer_name = f"ema_{name.replace('.', '_')}"
@@ -73,9 +74,11 @@ class EMAHook(Hook):
         if curr_step % self.interval != 0:
             return
         for name, parameter in self.model_parameters.items():
-            buffer_name = self.param_ema_buffer[name]
-            buffer_parameter = self.model_buffers[buffer_name]
-            buffer_parameter.mul_(decay).add_(1-decay, parameter.data)
+            # exclude num_tracking
+            if parameter.dtype.is_floating_point:
+                buffer_name = self.param_ema_buffer[name]
+                buffer_parameter = self.model_buffers[buffer_name]
+                buffer_parameter.mul_(decay).add_(1-decay, parameter.data)
 
     def after_train_epoch(self, runner):
         """We load parameter values from ema backup to model before the
