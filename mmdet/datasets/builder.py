@@ -10,6 +10,8 @@ from mmcv.utils import Registry, build_from_cfg
 from torch.utils.data import DataLoader
 
 from .samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
+from torch._six import container_abcs, string_classes, int_classes
+import torch
 
 if platform.system() != 'Windows':
     # https://github.com/pytorch/pytorch/issues/973
@@ -22,6 +24,54 @@ if platform.system() != 'Windows':
 DATASETS = Registry('dataset')
 PIPELINES = Registry('pipeline')
 
+
+def collate_(batch):
+    elem = batch[0]
+    elem_type = type(elem)
+    if isinstance(elem, torch.Tensor):
+        out = None
+        if torch.utils.data.get_worker_info() is not None:
+            # If we're in a background process, concatenate directly into a
+            # shared memory tensor to avoid an extra copy
+            numel = sum([x.numel() for x in batch])
+            storage = elem.storage()._new_shared(numel)
+            out = elem.new(storage)
+        if batch[0].shape[0] != 3 or len(batch[0].shape) != 3:   #only 3 channels input will be stack [C H W]
+            return [ele for ele in batch]
+        else:
+            try:
+                return torch.stack(batch, 0, out=out)
+            except:
+                print(1111)
+    if isinstance(elem, np.ndarray):
+        return [torch.from_numpy(ele) for ele in batch]
+    elif isinstance(elem, float):
+        return torch.tensor(batch, dtype=torch.float64)
+    elif isinstance(elem, int_classes):
+        return torch.tensor(batch)
+    elif isinstance(elem, str):
+        return batch
+    elif isinstance(elem, container_abcs.Mapping):
+        res = {}
+        for key in elem.keys():
+            if key != "img_metas":
+                res[key] = collate_([d[key] for d in batch])
+            else:
+                res[key] = [d[key] for d in batch]
+        return res
+        # return {key: collate_([d[key] for d in batch]) if key != "img_metas" else [d[key] for d in batch] for key in elem}
+    elif isinstance(elem, tuple) and hasattr(elem, '_fields'):  # namedtuple
+        return elem_type(*(collate_(samples) for samples in zip(*batch)))
+    elif isinstance(elem, container_abcs.Sequence):
+        # check to make sure that the elements in batch have consistent size
+        it = iter(batch)
+        elem_size = len(next(it))
+        if not all(len(elem) == elem_size for elem in it):
+            raise RuntimeError('each element in list of batch should be of equal size')
+        transposed = zip(*batch)
+        return [collate_(samples) for samples in transposed]
+
+    raise TypeError
 
 def _concat_dataset(cfg, default_args=None):
     from .dataset_wrappers import ConcatDataset
@@ -127,7 +177,7 @@ def build_dataloader(dataset,
         batch_size=batch_size,
         sampler=sampler,
         num_workers=num_workers,
-        collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
+        collate_fn=collate_,
         pin_memory=False,
         worker_init_fn=init_fn,
         **kwargs)

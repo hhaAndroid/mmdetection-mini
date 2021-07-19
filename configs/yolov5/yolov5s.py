@@ -62,9 +62,9 @@ data_root = 'data/coco/'
 
 train_pipeline = [
     dict(type='Normalize', **img_norm_cfg),
-    dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'],
-         meta_keys=('img_norm_cfg',)),
+    dict(type='NumpyToTensor',
+         keys=['img', 'gt_bboxes', 'gt_labels'],
+         meta_keys=('img_norm_cfg',))
 ]
 
 test_pipeline = [

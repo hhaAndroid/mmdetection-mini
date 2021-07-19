@@ -2068,3 +2068,62 @@ class CutOut:
                      else f'cutout_shape={self.candidates}, ')
         repr_str += f'fill_in={self.fill_in})'
         return repr_str
+
+import torch
+
+
+@PIPELINES.register_module()
+class NumpyToTensor:
+    def __init__(self,
+                 keys,
+                 meta_keys=('filename', 'ori_filename', 'ori_shape',
+                            'img_shape', 'pad_shape', 'scale_factor', 'flip',
+                            'flip_direction', 'img_norm_cfg')):
+        self.keys = keys
+        self.meta_keys = meta_keys
+
+    def _add_default_meta_keys(self, results):
+        """Add default meta keys.
+        We set default meta keys including `pad_shape`, `scale_factor` and
+        `img_norm_cfg` to avoid the case where no `Resize`, `Normalize` and
+        `Pad` are implemented during the whole pipeline.
+        Args:
+            results (dict): Result dict contains the data to convert.
+        Returns:
+            results (dict): Updated result dict contains the data to convert.
+        """
+        results = self._add_default_meta_keys(results)
+
+        img = results['img']
+        results.setdefault('pad_shape', img.shape)
+        results.setdefault('scale_factor', 1.0)
+        num_channels = 1 if len(img.shape) < 3 else img.shape[2]
+        results.setdefault(
+            'img_norm_cfg',
+            dict(
+                mean=np.zeros(num_channels, dtype=np.float32),
+                std=np.ones(num_channels, dtype=np.float32),
+                to_rgb=False))
+        return results
+
+    def __call__(self, results):
+        img = results["img"]
+        img = img.transpose(2, 0, 1)
+        img = torch.from_numpy(img)
+        results["img"] = img
+
+        for key in ['proposals', 'gt_bboxes', 'gt_bboxes_ignore', 'gt_labels']:
+            if key not in results:
+                continue
+            value = results[key]
+            if isinstance(value, np.ndarray):
+                results[key] = torch.from_numpy(value)
+
+        data = {}
+        img_meta = {}
+        for key in self.meta_keys:
+            img_meta[key] = results[key]
+        data['img_metas'] = img_meta
+        for key in self.keys:
+            data[key] = results[key]
+        return data
