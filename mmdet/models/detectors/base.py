@@ -173,7 +173,11 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
                 gt_bboxes.append(single['gt_bboxes'].data.cuda())
                 gt_labels.append(single['gt_labels'].data.cuda())
                 imgs_.append(single['img'].data)
-            img = torch.stack(imgs_, dim=0).cuda()
+            img = torch.stack(imgs_, dim=0).cuda().float()/255.0
+            # img_norm_cfg = img_metas[0]['img_norm_cfg']
+            # mean = img_norm_cfg['mean']
+            # std = img_norm_cfg['std']
+
             data = {'gt_bboxes': gt_bboxes, "gt_labels": gt_labels}
             kwargs.update(data)
         else:
