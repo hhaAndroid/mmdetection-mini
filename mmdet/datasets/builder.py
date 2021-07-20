@@ -6,17 +6,18 @@ from functools import partial
 import numpy as np
 from mmcv.runner import get_dist_info
 from mmcv.utils import Registry, build_from_cfg
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 
 from .samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
 
-if platform.system() != 'Windows':
-    # https://github.com/pytorch/pytorch/issues/973
-    import resource
-    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    hard_limit = rlimit[1]
-    soft_limit = min(4096, hard_limit)
-    resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
+# if platform.system() != 'Windows':
+#     # https://github.com/pytorch/pytorch/issues/973
+#     import resource
+#
+#     rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+#     hard_limit = rlimit[1]
+#     soft_limit = min(4096, hard_limit)
+#     resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 DATASETS = Registry('dataset')
 PIPELINES = Registry('pipeline')
@@ -109,15 +110,17 @@ def build_dataloader(dataset,
         # DistributedGroupSampler will definitely shuffle the data to satisfy
         # that images on each GPU are in the same group
         if shuffle:
-            sampler = DistributedGroupSampler(
-                dataset, samples_per_gpu, world_size, rank, seed=seed)
+            sampler = DistributedSampler(dataset, world_size, rank, seed=seed)
+            # sampler = DistributedGroupSampler(
+            #     dataset, samples_per_gpu, world_size, rank, seed=seed)
         else:
             sampler = DistributedSampler(
                 dataset, world_size, rank, shuffle=False, seed=seed)
         batch_size = samples_per_gpu
         num_workers = workers_per_gpu
     else:
-        sampler = GroupSampler(dataset, samples_per_gpu) if shuffle else None
+        sampler = RandomSampler(dataset, num_samples=samples_per_gpu) if shuffle else None
+        # sampler = GroupSampler(dataset, samples_per_gpu) if shuffle else None
         batch_size = num_gpus * samples_per_gpu
         num_workers = num_gpus * workers_per_gpu
 
