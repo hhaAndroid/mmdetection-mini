@@ -1,34 +1,28 @@
 # Copyright (c) Open-MMLab. All rights reserved.
-import copy
 import logging
 import os.path as osp
-import warnings
+
 from abc import ABCMeta, abstractmethod
 
-import torch
-from torch.optim import Optimizer
+import cvcore
+# from ..parallel import is_module_wrapper
+from cvcore import HOOKS, Hook, get_priority
 
-import mmcv
-from ..parallel import is_module_wrapper
-from .checkpoint import load_checkpoint
-from .dist_utils import get_dist_info
-from .hooks import HOOKS, Hook
-from .log_buffer import LogBuffer
-from .priority import Priority, get_priority
-from .utils import get_time_str
+# from .log_buffer import LogBuffer
 
 __all__ = ['BaseRunner']
 
 
 class BaseRunner(metaclass=ABCMeta):
+
     def __init__(self,
                  model,
                  dataloader,
-                 optimizer=None,
-                 scheduler=None,
+                 optimizer,
+                 scheduler,
+                 meta=None,
                  work_dir=None,
                  logger=None,
-                 meta=None,
                  max_iters=None,
                  max_epochs=None):
 
@@ -37,11 +31,6 @@ class BaseRunner(metaclass=ABCMeta):
             raise TypeError(f'logger must be a logging.Logger object, '
                             f'but got {type(logger)}')
 
-        # check the type of `meta`
-        if meta is not None and not isinstance(meta, dict):
-            raise TypeError(
-                f'meta must be a dict or None, but got {type(meta)}')
-
         self.model = model
         self.dataloader = dataloader
         self.optimizer = optimizer
@@ -49,9 +38,9 @@ class BaseRunner(metaclass=ABCMeta):
         self.logger = logger
         self.meta = meta
         # create work_dir
-        if mmcv.is_str(work_dir):
+        if cvcore.is_str(work_dir):
             self.work_dir = osp.abspath(work_dir)
-            mmcv.mkdir_or_exist(self.work_dir)
+            cvcore.mkdir_or_exist(self.work_dir)
         elif work_dir is None:
             self.work_dir = None
         else:
@@ -63,8 +52,8 @@ class BaseRunner(metaclass=ABCMeta):
         else:
             self._model_name = self.model.__class__.__name__
 
-        self._rank, self._world_size = get_dist_info()
-        self.timestamp = get_time_str()
+        self._rank, self._world_size = cvcore.get_rank(), cvcore.get_world_size()
+        self.timestamp = cvcore.get_time_str()
         self.mode = None
         self._hooks = []
         self._epoch = 0
@@ -169,7 +158,7 @@ class BaseRunner(metaclass=ABCMeta):
         """
         hook_cfg = hook_cfg.copy()
         priority = hook_cfg.pop('priority', 'NORMAL')
-        hook = mmcv.build_from_cfg(hook_cfg, HOOKS)
+        hook = cvcore.build_from_cfg(hook_cfg, HOOKS)
         self.register_hook(hook, priority=priority)
 
     def call_hook(self, fn_name):

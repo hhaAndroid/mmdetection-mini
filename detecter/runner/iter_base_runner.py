@@ -1,18 +1,9 @@
 # Copyright (c) Open-MMLab. All rights reserved.
-import os.path as osp
-import platform
-import shutil
 import time
-import warnings
-
-import torch
-
-import mmcv
 from .base_runner import BaseRunner
 from .builder import RUNNERS
-from .checkpoint import save_checkpoint
-from .utils import get_host_info
 from cvcore.utils import EventStorage
+import cvcore
 
 __all__ = ['IterBasedRunner']
 
@@ -29,7 +20,6 @@ class IterBasedRunner(BaseRunner):
         data_batch = next(self.data_loader)
         self.call_hook('before_train_iter')
 
-        self.scheduler.step()
         outputs = self.model(data_batch, **kwargs)
         self.optimizer.zero_grad()
         losses.backward()
@@ -48,7 +38,7 @@ class IterBasedRunner(BaseRunner):
             'max_iters must be specified during instantiation')
         work_dir = self.work_dir if self.work_dir is not None else 'NONE'
         self.logger.info('Start running, host: %s, work_dir: %s',
-                         get_host_info(), work_dir)
+                         cvcore.get_host_info(), work_dir)
         self.logger.info('Hooks will be executed in the following order:\n%s',
                          self.get_hook_info())
 

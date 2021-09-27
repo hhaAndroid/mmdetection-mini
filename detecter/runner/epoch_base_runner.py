@@ -10,8 +10,8 @@ import torch
 import mmcv
 from .base_runner import BaseRunner
 from .builder import RUNNERS
-from .checkpoint import save_checkpoint
-from .utils import get_host_info
+# from .checkpoint import save_checkpoint
+# from .utils import get_host_info
 from cvcore.utils import EventStorage
 
 

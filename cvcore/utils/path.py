@@ -3,7 +3,7 @@ import os
 import os.path as osp
 from pathlib import Path
 
-__all__ = ['check_file_exist']
+__all__ = ['check_file_exist', 'mkdir_or_exist']
 
 
 def is_filepath(x):
