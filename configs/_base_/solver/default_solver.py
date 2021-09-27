@@ -4,4 +4,8 @@ optimizer = dict(
     paramwise_cfg=None,
 )
 
-lr_scheduler = dict(type="DefaultLrScheduler")
+lr_scheduler = dict(type="DefaultLrScheduler",
+                    warmup_param_scheduler=dict(type='ConstantParamScheduler', value=0.1),
+                    regular_param_scheduler=dict(type='ConstantParamScheduler', value=0.2),
+                    by_epoch=False,
+                    warmup_iter_or_epochs=100)

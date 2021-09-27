@@ -3,10 +3,12 @@ from cvcore import Registry, build_from_cfg, Hook
 import torch
 import inspect
 
-__all__ = ['OPTIMIZERS', 'TORCH_OPTIMIZERS', 'LR_SCHEDULERS', 'build_optimizer', 'build_lr_scheduler']
+__all__ = ['OPTIMIZERS', 'TORCH_OPTIMIZERS', 'LR_SCHEDULERS', 'LR_PARAM_SCHEDULERS', 'build_optimizer',
+           'build_lr_scheduler']
 
 OPTIMIZERS = Registry('optimizer')
-LR_SCHEDULERS = Registry('lr_scheduler')
+LR_SCHEDULERS = Registry('lr scheduler')
+LR_PARAM_SCHEDULERS = Registry('lr param scheduler')
 
 
 def build_optimizer(cfg, model, default_args=None):
