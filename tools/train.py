@@ -5,10 +5,12 @@ import torch
 import time
 import cvcore
 from cvcore import Config
+from cvcore.logger import Logger
 from detecter import build_detector, build_dataset, build_dataloader, build_optimizer, build_lr_scheduler, build_runner
-from detecter.utils import collect_env, get_root_logger, set_random_seed
+from detecter.utils import collect_env, set_random_seed
 import os
 import sys
+from loguru import logger
 
 
 def parse_args():
@@ -59,6 +61,7 @@ def parse_args():
     return args
 
 
+@logger.catch
 def main(args):
     cfg = Config.fromfile(args.config)
     if args.cfg_options is not None:
@@ -77,7 +80,7 @@ def main(args):
         cfg.work_dir = args.work_dir
     elif cfg.get('work_dir', None) is None:
         # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('../work_dirs',
+        cfg.work_dir = osp.join('./work_dirs',
                                 osp.splitext(osp.basename(args.config))[0])
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
@@ -89,7 +92,12 @@ def main(args):
     # init the logger before other steps
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
     log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
-    logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
+
+    logger_cfg = cfg.logger
+    if 'log_file' not in logger_cfg:
+        logger_cfg['log_file'] = log_file
+    logger = Logger.init(logger_cfg)
+    # logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
 
     # init the meta dict to record some important information such as
     # environment info and seed, which will be logged

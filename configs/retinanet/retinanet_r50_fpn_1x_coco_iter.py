@@ -5,5 +5,6 @@ _base_ = [
     '../_base_/solvers/default_solver.py'
 ]
 
-runner = dict(type='IterBasedRunner', max_iters=1000)
+logger = dict(type='PyLogging', log_level='info')
 
+runner = dict(type='IterBasedRunner', max_iters=1000)

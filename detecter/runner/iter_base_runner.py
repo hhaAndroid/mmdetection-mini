@@ -4,6 +4,7 @@ from .base_runner import BaseRunner
 from .builder import RUNNERS
 from cvcore.utils import EventStorage
 import cvcore
+from cvcore import Logger
 
 __all__ = ['IterBasedRunner']
 
@@ -21,12 +22,12 @@ class IterBasedRunner(BaseRunner):
         self.call_hook('before_train_iter')
 
         outputs = self.model(data_batch, **kwargs)
+        losses = outputs[0]
+        Logger.info(losses)
         self.optimizer.zero_grad()
         losses.backward()
         self.optimizer.step()
 
-        if not isinstance(outputs, dict):
-            raise TypeError('model() must return a dict')
         self.outputs = outputs
         self.call_hook('after_train_iter')
         self._iter += 1

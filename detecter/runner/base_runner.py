@@ -26,11 +26,6 @@ class BaseRunner(metaclass=ABCMeta):
                  max_iters=None,
                  max_epochs=None):
 
-        # check the type of `logger`
-        if not isinstance(logger, logging.Logger):
-            raise TypeError(f'logger must be a logging.Logger object, '
-                            f'but got {type(logger)}')
-
         self.model = model
         self.dataloader = dataloader
         self.optimizer = optimizer
