@@ -62,6 +62,9 @@ class BaseRunner(metaclass=ABCMeta):
         self._max_epochs = max_epochs
         self._max_iters = max_iters
 
+        self.log_storage = None
+        self.event_storage = None
+
     @property
     def model_name(self):
         """str: Name of the model, usually the module class name."""

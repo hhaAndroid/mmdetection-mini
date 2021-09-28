@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from ..builder import DETECTORS, build_backbone, build_head, build_neck
 from .base import BaseDetector
+from cvcore import get_log_storage
 
 __all__ = ['SingleStageDetector']
 
@@ -44,6 +45,9 @@ class SingleStageDetector(BaseDetector):
         if self.training:
             outputs = self.bbox_head(features, batched_inputs)
             # TODO: remove
-            return self.parse_losses(outputs)
+            loss, log_vars = self.parse_losses(outputs)
+            log_storage = get_log_storage()
+            log_storage.append(log_vars)
+            return loss
         else:
             return self.bbox_head(features)

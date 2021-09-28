@@ -2,7 +2,7 @@
 import time
 from .base_runner import BaseRunner
 from .builder import RUNNERS
-from cvcore.utils import EventStorage
+from cvcore.utils import EventStorage,LoggerStorage
 import cvcore
 from cvcore import Logger
 
@@ -21,14 +21,11 @@ class IterBasedRunner(BaseRunner):
         data_batch = next(self.dataloader)
         self.call_hook('before_train_iter')
 
-        outputs = self.model(data_batch, **kwargs)
-        losses = outputs[0]
-        Logger.info(losses)
+        losses = self.model(data_batch, **kwargs)
         self.optimizer.zero_grad()
         losses.backward()
         self.optimizer.step()
 
-        self.outputs = outputs
         self.call_hook('after_train_iter')
         self._iter += 1
 
@@ -45,11 +42,25 @@ class IterBasedRunner(BaseRunner):
 
         self.dataloader = iter(self.dataloader)
 
-        with EventStorage(self.iter) as self.storage:
-            self.call_hook('before_run')
+        with EventStorage(self.iter) as self.event_storage:
+            with LoggerStorage() as self.log_storage:
+                self.call_hook('before_run')
 
-            while self.iter < self._max_iters:
-                self.train_step(**kwargs)
+                while self.iter < self._max_iters:
+                    self.train_step(**kwargs)
+                    self.parse_log(self.log_storage.values())
+                    self.log_storage.clear()
 
-            time.sleep(1)  # wait for some hooks like loggers to finish
-            self.call_hook('after_run')
+                time.sleep(1)  # wait for some hooks like loggers to finish
+                self.call_hook('after_run')
+
+    def parse_log(self, log_storage_value):
+        log_items = []
+        # TODO： support loss smooth print
+        for values in log_storage_value:
+            for name, val in values.items():
+                if isinstance(val, float):
+                    val = f'{val:.4f}'
+                log_items.append(f'{name}: {val}')
+        log_str = ', '.join(log_items)
+        Logger.info(log_str)
