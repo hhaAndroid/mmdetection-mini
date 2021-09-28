@@ -1,7 +1,7 @@
 dataloader = dict(
     train=dict(type='build_default_dataloader',
                sampler=dict(type="InfiniteSampler"),
-               samples_per_gpu=1,
+               samples_per_gpu=2,
                workers_per_gpu=0),
     val=dict(type='build_default_dataloader',
              sampler=dict(type="InferenceSampler"),

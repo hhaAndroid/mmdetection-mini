@@ -1,9 +1,10 @@
 # model settings
+
 model = dict(
-    type='RetinaNet',
+    type='SingleStageDetector',
     backbone=dict(
         type='ResNet',
-        depth=50,
+        arch_settings=(dict(type='Bottleneck', _no_instantiate_=True), (3, 4, 6, 3)),
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         frozen_stages=1,
@@ -41,6 +42,11 @@ model = dict(
             alpha=0.25,
             loss_weight=1.0),
         loss_bbox=dict(type='L1Loss', loss_weight=1.0)),
+    # common settings
+    comm_cfg=dict(
+        pixel_mean=[123.675, 116.28, 103.53],
+        pixel_std=[58.395, 57.12, 57.375]
+    ),
     # model training and testing settings
     train_cfg=dict(
         assigner=dict(
@@ -49,6 +55,7 @@ model = dict(
             neg_iou_thr=0.4,
             min_pos_iou=0,
             ignore_iof_thr=-1),
+        sampler=dict(type='PseudoSampler'),
         allowed_border=-1,
         pos_weight=-1,
         debug=False),

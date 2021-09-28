@@ -2,6 +2,8 @@
 from ..builder import DETECTORS, build_backbone, build_head, build_neck
 from .base import BaseDetector
 
+__all__ = ['SingleStageDetector']
+
 
 @DETECTORS.register_module()
 class SingleStageDetector(BaseDetector):
@@ -15,10 +17,12 @@ class SingleStageDetector(BaseDetector):
                  backbone,
                  neck=None,
                  bbox_head=None,
+                 comm_cfg=None,
                  train_cfg=None,
                  test_cfg=None,
-                 init_cfg=None):
-        super(SingleStageDetector, self).__init__(init_cfg)
+                 init_cfg=None,
+                 **kwargs):
+        super(SingleStageDetector, self).__init__(comm_cfg, init_cfg, **kwargs)
         self.backbone = build_backbone(backbone)
         if neck is not None:
             self.neck = build_neck(neck)
@@ -27,7 +31,6 @@ class SingleStageDetector(BaseDetector):
         self.bbox_head = build_head(bbox_head)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-
 
     def extract_feat(self, img, batched_inputs=None):
         """Directly extract features from the backbone+neck."""

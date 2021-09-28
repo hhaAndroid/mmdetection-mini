@@ -1,25 +1,22 @@
-from .builder import OPTIMIZERS
+import copy
+
+from .builder import TORCH_OPTIMIZERS, OPTIMIZERS
 from .misc import filter_no_grad_params
 from cvcore import build_from_cfg
 
-
-__all__=['build_default_optimizer']
+__all__ = ['build_default_optimizer']
 
 
 @OPTIMIZERS.register_module()
-def build_default_optimizer(cfg, model, default_args=None):
-    assert 'optimizer_cfg' in cfg
-
+def build_default_optimizer(optimizer_cfg, paramwise_cfg, model, default_args=None):
     if hasattr(model, 'module'):
         model = model.module
 
-    optimizer_cfg = cfg.optimizer_cfg.copy()
-
+    cp_optimizer_cfg = copy.deepcopy(optimizer_cfg)
     # if no paramwise option is specified, just use the global setting
-    if 'paramwise_cfg' not in cfg or cfg['paramwise_cfg'] is None:
-        optimizer_cfg['params'] = filter_no_grad_params(model, optimizer_cfg)
-        return build_from_cfg(optimizer_cfg, OPTIMIZERS, default_args)
+    if paramwise_cfg is None:
+        cp_optimizer_cfg['params'] = filter_no_grad_params(model, cp_optimizer_cfg)
+        return build_from_cfg(cp_optimizer_cfg, TORCH_OPTIMIZERS, default_args)
     else:
-        # TODO  
-        cp_cfg = cfg.pop('paramwise_cfg')
-        return build_from_cfg(cp_cfg, OPTIMIZERS, default_args)
+        # TODO
+        return build_from_cfg(paramwise_cfg, TORCH_OPTIMIZERS, default_args)

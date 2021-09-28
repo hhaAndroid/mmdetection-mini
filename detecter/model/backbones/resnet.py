@@ -149,7 +149,6 @@ class ResNet(BaseModule):
         if dcn is not None:
             assert len(stage_with_dcn) == num_stages
         self.plugins = plugins
-        self.block, stage_blocks = self.arch_settings
         self.stage_blocks = stage_blocks[:num_stages]
         self.inplanes = stem_channels
 

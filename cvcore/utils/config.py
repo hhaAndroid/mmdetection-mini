@@ -20,7 +20,7 @@ from yapf.yapflib.yapf_api import FormatCode
 from .misc import import_modules_from_strings
 from .path import check_file_exist
 
-__all__ = ['ConfigDict', 'Config','DictAction']
+__all__ = ['ConfigDict', 'Config', 'DictAction']
 
 if platform.system() == 'Windows':
     import regex as re

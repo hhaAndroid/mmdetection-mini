@@ -9,3 +9,5 @@ lr_scheduler = dict(type="DefaultLrScheduler",
                     regular_param_scheduler=dict(type='ConstantParamScheduler', value=0.2),
                     by_epoch=False,
                     warmup_iter_or_epochs=100)
+
+log_level = 'INFO'

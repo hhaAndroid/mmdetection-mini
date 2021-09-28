@@ -81,6 +81,7 @@ class AnchorHead(BaseDenseHead):
         if self.train_cfg:
             self.assigner = build_assigner(self.train_cfg.assigner)
             self.sampler = build_sampler(self.train_cfg.sampler, context=self)
+            self.sampling = False
 
         self.anchor_generator = build_prior_generator(anchor_generator)
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
@@ -136,38 +137,28 @@ class AnchorHead(BaseDenseHead):
         featmap_sizes = [featmap.size()[-2:] for featmap in cls_scores]
         assert len(featmap_sizes) == self.anchor_generator.num_levels
 
-        # 拆解对象
-        gt_instances = batched_inputs
-
         device = cls_scores[0].device
 
+        gt_instances = [x["annotations"].to(device) for x in batched_inputs]
+        img_metas = [x["img_meta"] for x in batched_inputs]
+
         multi_level_anchors = self.get_anchors(featmap_sizes, device=device)
-        label_channels = self.cls_out_channels if self.use_sigmoid_cls else 1
 
         cls_reg_targets = self.get_targets(
             multi_level_anchors,
             gt_instances,
-            label_channels=label_channels)
+            img_metas=img_metas)
 
         (labels_list, label_weights_list, bbox_targets_list, bbox_weights_list,
          num_total_pos, num_total_neg) = cls_reg_targets
         num_total_samples = (
             num_total_pos + num_total_neg if self.sampling else num_total_pos)
 
-        # anchor number of multi levels
-        num_level_anchors = [anchors.size(0) for anchors in multi_level_anchors[0]]
-        # concat all level anchors and flags to a single tensor
-        concat_anchor_list = []
-        for i in range(len(multi_level_anchors)):
-            concat_anchor_list.append(torch.cat(multi_level_anchors[i]))
-        all_anchor_list = images_to_levels(concat_anchor_list,
-                                           num_level_anchors)
-
         losses_cls, losses_bbox = multi_apply(
             self._loss_single,
             cls_scores,
             bbox_preds,
-            all_anchor_list,
+            multi_level_anchors,
             labels_list,
             label_weights_list,
             bbox_targets_list,
@@ -177,13 +168,8 @@ class AnchorHead(BaseDenseHead):
 
     def get_targets(self,
                     anchor_list,
-                    gt_bboxes_list,
-                    img_metas,
-                    gt_bboxes_ignore_list=None,
-                    gt_labels_list=None,
-                    label_channels=1,
-                    unmap_outputs=True,
-                    return_sampling_results=False):
+                    gt_instances,
+                    img_metas):
         """Compute regression and classification targets for anchors in
         multiple images.
 
@@ -224,29 +210,32 @@ class AnchorHead(BaseDenseHead):
                 The results will be concatenated after the end
         """
         num_imgs = len(img_metas)
-        assert len(anchor_list) == num_imgs
+
+        gt_bboxes_ignore_list = None
+        gt_bboxes_list = [instance.gt_bboxes for instance in gt_instances]
+        gt_labels_list = [instance.gt_labels for instance in gt_instances]
 
         # anchor number of multi levels
-        num_level_anchors = [anchors.size(0) for anchors in anchor_list[0]]
+        anchors = torch.cat(anchor_list)
+        num_level_anchors = [anchors.size(0) for anchors in anchor_list]
         # concat all level anchors to a single tensor
-        concat_anchor_list = []
-        for i in range(num_imgs):
-            concat_anchor_list.append(torch.cat(anchor_list[i]))
+        # concat_anchor_list = []
+        # for i in range(num_imgs):
+        #     concat_anchor_list.append(torch.cat(anchor_list[i]))
 
         # compute targets for each image
         if gt_bboxes_ignore_list is None:
             gt_bboxes_ignore_list = [None for _ in range(num_imgs)]
         if gt_labels_list is None:
             gt_labels_list = [None for _ in range(num_imgs)]
+
         results = multi_apply(
             self._get_targets_single,
-            concat_anchor_list,
+            # concat_anchor_list,
             gt_bboxes_list,
             gt_bboxes_ignore_list,
             gt_labels_list,
-            img_metas,
-            label_channels=label_channels,
-            unmap_outputs=unmap_outputs)
+            anchors=anchors)
         (all_labels, all_label_weights, all_bbox_targets, all_bbox_weights,
          pos_inds_list, neg_inds_list, sampling_results_list) = results[:7]
         rest_results = list(results[7:])  # user-added return values
@@ -266,21 +255,17 @@ class AnchorHead(BaseDenseHead):
                                              num_level_anchors)
         res = (labels_list, label_weights_list, bbox_targets_list,
                bbox_weights_list, num_total_pos, num_total_neg)
-        if return_sampling_results:
-            res = res + (sampling_results_list,)
+
         for i, r in enumerate(rest_results):  # user-added return values
             rest_results[i] = images_to_levels(r, num_level_anchors)
 
         return res + tuple(rest_results)
 
     def _get_targets_single(self,
-                            anchors,
                             gt_bboxes,
                             gt_bboxes_ignore,
                             gt_labels,
-                            img_meta,
-                            label_channels=1,
-                            unmap_outputs=True):
+                            anchors):
         """Compute regression and classification targets for anchors in a
         single image.
 

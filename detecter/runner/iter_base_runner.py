@@ -17,7 +17,7 @@ class IterBasedRunner(BaseRunner):
 
     def train_step(self, **kwargs):
         assert self.model.training
-        data_batch = next(self.data_loader)
+        data_batch = next(self.dataloader)
         self.call_hook('before_train_iter')
 
         outputs = self.model(data_batch, **kwargs)
@@ -39,8 +39,10 @@ class IterBasedRunner(BaseRunner):
         work_dir = self.work_dir if self.work_dir is not None else 'NONE'
         self.logger.info('Start running, host: %s, work_dir: %s',
                          cvcore.get_host_info(), work_dir)
-        self.logger.info('Hooks will be executed in the following order:\n%s',
-                         self.get_hook_info())
+        # self.logger.info('Hooks will be executed in the following order:\n%s',
+        #                  self.get_hook_info())
+
+        self.dataloader = iter(self.dataloader)
 
         with EventStorage(self.iter) as self.storage:
             self.call_hook('before_run')

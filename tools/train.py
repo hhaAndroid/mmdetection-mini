@@ -81,10 +81,6 @@ def main(args):
                                 osp.splitext(osp.basename(args.config))[0])
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
-    if args.gpu_ids is not None:
-        cfg.gpu_ids = args.gpu_ids
-    else:
-        cfg.gpu_ids = range(1) if args.gpus is None else range(args.gpus)
 
     # create work_dir
     cvcore.mkdir_or_exist(osp.abspath(cfg.work_dir))
@@ -122,6 +118,7 @@ def main(args):
     # detector
     detector = build_detector(cfg.model)
     detector.init_weights()
+    detector = detector.cuda()
 
     # dataset
     train_dataset = build_dataset(cfg.data.train)
@@ -137,7 +134,7 @@ def main(args):
 
     # runner
     default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
-                        scheduler=scheduler, meta=meta)
+                        scheduler=scheduler, meta=meta, logger=logger)
     runner = build_runner(cfg.runner, default_args)
     runner.run()
 

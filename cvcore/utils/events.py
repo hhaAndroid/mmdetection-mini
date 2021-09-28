@@ -1,7 +1,12 @@
+from collections import defaultdict
+import torch
+from contextlib import contextmanager
+from .history_buffer import HistoryBuffer
 
-import defaultdict
+__all__ = ['EventStorage']
 
-__all__=['EventStorage']
+_CURRENT_STORAGE_STACK = []
+
 
 class EventStorage:
     """
@@ -60,7 +65,7 @@ class EventStorage:
         existing_hint = self._smoothing_hints.get(name)
         if existing_hint is not None:
             assert (
-                existing_hint == smoothing_hint
+                    existing_hint == smoothing_hint
             ), "Scalar {} was put with a different smoothing_hint!".format(name)
         else:
             self._smoothing_hints[name] = smoothing_hint

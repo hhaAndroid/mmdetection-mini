@@ -1,8 +1,22 @@
 from ..builder import PIPELINES
 from ...core.structures import Instances
 import warnings
+import torch
+import numpy as np
 
-__all__ = ['Collect']
+__all__ = ['Collect', 'ToTensor']
+
+
+@PIPELINES.register_module()
+class ToTensor:
+    def __init__(self, keys):
+        self.keys = keys
+
+    def __call__(self, results):
+        results["img"] = torch.as_tensor(np.ascontiguousarray(results['img'].transpose(2, 0, 1)))
+        for key in self.keys:
+            results[key] = torch.as_tensor(results[key])
+        return results
 
 
 @PIPELINES.register_module()

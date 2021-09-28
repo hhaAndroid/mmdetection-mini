@@ -20,9 +20,9 @@ class BaseRunner(metaclass=ABCMeta):
                  dataloader,
                  optimizer,
                  scheduler,
+                 logger,
                  meta=None,
                  work_dir=None,
-                 logger=None,
                  max_iters=None,
                  max_epochs=None):
 

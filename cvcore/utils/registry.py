@@ -4,6 +4,8 @@ from .misc import is_seq_of
 
 __all__ = ['build_from_cfg', 'Registry']
 
+NO_INSTANTIATE_KEY = '_no_instantiate_'
+
 
 def build_from_cfg(cfg, registry, default_args=None):
     """Build a module from config dict.
@@ -36,6 +38,11 @@ def build_from_cfg(cfg, registry, default_args=None):
         for name, value in default_args.items():
             args.setdefault(name, value)
 
+    if NO_INSTANTIATE_KEY in args:
+        no_instantiate = args.pop(NO_INSTANTIATE_KEY)
+    else:
+        no_instantiate = False
+
     obj_type = args.pop('type')
     if isinstance(obj_type, str):
         obj_cls = registry.get(obj_type)
@@ -48,7 +55,7 @@ def build_from_cfg(cfg, registry, default_args=None):
         raise TypeError(
             f'type must be a str or valid type, but got {type(obj_type)}')
     try:
-        return obj_cls(**args)
+        return obj_cls(**args) if not no_instantiate else obj_cls
     except Exception as e:
         # Normal TypeError does not print class name.
         raise type(e)(f'{obj_cls.__name__}: {e}')
@@ -167,4 +174,3 @@ class Registry:
             class: The corresponding class.
         """
         return self._module_dict[key]
-

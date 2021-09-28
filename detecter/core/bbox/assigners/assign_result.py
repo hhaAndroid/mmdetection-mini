@@ -3,6 +3,8 @@ import torch
 
 from cvcore.utils import NiceRepr
 
+__all__ = ['AssignResult']
+
 
 class AssignResult(NiceRepr):
     """Stores assignments between predicted and truth boxes.

@@ -25,8 +25,7 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
 
     def forward(self, features, batched_inputs=None, **kwargs):
         output = self.forward_layer(features, batched_inputs)
-        assert isinstance(output, dict)
         if self.training:
-            loss = self.loss(**output, batched_inputs=batched_inputs, **kwargs)
+            loss = self.loss(*output, batched_inputs=batched_inputs, **kwargs)
             return loss
         return output

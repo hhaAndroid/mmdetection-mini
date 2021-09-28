@@ -7,6 +7,7 @@ __all__ = ['OPTIMIZERS', 'TORCH_OPTIMIZERS', 'LR_SCHEDULERS', 'LR_PARAM_SCHEDULE
            'build_lr_scheduler']
 
 OPTIMIZERS = Registry('optimizer')
+TORCH_OPTIMIZERS = Registry('torch_optimizer')
 LR_SCHEDULERS = Registry('lr scheduler')
 LR_PARAM_SCHEDULERS = Registry('lr param scheduler')
 
@@ -16,9 +17,6 @@ def build_optimizer(cfg, model, default_args=None):
     cp_cfg['model'] = model
     optimizer = build_from_cfg(cp_cfg, OPTIMIZERS, default_args)
     return optimizer
-
-
-TORCH_OPTIMIZERS = Registry('torch_optimizer')
 
 
 def register_torch_optimizers():

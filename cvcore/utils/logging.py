@@ -8,6 +8,7 @@ logger_initialized = {}
 __all__ = ['get_logger', 'print_log']
 
 
+# TODO from loguru import logger
 def get_logger(name, log_file=None, log_level=logging.INFO, file_mode='w'):
     """Initialize and get a logger by name.
 

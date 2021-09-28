@@ -1,7 +1,7 @@
 from cvcore.cnn import BaseModule, build_norm_layer, build_conv_layer, Sequential
 import torch.nn as nn
 import torch.utils.checkpoint as cp
-
+from ..builder import BRICKS
 
 __all__ = ['ResLayer', 'BasicBlock', 'Bottleneck']
 
@@ -106,6 +106,7 @@ class ResLayer(Sequential):
         super(ResLayer, self).__init__(*layers)
 
 
+@BRICKS.register_module()
 class BasicBlock(BaseModule):
     expansion = 1
 
@@ -189,6 +190,7 @@ class BasicBlock(BaseModule):
         return out
 
 
+@BRICKS.register_module()
 class Bottleneck(BaseModule):
     expansion = 4
 
