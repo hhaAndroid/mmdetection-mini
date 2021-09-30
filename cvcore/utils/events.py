@@ -41,6 +41,10 @@ class LoggerStorage:
         assert isinstance(dict_obj, dict)
         self._storages.append(dict_obj)
 
+    def insert(self, index, dict_obj):
+        assert isinstance(dict_obj, dict)
+        self._storages.insert(index, dict_obj)
+
     def clear(self):
         self._storages = []
 

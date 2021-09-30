@@ -4,7 +4,7 @@ import os.path as osp
 import torch
 import time
 import cvcore
-from cvcore import Config
+from cvcore import Config,build_from_cfg, HOOKS
 from cvcore.logger import Logger
 from detecter import build_detector, build_dataset, build_dataloader, build_optimizer, build_lr_scheduler, build_runner
 from detecter.utils import collect_env, set_random_seed
@@ -144,6 +144,22 @@ def main(args):
     default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
                         scheduler=scheduler, meta=meta, logger=logger)
     runner = build_runner(cfg.runner, default_args)
+
+    # hook
+    # user-defined hooks
+    if cfg.get('custom_hooks', None):
+        custom_hooks = cfg.custom_hooks
+        assert isinstance(custom_hooks, list), \
+            f'custom_hooks expect list type, but got {type(custom_hooks)}'
+        for hook_cfg in cfg.custom_hooks:
+            assert isinstance(hook_cfg, dict), \
+                'Each item in custom_hooks expects dict type, but got ' \
+                f'{type(hook_cfg)}'
+            hook_cfg = hook_cfg.copy()
+            priority = hook_cfg.pop('priority', 'NORMAL')
+            hook = build_from_cfg(hook_cfg, HOOKS)
+            runner.register_hook(hook, priority=priority)
+
     runner.run()
 
 

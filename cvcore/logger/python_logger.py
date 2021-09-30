@@ -7,8 +7,7 @@ import sys
 
 __all__ = ['PyLogging']
 
-# DEFAULT_LOG_FORMAT = '%(asctime)s%(message)s'
-DEFAULT_LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+DEFAULT_LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 
 
 class _ColorfulFormatter(logging.Formatter):
@@ -19,13 +18,13 @@ class _ColorfulFormatter(logging.Formatter):
     def formatMessage(self, record):
         log = super(_ColorfulFormatter, self).formatMessage(record)
         if record.levelno == logging.WARNING:
-            color_log = colored("WARNING:" + log, "yellow", attrs=["blink"])
+            color_log = colored(log, "yellow", attrs=["blink"])
         elif record.levelno == logging.ERROR:
-            color_log = colored("ERROR:" + log, "red", attrs=["blink"])
+            color_log = colored(log, "red", attrs=["blink"])
         elif record.levelno == logging.CRITICAL:
-            color_log = colored("CRITICAL:" + log, "red", attrs=["blink"])
+            color_log = colored(log, "red", attrs=["blink"])
         elif record.levelno == logging.INFO:
-            color_log = colored("INFO:" + log, "green", attrs=["blink"])
+            color_log = colored(log, "green", attrs=["blink"])
         else:
             return log
         return color_log

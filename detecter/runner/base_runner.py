@@ -64,6 +64,7 @@ class BaseRunner(metaclass=ABCMeta):
 
         self.log_storage = None
         self.event_storage = None
+        self.runner_type = 'iter'
 
     @property
     def model_name(self):

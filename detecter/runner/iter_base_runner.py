@@ -2,7 +2,7 @@
 import time
 from .base_runner import BaseRunner
 from .builder import RUNNERS
-from cvcore.utils import EventStorage,LoggerStorage
+from cvcore.utils import EventStorage, LoggerStorage
 import cvcore
 from cvcore import Logger
 
@@ -15,7 +15,6 @@ class IterBasedRunner(BaseRunner):
 
     This runner train models epoch by epoch.
     """
-
     def train_step(self, **kwargs):
         assert self.model.training
         data_batch = next(self.dataloader)
@@ -32,6 +31,7 @@ class IterBasedRunner(BaseRunner):
     def run(self, **kwargs):
         """Start running.
         """
+
         assert self._max_iters is not None, (
             'max_iters must be specified during instantiation')
         work_dir = self.work_dir if self.work_dir is not None else 'NONE'
@@ -48,19 +48,8 @@ class IterBasedRunner(BaseRunner):
 
                 while self.iter < self._max_iters:
                     self.train_step(**kwargs)
-                    self.parse_log(self.log_storage.values())
+
                     self.log_storage.clear()
 
                 time.sleep(1)  # wait for some hooks like loggers to finish
                 self.call_hook('after_run')
-
-    def parse_log(self, log_storage_value):
-        log_items = []
-        # TODO： support loss smooth print
-        for values in log_storage_value:
-            for name, val in values.items():
-                if isinstance(val, float):
-                    val = f'{val:.4f}'
-                log_items.append(f'{name}: {val}')
-        log_str = ', '.join(log_items)
-        Logger.info(log_str)
