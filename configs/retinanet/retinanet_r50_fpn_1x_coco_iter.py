@@ -11,4 +11,3 @@ custom_hooks = [
     dict(type='DefaultLoggerHook', priority=100),  # LOW
 ]
 
-runner = dict(type='IterBasedRunner', max_iters=1000)

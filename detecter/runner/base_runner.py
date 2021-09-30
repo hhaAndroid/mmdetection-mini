@@ -29,7 +29,9 @@ class BaseRunner(metaclass=ABCMeta):
         self.model = model
         self.dataloader = dataloader
         self.optimizer = optimizer
-        self.scheduler = scheduler
+        self.scheduler = scheduler  # hook
+        assert isinstance(self.scheduler, Hook)
+
         self.logger = logger
         self.meta = meta
         # create work_dir
@@ -65,6 +67,9 @@ class BaseRunner(metaclass=ABCMeta):
         self.log_storage = None
         self.event_storage = None
         self.runner_type = 'iter'
+
+        self.register_hook(self.scheduler, priority=99)
+
 
     @property
     def model_name(self):

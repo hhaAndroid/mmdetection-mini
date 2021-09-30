@@ -2,7 +2,7 @@ from ..utils import Hook, HOOKS
 from collections import Counter
 from . import Logger
 
-__all__ = ['DefaultLoggerHook']
+__all__ = ['DefaultLoggerHook', 'get_best_param_group_id']
 
 
 def get_best_param_group_id(optimizer):
@@ -41,7 +41,7 @@ class DefaultLoggerHook(Hook):
         return ', '.join(log_items)
 
     def append_runner_type(self, runner):
-        if runner.runner_type is 'iter':
+        if runner.runner_type == 'iter':
             runner.log_storage.insert(0, {'Iter': f'[{runner.iter}][{runner.max_iters}]'})
         else:
             runner.log_storage.insert(0, {'Epoch': f'[{runner.epoch}][{runner.iter}/{runner.max_iters}]'})

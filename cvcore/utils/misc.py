@@ -11,11 +11,13 @@ from socket import gethostname
 import os
 import subprocess
 
-__all__ = ['is_seq_of', 'is_str', 'import_modules_from_strings', 'convert_image_to_rgb', 'NiceRepr', 'get_time_str', 'get_host_info', 'get_git_hash']
+__all__ = ['is_seq_of', 'is_str', 'import_modules_from_strings', 'convert_image_to_rgb', 'NiceRepr', 'get_time_str',
+           'get_host_info', 'get_git_hash', 'is_list_of', 'is_tuple_of']
 
 
 def get_host_info():
     return f'{getuser()}@{gethostname()}'
+
 
 def get_time_str():
     return time.strftime('%Y%m%d_%H%M%S', time.localtime())
@@ -49,6 +51,22 @@ def is_seq_of(seq, expected_type, seq_type=None):
         if not isinstance(item, expected_type):
             return False
     return True
+
+
+def is_list_of(seq, expected_type):
+    """Check whether it is a list of some type.
+
+    A partial method of :func:`is_seq_of`.
+    """
+    return is_seq_of(seq, expected_type, seq_type=list)
+
+
+def is_tuple_of(seq, expected_type):
+    """Check whether it is a tuple of some type.
+
+    A partial method of :func:`is_seq_of`.
+    """
+    return is_seq_of(seq, expected_type, seq_type=tuple)
 
 
 def import_modules_from_strings(imports, allow_failed_imports=False):
