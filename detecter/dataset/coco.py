@@ -45,6 +45,7 @@ class CocoDataset(CustomDataset):
         for i in self.img_ids:
             img_info = self.coco.loadImgs([i])[0]
             img_info['filename'] = img_info['file_name']
+            img_info['image_id'] = i
             results = dict(img_info=img_info)
 
             if not self.test_mode:
@@ -143,3 +144,6 @@ class CocoDataset(CustomDataset):
             seg_map=seg_map)
 
         return ann
+
+    def get_global_meta(self):
+        return {"class": self.CLASSES, 'json_file': self.ann_file}

@@ -1,10 +1,12 @@
 import argparse
+import copy
+
 from cvcore import launch, DictAction
 import os.path as osp
 import torch
 import time
 import cvcore
-from cvcore import Config,build_from_cfg, HOOKS
+from cvcore import Config, build_from_cfg, HOOKS
 from cvcore.logger import Logger
 from detecter import build_detector, build_dataset, build_dataloader, build_optimizer, build_lr_scheduler, build_runner
 from detecter.utils import collect_env, set_random_seed
@@ -144,6 +146,14 @@ def main(args):
     default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
                         scheduler=scheduler, meta=meta, logger=logger)
     runner = build_runner(cfg.runner, default_args)
+
+    if 'evaluator' in cfg:
+        val_dataset = build_dataset(cfg.data.val)
+        val_dataloader = build_dataloader(cfg.dataloader.val, val_dataset)
+
+        cp_evaluator_cfg = copy.deepcopy(cfg.evaluator)
+        cp_evaluator_cfg['dataloader'] = val_dataloader
+        runner.register_evaluator_hook(cp_evaluator_cfg)
 
     # hook
     # user-defined hooks

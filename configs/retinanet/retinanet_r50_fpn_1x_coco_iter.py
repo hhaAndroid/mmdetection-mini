@@ -11,3 +11,4 @@ custom_hooks = [
     dict(type='DefaultLoggerHook', priority=100),  # LOW
 ]
 
+evaluator = dict(type='COCOEvaluator')

@@ -21,12 +21,12 @@ class CustomDataset(Dataset):
                  classes=None,
                  data_root=None,
                  img_prefix='',
-                 test_mode=False,
+                 train_mode=True,
                  filter_empty_gt=True):
         self.ann_file = ann_file
         self.data_root = data_root
         self.img_prefix = img_prefix
-        self.test_mode = test_mode
+        self.train_mode = train_mode
         self.filter_empty_gt = filter_empty_gt
         self.CLASSES = self.get_classes(classes)
 
@@ -37,11 +37,14 @@ class CustomDataset(Dataset):
             if not (self.img_prefix is None or osp.isabs(self.img_prefix)):
                 self.img_prefix = osp.join(self.data_root, self.img_prefix)
 
-        # load annotations (and proposals)
+        # load annotations
         self.data_infos = self.load_annotations(self.ann_file)
 
+        # 为了后续方便，不管啥数据集，都必须要有 image_id 唯一 key
+        assert all(['image_id' in info['img_info'] for info in self.data_infos])
+
         # filter images too small and containing no annotations
-        if not test_mode:
+        if self.train_mode:
             valid_inds = self._filter_imgs()
             self.data_infos = [self.data_infos[i] for i in valid_inds]
 
@@ -55,7 +58,6 @@ class CustomDataset(Dataset):
     def load_annotations(self, ann_file):
         """Load annotation from annotation file."""
         pass
-        # return mmcv.load(ann_file)
 
     def pre_pipeline(self, results):
         """Prepare results dict for pipeline."""
@@ -140,5 +142,9 @@ class CustomDataset(Dataset):
 
         return class_names
 
-    def get_global_metas(self):
+    def get_data_infos(self):
+        return self.data_infos
+
+    # 重要
+    def get_global_meta(self):
         return {"class": self.CLASSES}

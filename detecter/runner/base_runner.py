@@ -9,6 +9,7 @@ import cvcore
 from cvcore import HOOKS, Hook, get_priority
 
 # from .log_buffer import LogBuffer
+from ..evaluation import build_evaluator as build_default_evaluator
 
 __all__ = ['BaseRunner']
 
@@ -67,9 +68,9 @@ class BaseRunner(metaclass=ABCMeta):
         self.log_storage = None
         self.event_storage = None
         self.runner_type = 'iter'
+        self.evaluator = None
 
         self.register_hook(self.scheduler, priority=99)
-
 
     @property
     def model_name(self):
@@ -174,3 +175,9 @@ class BaseRunner(metaclass=ABCMeta):
         """
         for hook in self._hooks:
             getattr(hook, fn_name)(self)
+
+    def register_evaluator_hook(self, evaluator_cfg, priority=100):
+        evaluator_cfg = evaluator_cfg.copy()
+        if 'priority' not in evaluator_cfg:
+            evaluator_cfg['priority'] = priority
+        self.register_hook_from_cfg(evaluator_cfg)
