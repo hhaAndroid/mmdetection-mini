@@ -24,6 +24,7 @@ from cvcore.utils import dist_comm as comm
 from .base_evaluator import DatasetEvaluator
 from .builder import EVALUATORS
 from cvcore import Logger,PathManager
+from detecter.core.structures import BoxMode
 
 
 @EVALUATORS.register_module()
