@@ -1,5 +1,5 @@
 from ..builder import PIPELINES
-from ...core.structures import Instances
+from ...core.structures import Instances, Boxes
 import warnings
 import torch
 import numpy as np
@@ -28,9 +28,7 @@ class Collect:
         self.meta_keys = meta_keys
 
     def __call__(self, results):
-        """Call function to collect keys in results. The keys in ``meta_keys``
-        will be converted to :obj:mmcv.DataContainer.
-
+        """Call function to collect keys in results.
         Args:
             results (dict): Result dict contains the data to collect.
 
@@ -45,6 +43,10 @@ class Collect:
         instance = Instances(results['img_shape'])
         for key in self.keys:
             instance._fields[key] = results[key]
+
+        if 'gt_bboxes' in self.keys:
+            instance.gt_bboxes = Boxes(results['gt_bboxes'])
+
         data['annotations'] = instance
 
         img_meta = {}

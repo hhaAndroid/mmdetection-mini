@@ -23,9 +23,15 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
     def loss(self, **kwargs):
         pass
 
+    @abstractmethod
+    def get_bboxes(self, **kwargs):
+        pass
+
     def forward(self, features, batched_inputs=None, **kwargs):
         output = self.forward_layer(features, batched_inputs)
         if self.training:
             loss = self.loss(*output, batched_inputs=batched_inputs, **kwargs)
             return loss
-        return output
+        else:
+            results=self.get_bboxes(*output, batched_inputs=batched_inputs, **kwargs)
+            return results

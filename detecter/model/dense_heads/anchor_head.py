@@ -4,12 +4,29 @@ import torch.nn as nn
 
 from detecter.core import (build_prior_generator,
                            build_assigner, build_bbox_coder, build_sampler, multiclass_nms)
-from detecter.utils import multi_apply, images_to_levels
+from detecter.utils import multi_apply, images_to_levels,cat,nonzero_tuple
 
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
+from detecter.core.bbox import batched_nms
+from detecter.core.structures import Instances,Boxes
+from typing import Dict, List, Tuple
+from torch import Tensor
+
 
 __all__ = ['AnchorHead']
+
+
+def permute_to_N_HWA_K(tensor, K: int):
+    """
+    Transpose/reshape a tensor from (N, (Ai x K), H, W) to (N, (HxWxAi), K)
+    """
+    assert tensor.dim() == 4, tensor.shape
+    N, _, H, W = tensor.shape
+    tensor = tensor.view(N, -1, K, H, W)
+    tensor = tensor.permute(0, 3, 4, 1, 2)
+    tensor = tensor.reshape(N, -1, K)  # Size=(N,HWA,K)
+    return tensor
 
 
 @HEADS.register_module()
@@ -212,7 +229,7 @@ class AnchorHead(BaseDenseHead):
         num_imgs = len(img_metas)
 
         gt_bboxes_ignore_list = None
-        gt_bboxes_list = [instance.gt_bboxes for instance in gt_instances]
+        gt_bboxes_list = [instance.gt_bboxes.tensor for instance in gt_instances]
         gt_labels_list = [instance.gt_labels for instance in gt_instances]
 
         # anchor number of multi levels
@@ -389,12 +406,10 @@ class AnchorHead(BaseDenseHead):
 
     # ---------------------------------inference---------------------------------
     def get_bboxes(self,
-                   cls_scores,
-                   bbox_preds,
-                   img_metas,
-                   cfg=None,
-                   rescale=False,
-                   with_nms=True):
+                   pred_logits,
+                   pred_anchor_deltas,
+                   batched_inputs,
+                   **kwargs):
         """Transform network output for a batch into bbox predictions.
 
         Args:
@@ -420,203 +435,97 @@ class AnchorHead(BaseDenseHead):
                 The shape of the second tensor in the tuple is (n,), and
                 each element represents the class label of the corresponding
                 box.
-
-        Example:
-            >>> import mmcv
-            >>> self = AnchorHead(
-            >>>     num_classes=9,
-            >>>     in_channels=1,
-            >>>     anchor_generator=dict(
-            >>>         type='AnchorGenerator',
-            >>>         scales=[8],
-            >>>         ratios=[0.5, 1.0, 2.0],
-            >>>         strides=[4,]))
-            >>> img_metas = [{'img_shape': (32, 32, 3), 'scale_factor': 1}]
-            >>> cfg = mmcv.Config(dict(
-            >>>     score_thr=0.00,
-            >>>     nms=dict(type='nms', iou_thr=1.0),
-            >>>     max_per_img=10))
-            >>> feat = torch.rand(1, 1, 3, 3)
-            >>> cls_score, bbox_pred = self.forward_single(feat)
-            >>> # note the input lists are over different levels, not images
-            >>> cls_scores, bbox_preds = [cls_score], [bbox_pred]
-            >>> result_list = self.get_bboxes(cls_scores, bbox_preds,
-            >>>                               img_metas, cfg)
-            >>> det_bboxes, det_labels = result_list[0]
-            >>> assert len(result_list) == 1
-            >>> assert det_bboxes.shape[1] == 5
-            >>> assert len(det_bboxes) == len(det_labels) == cfg.max_per_img
         """
-        assert len(cls_scores) == len(bbox_preds)
-        num_levels = len(cls_scores)
+        assert len(pred_logits) == len(pred_anchor_deltas)
+        num_levels = len(pred_logits)
 
-        device = cls_scores[0].device
-        featmap_sizes = [cls_scores[i].shape[-2:] for i in range(num_levels)]
+        device = pred_logits[0].device
+        featmap_sizes = [pred_logits[i].shape[-2:] for i in range(num_levels)]
+
         mlvl_anchors = self.anchor_generator.grid_anchors(
             featmap_sizes, device=device)
 
-        mlvl_cls_scores = [cls_scores[i].detach() for i in range(num_levels)]
-        mlvl_bbox_preds = [bbox_preds[i].detach() for i in range(num_levels)]
+        # Transpose the Hi*Wi*A dimension to the middle:
+        pred_logits = [permute_to_N_HWA_K(x, self.num_classes) for x in pred_logits]
+        pred_anchor_deltas = [permute_to_N_HWA_K(x, 4) for x in pred_anchor_deltas]
 
-        if torch.onnx.is_in_onnx_export():
-            assert len(
-                img_metas
-            ) == 1, 'Only support one input image while in exporting to ONNX'
-            img_shapes = img_metas[0]['img_shape_for_onnx']
-        else:
-            img_shapes = [
-                img_metas[i]['img_shape']
-                for i in range(cls_scores[0].shape[0])
-            ]
-        scale_factors = [
-            img_metas[i]['scale_factor'] for i in range(cls_scores[0].shape[0])
-        ]
+        image_sizes = [inputs['img'].shape[-2:] for inputs in batched_inputs]
 
-        if with_nms:
-            # some heads don't support with_nms argument
-            result_list = self._get_bboxes(mlvl_cls_scores, mlvl_bbox_preds,
-                                           mlvl_anchors, img_shapes,
-                                           scale_factors, cfg, rescale)
-        else:
-            result_list = self._get_bboxes(mlvl_cls_scores, mlvl_bbox_preds,
-                                           mlvl_anchors, img_shapes,
-                                           scale_factors, cfg, rescale,
-                                           with_nms)
-        return result_list
+        results: List[Instances] = []
+        for img_idx, image_size in enumerate(image_sizes):
+            pred_logits_per_image = [x[img_idx] for x in pred_logits]
+            deltas_per_image = [x[img_idx] for x in pred_anchor_deltas]
+            results_per_image = self.get_bboxes_single(
+                mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size
+            )
+            results.append(results_per_image)
+        return results
 
-    def _get_bboxes(self,
-                    mlvl_cls_scores,
-                    mlvl_bbox_preds,
-                    mlvl_anchors,
-                    img_shapes,
-                    scale_factors,
-                    cfg,
-                    rescale=False,
-                    with_nms=True):
-        """Transform outputs for a batch item into bbox predictions.
 
-        Args:
-            mlvl_cls_scores (list[Tensor]): Each element in the list is
-                the scores of bboxes of single level in the feature pyramid,
-                has shape (N, num_anchors * num_classes, H, W).
-            mlvl_bbox_preds (list[Tensor]):  Each element in the list is the
-                bboxes predictions of single level in the feature pyramid,
-                has shape (N, num_anchors * 4, H, W).
-            mlvl_anchors (list[Tensor]): Each element in the list is
-                the anchors of single level in feature pyramid, has shape
-                (num_anchors, 4).
-            img_shapes (list[tuple[int]]): Each tuple in the list represent
-                the shape(height, width, 3) of single image in the batch.
-            scale_factors (list[ndarray]): Scale factor of the batch
-                image arange as list[(w_scale, h_scale, w_scale, h_scale)].
-            cfg (mmcv.Config): Test / postprocessing configuration,
-                if None, test_cfg would be used.
-            rescale (bool): If True, return boxes in original image space.
-                Default: False.
-            with_nms (bool): If True, do nms before return boxes.
-                Default: True.
+    def get_bboxes_single(
+        self,
+        anchors: List[Boxes],
+        box_cls: List[Tensor],
+        box_delta: List[Tensor],
+        image_size: Tuple[int, int],
+    ):
+        """
+        Single-image inference. Return bounding-box detection results by thresholding
+        on scores and applying non-maximum suppression (NMS).
+
+        Arguments:
+            anchors (list[Boxes]): list of #feature levels. Each entry contains
+                a Boxes object, which contains all the anchors in that feature level.
+            box_cls (list[Tensor]): list of #feature levels. Each entry contains
+                tensor of size (H x W x A, K)
+            box_delta (list[Tensor]): Same shape as 'box_cls' except that K becomes 4.
+            image_size (tuple(H, W)): a tuple of the image height and width.
 
         Returns:
-            list[tuple[Tensor, Tensor]]: Each item in result_list is 2-tuple.
-                The first item is an (n, 5) tensor, where 5 represent
-                (tl_x, tl_y, br_x, br_y, score) and the score between 0 and 1.
-                The shape of the second tensor in the tuple is (n,), and
-                each element represents the class label of the corresponding
-                box.
+            Same as `inference`, but for only one image.
         """
-        cfg = self.test_cfg if cfg is None else cfg
-        assert len(mlvl_cls_scores) == len(mlvl_bbox_preds) == len(
-            mlvl_anchors)
-        batch_size = mlvl_cls_scores[0].shape[0]
-        # convert to tensor to keep tracing
-        nms_pre_tensor = torch.tensor(
-            cfg.get('nms_pre', -1),
-            device=mlvl_cls_scores[0].device,
-            dtype=torch.long)
+        boxes_all = []
+        scores_all = []
+        class_idxs_all = []
 
-        mlvl_bboxes = []
-        mlvl_scores = []
-        for cls_score, bbox_pred, anchors in zip(mlvl_cls_scores,
-                                                 mlvl_bbox_preds,
-                                                 mlvl_anchors):
-            assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
-            cls_score = cls_score.permute(0, 2, 3,
-                                          1).reshape(batch_size, -1,
-                                                     self.cls_out_channels)
-            if self.use_sigmoid_cls:
-                scores = cls_score.sigmoid()
-            else:
-                scores = cls_score.softmax(-1)
-            bbox_pred = bbox_pred.permute(0, 2, 3,
-                                          1).reshape(batch_size, -1, 4)
-            anchors = anchors.expand_as(bbox_pred)
-            # Always keep topk op for dynamic input in onnx
-            from mmdet.core.export import get_k_for_topk
-            nms_pre = get_k_for_topk(nms_pre_tensor, bbox_pred.shape[1])
-            if nms_pre > 0:
-                # Get maximum scores for foreground classes.
-                if self.use_sigmoid_cls:
-                    max_scores, _ = scores.max(-1)
-                else:
-                    # remind that we set FG labels to [0, num_class-1]
-                    # since mmdet v2.0
-                    # BG cat_id: num_class
-                    max_scores, _ = scores[..., :-1].max(-1)
+        # Iterate over every feature level
+        for box_cls_i, box_reg_i, anchors_i in zip(box_cls, box_delta, anchors):
+            # (HxWxAxK,)
+            predicted_prob = box_cls_i.flatten().sigmoid_()
 
-                _, topk_inds = max_scores.topk(nms_pre)
-                batch_inds = torch.arange(batch_size).view(
-                    -1, 1).expand_as(topk_inds)
-                anchors = anchors[batch_inds, topk_inds, :]
-                bbox_pred = bbox_pred[batch_inds, topk_inds, :]
-                scores = scores[batch_inds, topk_inds, :]
+            # Apply two filtering below to make NMS faster.
+            # 1. Keep boxes with confidence score higher than threshold
+            keep_idxs = predicted_prob > self.test_score_thresh
+            predicted_prob = predicted_prob[keep_idxs]
+            topk_idxs = nonzero_tuple(keep_idxs)[0]
 
-            bboxes = self.bbox_coder.decode(
-                anchors, bbox_pred, max_shape=img_shapes)
-            mlvl_bboxes.append(bboxes)
-            mlvl_scores.append(scores)
+            # 2. Keep top k top scoring boxes only
+            num_topk = min(self.test_topk_candidates, topk_idxs.size(0))
+            # torch.sort is actually faster than .topk (at least on GPUs)
+            predicted_prob, idxs = predicted_prob.sort(descending=True)
+            predicted_prob = predicted_prob[:num_topk]
+            topk_idxs = topk_idxs[idxs[:num_topk]]
 
-        batch_mlvl_bboxes = torch.cat(mlvl_bboxes, dim=1)
-        if rescale:
-            batch_mlvl_bboxes /= batch_mlvl_bboxes.new_tensor(
-                scale_factors).unsqueeze(1)
-        batch_mlvl_scores = torch.cat(mlvl_scores, dim=1)
+            anchor_idxs = topk_idxs // self.num_classes
+            classes_idxs = topk_idxs % self.num_classes
 
-        # Replace multiclass_nms with ONNX::NonMaxSuppression in deployment
-        if torch.onnx.is_in_onnx_export() and with_nms:
-            from mmdet.core.export import add_dummy_nms_for_onnx
-            # ignore background class
-            if not self.use_sigmoid_cls:
-                num_classes = batch_mlvl_scores.shape[2] - 1
-                batch_mlvl_scores = batch_mlvl_scores[..., :num_classes]
-            max_output_boxes_per_class = cfg.nms.get(
-                'max_output_boxes_per_class', 200)
-            iou_threshold = cfg.nms.get('iou_threshold', 0.5)
-            score_threshold = cfg.score_thr
-            nms_pre = cfg.get('deploy_nms_pre', -1)
-            return add_dummy_nms_for_onnx(batch_mlvl_bboxes, batch_mlvl_scores,
-                                          max_output_boxes_per_class,
-                                          iou_threshold, score_threshold,
-                                          nms_pre, cfg.max_per_img)
-        if self.use_sigmoid_cls:
-            # Add a dummy background class to the backend when using sigmoid
-            # remind that we set FG labels to [0, num_class-1] since mmdet v2.0
-            # BG cat_id: num_class
-            padding = batch_mlvl_scores.new_zeros(batch_size,
-                                                  batch_mlvl_scores.shape[1],
-                                                  1)
-            batch_mlvl_scores = torch.cat([batch_mlvl_scores, padding], dim=-1)
+            box_reg_i = box_reg_i[anchor_idxs]
+            anchors_i = anchors_i[anchor_idxs]
+            # predict boxes
+            predicted_boxes = self.box2box_transform.apply_deltas(box_reg_i, anchors_i.tensor)
 
-        if with_nms:
-            det_results = []
-            for (mlvl_bboxes, mlvl_scores) in zip(batch_mlvl_bboxes,
-                                                  batch_mlvl_scores):
-                det_bbox, det_label = multiclass_nms(mlvl_bboxes, mlvl_scores,
-                                                     cfg.score_thr, cfg.nms,
-                                                     cfg.max_per_img)
-                det_results.append(tuple([det_bbox, det_label]))
-        else:
-            det_results = [
-                tuple(mlvl_bs)
-                for mlvl_bs in zip(batch_mlvl_bboxes, batch_mlvl_scores)
-            ]
-        return det_results
+            boxes_all.append(predicted_boxes)
+            scores_all.append(predicted_prob)
+            class_idxs_all.append(classes_idxs)
+
+        boxes_all, scores_all, class_idxs_all = [
+            cat(x) for x in [boxes_all, scores_all, class_idxs_all]
+        ]
+        keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.test_nms_thresh)
+        keep = keep[: self.max_detections_per_image]
+
+        result = Instances(image_size)
+        result.pred_boxes = Boxes(boxes_all[keep])
+        result.scores = scores_all[keep]
+        result.pred_classes = class_idxs_all[keep]
+        return result

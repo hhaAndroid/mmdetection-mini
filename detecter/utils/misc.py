@@ -6,9 +6,23 @@ from six.moves import map, zip
 import random
 import numpy as np
 from collections.abc import Mapping
+from typing import List
 
 
-__all__ = ['multi_apply', 'unmap', 'flip_tensor', 'images_to_levels', 'set_random_seed','flatten_results_dict']
+__all__ = ['multi_apply', 'unmap', 'flip_tensor', 'images_to_levels', 'set_random_seed','flatten_results_dict','cat','nonzero_tuple']
+
+
+def nonzero_tuple(x):
+    """
+    A 'as_tuple=True' version of torch.nonzero to support torchscript.
+    because of https://github.com/pytorch/pytorch/issues/38718
+    """
+    if torch.jit.is_scripting():
+        if x.dim() == 0:
+            return x.unsqueeze(0).nonzero().unbind(1)
+        return x.nonzero().unbind(1)
+    else:
+        return x.nonzero(as_tuple=True)
 
 
 def set_random_seed(seed, deterministic=False):
@@ -122,3 +136,12 @@ def flatten_results_dict(results):
             r[k] = v
     return r
 
+
+def cat(tensors: List[torch.Tensor], dim: int = 0):
+    """
+    Efficient version of torch.cat that avoids a copy if there is only a single element in a list
+    """
+    assert isinstance(tensors, (list, tuple))
+    if len(tensors) == 1:
+        return tensors[0]
+    return torch.cat(tensors, dim)

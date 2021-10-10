@@ -1,5 +1,4 @@
 import argparse
-import copy
 
 from cvcore import launch, DictAction
 import os.path as osp

@@ -42,12 +42,13 @@ class SingleStageDetector(BaseDetector):
 
     def forward(self, batched_inputs):
         features = super(SingleStageDetector, self).forward(batched_inputs)
+        outputs = self.bbox_head(features, batched_inputs)
         if self.training:
-            outputs = self.bbox_head(features, batched_inputs)
+            # outputs = self.bbox_head(features, batched_inputs)
             # TODO: remove
             loss, log_vars = self.parse_losses(outputs)
             log_storage = get_log_storage()
             log_storage.append(log_vars)
             return loss
         else:
-            return self.bbox_head(features)
+            return outputs
