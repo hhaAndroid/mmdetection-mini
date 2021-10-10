@@ -144,16 +144,11 @@ def main(args):
 
     # runner
     default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
-                        scheduler=scheduler, meta=meta, logger=logger)
+                        scheduler=scheduler, meta=meta, logger=logger, cfg=cfg)
     runner = build_runner(cfg.runner, default_args)
 
     if 'evaluator' in cfg:
-        val_dataset = build_dataset(cfg.data.val)
-        val_dataloader = build_dataloader(cfg.dataloader.val, val_dataset)
-
-        cp_evaluator_cfg = copy.deepcopy(cfg.evaluator)
-        cp_evaluator_cfg['dataloader'] = val_dataloader
-        runner.register_evaluator_hook(cp_evaluator_cfg)
+        runner.register_evaluator_hook(cfg.evaluator)
 
     # hook
     # user-defined hooks

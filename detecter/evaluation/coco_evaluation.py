@@ -4,26 +4,26 @@ import copy
 import io
 import itertools
 import json
-import logging
 import numpy as np
 import os
 import pickle
 from collections import OrderedDict
-import pycocotools.mask as mask_util
 import torch
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 from tabulate import tabulate
 
-import detectron2.utils.comm as comm
-from detectron2.data.datasets.coco import convert_to_coco_json
-from detectron2.evaluation.fast_eval_api import COCOeval_opt
-from detectron2.structures import Boxes, BoxMode, pairwise_iou
-from detectron2.utils.file_io import PathManager
-from detectron2.utils.logger import create_small_table
+from cvcore.utils import dist_comm as comm
+# import detectron2.utils.comm as comm
+# from detectron2.data.datasets.coco import convert_to_coco_json
+# from detectron2.evaluation.fast_eval_api import COCOeval_opt
+# from detectron2.structures import Boxes, BoxMode, pairwise_iou
+# from detectron2.utils.file_io import PathManager
+# from detectron2.utils.logger import create_small_table
 
 from .base_evaluator import DatasetEvaluator
 from .builder import EVALUATORS
+from cvcore import Logger,PathManager
 
 
 @EVALUATORS.register_module()
@@ -81,7 +81,6 @@ class COCOEvaluator(DatasetEvaluator):
                 API, it is still recommended to compute results with the official API for use in
                 papers. The faster implementation also uses more RAM.
         """
-        self._logger = logging.getLogger(__name__)
         self._distributed = distributed
         self._output_dir = output_dir
         self._use_fast_impl = use_fast_impl
@@ -97,17 +96,17 @@ class COCOEvaluator(DatasetEvaluator):
             max_dets_per_image = [1, 10, max_dets_per_image]
         self._max_dets_per_image = max_dets_per_image
 
-        if tasks is not None and isinstance(tasks, CfgNode):
-            kpt_oks_sigmas = (
-                tasks.TEST.KEYPOINT_OKS_SIGMAS if not kpt_oks_sigmas else kpt_oks_sigmas
-            )
-            self._logger.warn(
-                "COCO Evaluator instantiated using config, this is deprecated behavior."
-                " Please pass in explicit arguments instead."
-            )
-            self._tasks = None  # Infering it from predictions should be better
-        else:
-            self._tasks = tasks
+        # if tasks is not None and isinstance(tasks, CfgNode):
+        #     kpt_oks_sigmas = (
+        #         tasks.TEST.KEYPOINT_OKS_SIGMAS if not kpt_oks_sigmas else kpt_oks_sigmas
+        #     )
+        #     self._logger.warn(
+        #         "COCO Evaluator instantiated using config, this is deprecated behavior."
+        #         " Please pass in explicit arguments instead."
+        #     )
+        #     self._tasks = None  # Infering it from predictions should be better
+        # else:
+        #     self._tasks = tasks
 
         self._cpu_device = torch.device("cpu")
 
@@ -118,11 +117,11 @@ class COCOEvaluator(DatasetEvaluator):
                     "output_dir must be provided to COCOEvaluator "
                     "for datasets not in COCO format."
                 )
-            self._logger.info(f"Trying to convert '{type(dataloader.dataset)}' to COCO format ...")
+            self._logger.info(f"Trying to convert '{dataloader.dataset.__name__}' to COCO format ...")
 
-            cache_path = os.path.join(output_dir, f"{dataset_name}_coco_format.json")
+            cache_path = os.path.join(output_dir, f"{dataloader.dataset.__name__}_coco_format.json")
             self._metadata.json_file = cache_path
-            convert_to_coco_json(dataset_name, cache_path)
+            # convert_to_coco_json(dataset_name, cache_path)
 
         json_file = PathManager.get_local_path(self._metadata.json_file)
         with contextlib.redirect_stdout(io.StringIO()):
@@ -146,8 +145,8 @@ class COCOEvaluator(DatasetEvaluator):
             if "instances" in output:
                 instances = output["instances"].to(self._cpu_device)
                 prediction["instances"] = instances_to_coco_json(instances, input["image_id"])
-            if "proposals" in output:
-                prediction["proposals"] = output["proposals"].to(self._cpu_device)
+            # if "proposals" in output:
+            #     prediction["proposals"] = output["proposals"].to(self._cpu_device)
             if len(prediction) > 1:
                 self._predictions.append(prediction)
 
@@ -177,8 +176,8 @@ class COCOEvaluator(DatasetEvaluator):
                 torch.save(predictions, f)
 
         self._results = OrderedDict()
-        if "proposals" in predictions[0]:
-            self._eval_box_proposals(predictions)
+        # if "proposals" in predictions[0]:
+        #     self._eval_box_proposals(predictions)
         if "instances" in predictions[0]:
             self._eval_predictions(predictions, img_ids=img_ids)
         # Copy so the caller can do whatever with results
@@ -387,24 +386,24 @@ def instances_to_coco_json(instances, img_id):
     scores = instances.scores.tolist()
     classes = instances.pred_classes.tolist()
 
-    has_mask = instances.has("pred_masks")
-    if has_mask:
-        # use RLE to encode the masks, because they are too large and takes memory
-        # since this evaluator stores outputs of the entire dataset
-        rles = [
-            mask_util.encode(np.array(mask[:, :, None], order="F", dtype="uint8"))[0]
-            for mask in instances.pred_masks
-        ]
-        for rle in rles:
-            # "counts" is an array encoded by mask_util as a byte-stream. Python3's
-            # json writer which always produces strings cannot serialize a bytestream
-            # unless you decode it. Thankfully, utf-8 works out (which is also what
-            # the pycocotools/_mask.pyx does).
-            rle["counts"] = rle["counts"].decode("utf-8")
+    # has_mask = instances.has("pred_masks")
+    # if has_mask:
+    #     # use RLE to encode the masks, because they are too large and takes memory
+    #     # since this evaluator stores outputs of the entire dataset
+    #     rles = [
+    #         mask_util.encode(np.array(mask[:, :, None], order="F", dtype="uint8"))[0]
+    #         for mask in instances.pred_masks
+    #     ]
+    #     for rle in rles:
+    #         # "counts" is an array encoded by mask_util as a byte-stream. Python3's
+    #         # json writer which always produces strings cannot serialize a bytestream
+    #         # unless you decode it. Thankfully, utf-8 works out (which is also what
+    #         # the pycocotools/_mask.pyx does).
+    #         rle["counts"] = rle["counts"].decode("utf-8")
 
-    has_keypoints = instances.has("pred_keypoints")
-    if has_keypoints:
-        keypoints = instances.pred_keypoints
+    # has_keypoints = instances.has("pred_keypoints")
+    # if has_keypoints:
+    #     keypoints = instances.pred_keypoints
 
     results = []
     for k in range(num_instance):
@@ -414,16 +413,16 @@ def instances_to_coco_json(instances, img_id):
             "bbox": boxes[k],
             "score": scores[k],
         }
-        if has_mask:
-            result["segmentation"] = rles[k]
-        if has_keypoints:
-            # In COCO annotations,
-            # keypoints coordinates are pixel indices.
-            # However our predictions are floating point coordinates.
-            # Therefore we subtract 0.5 to be consistent with the annotation format.
-            # This is the inverse of data loading logic in `datasets/coco.py`.
-            keypoints[k][:, :2] -= 0.5
-            result["keypoints"] = keypoints[k].flatten().tolist()
+        # if has_mask:
+        #     result["segmentation"] = rles[k]
+        # if has_keypoints:
+        #     # In COCO annotations,
+        #     # keypoints coordinates are pixel indices.
+        #     # However our predictions are floating point coordinates.
+        #     # Therefore we subtract 0.5 to be consistent with the annotation format.
+        #     # This is the inverse of data loading logic in `datasets/coco.py`.
+        #     keypoints[k][:, :2] -= 0.5
+        #     result["keypoints"] = keypoints[k].flatten().tolist()
         results.append(result)
     return results
 

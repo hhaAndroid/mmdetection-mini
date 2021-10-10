@@ -5,8 +5,10 @@ import torch
 from six.moves import map, zip
 import random
 import numpy as np
+from collections.abc import Mapping
 
-__all__ = ['multi_apply', 'unmap', 'flip_tensor', 'images_to_levels', 'set_random_seed']
+
+__all__ = ['multi_apply', 'unmap', 'flip_tensor', 'images_to_levels', 'set_random_seed','flatten_results_dict']
 
 
 def set_random_seed(seed, deterministic=False):
@@ -100,3 +102,23 @@ def flip_tensor(src_tensor, flip_direction):
     else:
         out_tensor = torch.flip(src_tensor, [2, 3])
     return out_tensor
+
+def flatten_results_dict(results):
+    """
+    Expand a hierarchical dict of scalars into a flat dict of scalars.
+    If results[k1][k2][k3] = v, the returned dict will have the entry
+    {"k1/k2/k3": v}.
+
+    Args:
+        results (dict):
+    """
+    r = {}
+    for k, v in results.items():
+        if isinstance(v, Mapping):
+            v = flatten_results_dict(v)
+            for kk, vv in v.items():
+                r[k + "/" + kk] = vv
+        else:
+            r[k] = v
+    return r
+

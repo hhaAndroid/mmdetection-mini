@@ -57,3 +57,6 @@ class Logger:
     @check_logger
     def error(cls, msg, *args, **kwargs):
         Logger.logger.error(msg)
+
+
+

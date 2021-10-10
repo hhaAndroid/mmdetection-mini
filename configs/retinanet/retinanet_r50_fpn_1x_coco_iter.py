@@ -11,4 +11,6 @@ custom_hooks = [
     dict(type='DefaultLoggerHook', priority=100),  # LOW
 ]
 
-evaluator = dict(type='COCOEvaluator')
+evaluator = dict(by_epoch=False,
+                 eval_period=100,
+                 eval_func=dict(type='COCOEvaluator'))
