@@ -70,9 +70,9 @@ class RRYolov5Head(BaseYOLOHead):
 
         self.det = nn.Sequential(*model)
         self.head = nn.Sequential(
-            nn.Conv2d(make_div8_fun(256), 255, 1),
-            nn.Conv2d(make_div8_fun(512), 255, 1),
-            nn.Conv2d(make_div8_fun(1024), 255, 1),
+            nn.Conv2d(make_div8_fun(256), (self.num_classes + 5) * 3, 1),
+            nn.Conv2d(make_div8_fun(512), (self.num_classes + 5) * 3, 1),
+            nn.Conv2d(make_div8_fun(1024), (self.num_classes + 5) * 3, 1),
         )
 
     def forward(self, feats):
