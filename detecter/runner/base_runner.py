@@ -10,7 +10,7 @@ from cvcore import HOOKS, Hook, get_priority
 
 # from .log_buffer import LogBuffer
 from ..evaluation import build_evaluator as build_default_evaluator
-from ..evaluation import EvalHook,eval_func
+from ..evaluation import EvalHook, eval_func
 
 __all__ = ['BaseRunner']
 
@@ -29,7 +29,7 @@ class BaseRunner(metaclass=ABCMeta):
                  max_epochs=None,
                  cfg=None):
 
-        self.cfg=cfg
+        self.cfg = cfg
         self.model = model
         self.dataloader = dataloader
         self.optimizer = optimizer
@@ -182,17 +182,13 @@ class BaseRunner(metaclass=ABCMeta):
     def register_evaluator_hook(self, evaluator_cfg, priority=100):
         evaluator_cfg = evaluator_cfg.copy()
         if 'priority' in evaluator_cfg:
-            priority=evaluator_cfg['priority']
+            priority = evaluator_cfg['priority']
 
         def test_and_save_results():
             self._last_eval_results = eval_func(self.cfg, self.model)
             return self._last_eval_results
 
-        by_epoch=evaluator_cfg.get('by_epoch',True)
-        eval_period=evaluator_cfg.get('eval_period',1)
+        by_epoch = evaluator_cfg.get('by_epoch', True)
+        eval_period = evaluator_cfg.get('eval_period', 1)
 
-        self.register_hook(EvalHook(test_and_save_results,by_epoch,eval_period),priority)
-
-
-
-
+        self.register_hook(EvalHook(test_and_save_results, by_epoch, eval_period), priority)

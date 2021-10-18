@@ -48,7 +48,7 @@ class CocoDataset(CustomDataset):
             img_info['image_id'] = i
             results = dict(img_info=img_info)
 
-            if not self.test_mode:
+            if self.should_load_anas:
                 ann_ids = self.coco.getAnnIds(imgIds=[i])
                 ann_info = self.coco.loadAnns(ann_ids)
                 ann_info = self._parse_ann_info(img_info, ann_info)
@@ -146,4 +146,4 @@ class CocoDataset(CustomDataset):
         return ann
 
     def get_global_meta(self):
-        return {"class": self.CLASSES, 'json_file': self.ann_file}
+        return {"thing_classes": self.CLASSES, 'json_file': self.ann_file}

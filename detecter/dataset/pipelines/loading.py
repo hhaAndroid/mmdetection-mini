@@ -156,6 +156,7 @@ class LoadAnnotations:
             dict: The dict contains loaded bounding box, label, mask and
                 semantic segmentation annotations.
         """
+        results['image_id'] = results['img_info']['image_id']
 
         if self.with_bbox:
             results = self._load_bboxes(results)

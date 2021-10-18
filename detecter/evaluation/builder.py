@@ -1,4 +1,4 @@
-from cvcore import Registry, build_from_cfg,Logger
+from cvcore import Registry, build_from_cfg, Logger
 from .base_evaluator import DatasetEvaluator
 from ..dataset import build_dataset
 from ..dataloader import build_dataloader
@@ -12,8 +12,7 @@ from contextlib import ExitStack, contextmanager
 import datetime
 import torch.nn as nn
 
-
-__all__ = ['build_evaluator', 'EVALUATORS','eval_func','inference_on_dataset']
+__all__ = ['build_evaluator', 'EVALUATORS', 'eval_func', 'inference_on_dataset']
 
 EVALUATORS = Registry('evaluator')
 
@@ -45,7 +44,7 @@ def print_csv_format(results):
 
 
 def eval_func(global_cfg, model):
-        """
+    """
         Evaluate the given model. The given model is expected to already contain
         weights to evaluate.
 
@@ -59,30 +58,29 @@ def eval_func(global_cfg, model):
         Returns:
             dict: a dict of result metrics
         """
-        if 'evaluator' not in global_cfg:
-            raise NotImplementedError
+    if 'evaluator' not in global_cfg:
+        raise NotImplementedError
 
+    val_dataset = build_dataset(global_cfg.data.val)
+    val_dataloader = build_dataloader(global_cfg.dataloader.val, val_dataset)
 
-        val_dataset = build_dataset(global_cfg.data.val)
-        val_dataloader = build_dataloader(global_cfg.dataloader.val, val_dataset)
+    cp_evaluator_cfg = copy.deepcopy(global_cfg.evaluator.eval_func)
+    cp_evaluator_cfg['dataloader'] = val_dataloader
 
-        cp_evaluator_cfg = copy.deepcopy(global_cfg.evaluator.eval_func)
-        cp_evaluator_cfg['dataloader'] = val_dataloader
+    evaluator = build_from_cfg(cp_evaluator_cfg, EVALUATORS)
+    assert isinstance(evaluator, DatasetEvaluator)
 
-        evaluator=build_from_cfg(cp_evaluator_cfg,EVALUATORS)
-        assert isinstance(evaluator, DatasetEvaluator)
+    results = inference_on_dataset(model, val_dataloader, evaluator)
+    if dist_comm.is_main_process():
+        assert isinstance(
+            results, dict
+        ), "Evaluator must return a dict on the main process. Got {} instead.".format(
+            results
+        )
+        # Logger.info("Evaluation results for {} in csv format:".format(val_dataset.__name__))
+        print_csv_format(results)
 
-        results = inference_on_dataset(model, val_dataloader, evaluator)
-        if dist_comm.is_main_process():
-            assert isinstance(
-                results, dict
-            ), "Evaluator must return a dict on the main process. Got {} instead.".format(
-                results
-            )
-            Logger.info("Evaluation results for {} in csv format:".format(val_dataset.__name__))
-            print_csv_format(results)
-
-        return results
+    return results
 
 
 def inference_on_dataset(model, data_loader, evaluator):
@@ -149,13 +147,13 @@ def inference_on_dataset(model, data_loader, evaluator):
             if idx >= num_warmup * 2 or compute_seconds_per_iter > 5:
                 eta = datetime.timedelta(seconds=int(total_seconds_per_iter * (total - idx - 1)))
                 Logger.info(
-                        f"Inference done {idx + 1}/{total}. "
-                        f"Dataloading: {data_seconds_per_iter:.4f} s/iter. "
-                        f"Inference: {compute_seconds_per_iter:.4f} s/iter. "
-                        f"Eval: {eval_seconds_per_iter:.4f} s/iter. "
-                        f"Total: {total_seconds_per_iter:.4f} s/iter. "
-                        f"ETA={eta}"
-                    )
+                    f"Inference done {idx + 1}/{total}. "
+                    f"Dataloading: {data_seconds_per_iter:.4f} s/iter. "
+                    f"Inference: {compute_seconds_per_iter:.4f} s/iter. "
+                    f"Eval: {eval_seconds_per_iter:.4f} s/iter. "
+                    f"Total: {total_seconds_per_iter:.4f} s/iter. "
+                    f"ETA={eta}"
+                )
             start_data_time = time.perf_counter()
 
     # Measure the time only for this worker (before the synchronization barrier)

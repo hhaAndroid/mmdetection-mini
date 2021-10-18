@@ -2,7 +2,7 @@ from cvcore import Hook
 from cvcore.utils import dist_comm
 from ..utils.misc import flatten_results_dict
 
-__all__=['EvalHook']
+__all__ = ['EvalHook']
 
 
 class EvalHook(Hook):
@@ -25,12 +25,11 @@ class EvalHook(Hook):
             If you would like only certain workers to perform evaluation,
             give other workers a no-op function (`eval_function=lambda: None`).
         """
-        self.by_epoch=by_epoch
+        self.by_epoch = by_epoch
         self._period = eval_period
         self._func = eval_function
 
-
-    def _do_eval(self,runner):
+    def _do_eval(self, runner):
         results = self._func()
 
         if results:
@@ -47,37 +46,35 @@ class EvalHook(Hook):
                         "[EvalHook] eval_function should return a nested dict of float. "
                         "Got '{}: {}' instead.".format(k, v)
                     ) from e
-            runner.storage.put_scalars(**flattened_results, smoothing_hint=False)
+            runner.event_storage.put_scalars(**flattened_results, smoothing_hint=False)
 
         # Evaluation may take different time among workers.
         # A barrier make them start the next iteration together.
         dist_comm.synchronize()
 
-
-    def after_val_iter(self, runner):
+    def after_iter(self, runner):
         if not self.by_epoch:
-            next_iter = self.runner.iter + 1
+            next_iter = runner.iter + 1
             if self._period > 0 and next_iter % self._period == 0:
                 # do the last eval in after_train
-                if next_iter != self.runner.max_iter:
+                if next_iter != runner.max_iters:
                     self._do_eval(runner)
 
-    def after_val_epoch(self, runner):
+    def after_epoch(self, runner):
         if self.by_epoch:
-            next_epoch = self.runner.epoch + 1
+            next_epoch = runner.epoch + 1
             if self._period > 0 and next_epoch % self._period == 0:
                 # do the last eval in after_train
-                if next_epoch != self.runner.max_epoch:
+                if next_epoch != runner.max_epochs:
                     self._do_eval(runner)
-
 
     def after_run(self, runner):
         # This condition is to prevent the eval from running after a failed training
         if self.by_epoch:
-            if self.runner.epoch + 1 >= self.trainer.max_epoch:
+            if runner.epoch + 1 >= runner.trainer.max_epochs:
                 self._do_eval(runner)
         else:
-            if self.runner.iter + 1 >= self.runner.max_iter:
+            if runner.iter + 1 >= runner.max_iters:
                 self._do_eval(runner)
         # func is likely a closure that holds reference to the trainer
         # therefore we clean it to avoid circular reference in the end

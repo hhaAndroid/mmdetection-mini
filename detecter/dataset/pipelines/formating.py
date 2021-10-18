@@ -23,7 +23,7 @@ class ToTensor:
 class Collect:
     def __init__(self,
                  keys,
-                 meta_keys=('filename', 'ori_shape', 'img_shape')):
+                 meta_keys=('filename', 'ori_shape', 'img_shape', 'image_id')):
         self.keys = keys
         self.meta_keys = meta_keys
 

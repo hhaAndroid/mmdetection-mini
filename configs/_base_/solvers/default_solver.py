@@ -11,5 +11,4 @@ lr_scheduler = dict(type="DefaultLrScheduler",
                     by_epoch=False,
                     warmup_iter_or_epochs=500)
 
-log_level = 'INFO'
 runner = dict(type='IterBasedRunner', max_iters=90000)

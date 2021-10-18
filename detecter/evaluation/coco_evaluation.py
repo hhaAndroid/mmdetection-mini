@@ -23,8 +23,31 @@ from cvcore.utils import dist_comm as comm
 
 from .base_evaluator import DatasetEvaluator
 from .builder import EVALUATORS
-from cvcore import Logger,PathManager
-from detecter.core.structures import BoxMode
+from cvcore import Logger, PathManager
+from detecter.core.structures import BoxMode, Instances
+
+
+def create_small_table(small_dict):
+    """
+    Create a small table using the keys of small_dict as headers. This is only
+    suitable for small dictionaries.
+
+    Args:
+        small_dict (dict): a result dictionary of only a few items.
+
+    Returns:
+        str: the table as a string.
+    """
+    keys, values = tuple(zip(*small_dict.items()))
+    table = tabulate(
+        [values],
+        headers=keys,
+        tablefmt="pipe",
+        floatfmt=".3f",
+        stralign="center",
+        numalign="center",
+    )
+    return table
 
 
 @EVALUATORS.register_module()
@@ -42,14 +65,14 @@ class COCOEvaluator(DatasetEvaluator):
     """
 
     def __init__(
-        self,
-        dataloader,
-        tasks=None,
-        distributed=True,
-        output_dir=None,
-        *,
-        max_dets_per_image=None,
-        use_fast_impl=True
+            self,
+            dataloader,
+            tasks=None,
+            distributed=True,
+            output_dir=None,
+            *,
+            max_dets_per_image=None,
+            use_fast_impl=True
     ):
         """
         Args:
@@ -82,6 +105,7 @@ class COCOEvaluator(DatasetEvaluator):
                 API, it is still recommended to compute results with the official API for use in
                 papers. The faster implementation also uses more RAM.
         """
+        self._tasks = tasks
         self._distributed = distributed
         self._output_dir = output_dir
         self._use_fast_impl = use_fast_impl
@@ -97,22 +121,11 @@ class COCOEvaluator(DatasetEvaluator):
             max_dets_per_image = [1, 10, max_dets_per_image]
         self._max_dets_per_image = max_dets_per_image
 
-        # if tasks is not None and isinstance(tasks, CfgNode):
-        #     kpt_oks_sigmas = (
-        #         tasks.TEST.KEYPOINT_OKS_SIGMAS if not kpt_oks_sigmas else kpt_oks_sigmas
-        #     )
-        #     self._logger.warn(
-        #         "COCO Evaluator instantiated using config, this is deprecated behavior."
-        #         " Please pass in explicit arguments instead."
-        #     )
-        #     self._tasks = None  # Infering it from predictions should be better
-        # else:
-        #     self._tasks = tasks
-
+        self._do_evaluation = True
         self._cpu_device = torch.device("cpu")
-
+        self._logger = Logger
         self._metadata = dataloader.dataset.get_global_meta()
-        if not hasattr(self._metadata, "json_file"):
+        if "json_file" not in self._metadata:
             if output_dir is None:
                 raise ValueError(
                     "output_dir must be provided to COCOEvaluator "
@@ -121,10 +134,10 @@ class COCOEvaluator(DatasetEvaluator):
             self._logger.info(f"Trying to convert '{dataloader.dataset.__name__}' to COCO format ...")
 
             cache_path = os.path.join(output_dir, f"{dataloader.dataset.__name__}_coco_format.json")
-            self._metadata.json_file = cache_path
+            self._metadata['json_file'] = cache_path
             # convert_to_coco_json(dataset_name, cache_path)
 
-        json_file = PathManager.get_local_path(self._metadata.json_file)
+        json_file = PathManager.get_local_path(self._metadata['json_file'])
         with contextlib.redirect_stdout(io.StringIO()):
             self._coco_api = COCO(json_file)
 
@@ -141,11 +154,11 @@ class COCOEvaluator(DatasetEvaluator):
                 "instances" that contains :class:`Instances`.
         """
         for input, output in zip(inputs, outputs):
-            prediction = {"image_id": input["image_id"]}
+            prediction = {"image_id": input['img_meta']["image_id"]}
 
-            if "instances" in output:
-                instances = output["instances"].to(self._cpu_device)
-                prediction["instances"] = instances_to_coco_json(instances, input["image_id"])
+            if isinstance(output, Instances):
+                prediction["instances"] = instances_to_coco_json(output.to(self._cpu_device),
+                                                                 input['img_meta']["image_id"])
             # if "proposals" in output:
             #     prediction["proposals"] = output["proposals"].to(self._cpu_device)
             if len(prediction) > 1:
@@ -244,7 +257,7 @@ class COCOEvaluator(DatasetEvaluator):
                     self._coco_api,
                     coco_results,
                     task,
-                    kpt_oks_sigmas=self._kpt_oks_sigmas,
+                    kpt_oks_sigmas=None,
                     use_fast_impl=self._use_fast_impl,
                     img_ids=img_ids,
                     max_dets_per_image=self._max_dets_per_image,
@@ -429,13 +442,13 @@ def instances_to_coco_json(instances, img_id):
 
 
 def _evaluate_predictions_on_coco(
-    coco_gt,
-    coco_results,
-    iou_type,
-    kpt_oks_sigmas=None,
-    use_fast_impl=True,
-    img_ids=None,
-    max_dets_per_image=None,
+        coco_gt,
+        coco_results,
+        iou_type,
+        kpt_oks_sigmas=None,
+        use_fast_impl=True,
+        img_ids=None,
+        max_dets_per_image=None,
 ):
     """
     Evaluate the coco results using COCOEval API.
@@ -452,13 +465,14 @@ def _evaluate_predictions_on_coco(
             c.pop("bbox", None)
 
     coco_dt = coco_gt.loadRes(coco_results)
-    coco_eval = (COCOeval_opt if use_fast_impl else COCOeval)(coco_gt, coco_dt, iou_type)
+    # coco_eval = (COCOeval_opt if use_fast_impl else COCOeval)(coco_gt, coco_dt, iou_type)
+    coco_eval = COCOeval(coco_gt, coco_dt, iou_type)
     # For COCO, the default max_dets_per_image is [1, 10, 100].
     if max_dets_per_image is None:
         max_dets_per_image = [1, 10, 100]  # Default from COCOEval
     else:
         assert (
-            len(max_dets_per_image) >= 3
+                len(max_dets_per_image) >= 3
         ), "COCOeval requires maxDets (and max_dets_per_image) to have length at least 3"
         # In the case that user supplies a custom input for max_dets_per_image,
         # apply COCOevalMaxDets to evaluate AP with the custom input.

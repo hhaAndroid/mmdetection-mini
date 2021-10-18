@@ -22,11 +22,13 @@ class CustomDataset(Dataset):
                  data_root=None,
                  img_prefix='',
                  train_mode=True,
+                 should_load_anas=True,
                  filter_empty_gt=True):
         self.ann_file = ann_file
         self.data_root = data_root
         self.img_prefix = img_prefix
         self.train_mode = train_mode
+        self.should_load_anas = should_load_anas
         self.filter_empty_gt = filter_empty_gt
         self.CLASSES = self.get_classes(classes)
 
@@ -91,7 +93,7 @@ class CustomDataset(Dataset):
                 True).
         """
 
-        if self.test_mode:
+        if not self.train_mode:
             return self.prepare_img(idx)
         while True:
             data = self.prepare_img(idx)

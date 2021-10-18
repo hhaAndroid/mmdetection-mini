@@ -60,8 +60,8 @@ model = dict(
         pos_weight=-1,
         debug=False),
     test_cfg=dict(
-        nms_pre=1000,
+        test_topk_candidates=1000,
         min_bbox_size=0,
-        score_thr=0.05,
+        test_score_thresh=0.0005,
         nms=dict(type='nms', iou_threshold=0.5),
-        max_per_img=100))
+        max_detections_per_image=100))

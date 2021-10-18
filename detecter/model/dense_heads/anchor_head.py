@@ -461,7 +461,6 @@ class AnchorHead(BaseDenseHead):
             results.append(results_per_image)
         return results
 
-
     def get_bboxes_single(
         self,
         anchors: List[Boxes],
@@ -495,12 +494,12 @@ class AnchorHead(BaseDenseHead):
 
             # Apply two filtering below to make NMS faster.
             # 1. Keep boxes with confidence score higher than threshold
-            keep_idxs = predicted_prob > self.test_score_thresh
+            keep_idxs = predicted_prob > self.test_cfg.test_score_thresh
             predicted_prob = predicted_prob[keep_idxs]
             topk_idxs = nonzero_tuple(keep_idxs)[0]
 
             # 2. Keep top k top scoring boxes only
-            num_topk = min(self.test_topk_candidates, topk_idxs.size(0))
+            num_topk = min(self.test_cfg.test_topk_candidates, topk_idxs.size(0))
             # torch.sort is actually faster than .topk (at least on GPUs)
             predicted_prob, idxs = predicted_prob.sort(descending=True)
             predicted_prob = predicted_prob[:num_topk]
@@ -512,7 +511,7 @@ class AnchorHead(BaseDenseHead):
             box_reg_i = box_reg_i[anchor_idxs]
             anchors_i = anchors_i[anchor_idxs]
             # predict boxes
-            predicted_boxes = self.box2box_transform.apply_deltas(box_reg_i, anchors_i.tensor)
+            predicted_boxes = self.bbox_coder.decode(anchors_i, box_reg_i)
 
             boxes_all.append(predicted_boxes)
             scores_all.append(predicted_prob)
@@ -521,8 +520,8 @@ class AnchorHead(BaseDenseHead):
         boxes_all, scores_all, class_idxs_all = [
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
-        keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.test_nms_thresh)
-        keep = keep[: self.max_detections_per_image]
+        keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.test_cfg.nms.iou_threshold)
+        keep = keep[: self.test_cfg.max_detections_per_image]
 
         result = Instances(image_size)
         result.pred_boxes = Boxes(boxes_all[keep])
