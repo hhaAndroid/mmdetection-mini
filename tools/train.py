@@ -143,11 +143,8 @@ def main(args):
 
     # runner
     default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
-                        scheduler=scheduler, meta=meta, logger=logger, cfg=cfg)
+                        scheduler=scheduler, meta=meta, logger=logger, cfg=cfg, work_dir=cfg.work_dir)
     runner = build_runner(cfg.runner, default_args)
-
-    if 'evaluator' in cfg:
-        runner.register_evaluator_hook(cfg.evaluator)
 
     # hook
     # user-defined hooks
@@ -164,6 +161,10 @@ def main(args):
             hook = build_from_cfg(hook_cfg, HOOKS)
             runner.register_hook(hook, priority=priority)
 
+    if 'resume_from' in cfg and cfg.resume_from:
+        runner.resume_or_load(cfg.resume_from, resume=True)
+    elif 'load_from' in cfg and cfg.load_from:
+        runner.resume_or_load(cfg.load_from, resume=False)
     runner.run()
 
 

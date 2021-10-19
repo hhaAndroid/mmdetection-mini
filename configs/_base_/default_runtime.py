@@ -10,4 +10,9 @@ evaluator = dict(by_epoch=False,
                  eval_period=10,
                  eval_func=dict(type='COCOEvaluator'))
 
+checkpoint = dict(by_epoch=False, period=10)
+
+
+
+
 

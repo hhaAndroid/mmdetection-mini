@@ -115,6 +115,8 @@ def inference_on_dataset(model, data_loader, evaluator):
     total_data_time = 0
     total_compute_time = 0
     total_eval_time = 0
+    eval_log_interv = 50
+
     with ExitStack() as stack:
         if isinstance(model, nn.Module):
             stack.enter_context(inference_context(model))
@@ -144,7 +146,8 @@ def inference_on_dataset(model, data_loader, evaluator):
             compute_seconds_per_iter = total_compute_time / iters_after_start
             eval_seconds_per_iter = total_eval_time / iters_after_start
             total_seconds_per_iter = (time.perf_counter() - start_time) / iters_after_start
-            if idx >= num_warmup * 2 or compute_seconds_per_iter > 5:
+            # if idx >= num_warmup * 2 or compute_seconds_per_iter > 5:
+            if idx % eval_log_interv == 0:
                 eta = datetime.timedelta(seconds=int(total_seconds_per_iter * (total - idx - 1)))
                 Logger.info(
                     f"Inference done {idx + 1}/{total}. "

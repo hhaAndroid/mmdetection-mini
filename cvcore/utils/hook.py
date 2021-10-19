@@ -70,3 +70,10 @@ class Hook:
 
     def is_last_iter(self, runner):
         return runner.iter + 1 == runner._max_iters
+
+    def state_dict(self):
+        """
+        Hooks are stateless by default, but can be made checkpointable by
+        implementing `state_dict` and `load_state_dict`.
+        """
+        return {}
