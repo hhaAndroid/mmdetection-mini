@@ -1,78 +1,93 @@
-from .builder import LR_SCHEDULERS, LR_PARAM_SCHEDULERS
-from cvcore.utils import Hook, build_from_cfg
-import copy
-from .param_scheduler import ParamScheduler
+from torch.optim import Optimizer
+from .builder import LR_SCHEDULERS
+from cvcore import build_from_cfg
+from .builder import PARAM_SCHEDULERS
 
-__all__ = ['DefaultLrScheduler']
+__all__ = ['LRScheduler','build_default_lr_scheduler']
+
 
 
 @LR_SCHEDULERS.register_module()
-class DefaultLrScheduler(Hook):
-    def __init__(self, optimizer, warmup_param_scheduler, regular_param_scheduler, by_epoch=True, warmup_by_epoch=False,
-                 warmup_iter_or_epochs=0):
+def build_default_lr_scheduler(optimizer,param_schedulers_cfg):
+    if not isinstance(param_schedulers_cfg, list):
+        param_schedulers_cfg = [param_schedulers_cfg]
+
+    param_schedulers=[]
+    for param_scheduler_cfg in param_schedulers_cfg:
+        param_schedulers.append(build_from_cfg(param_scheduler_cfg,PARAM_SCHEDULERS))
+
+    return LRScheduler(optimizer,param_schedulers)
+
+
+
+class LRScheduler(object):
+
+    def __init__(self, optimizer, param_schedulers):
+
+        # Attach optimizer
+        if not isinstance(optimizer, Optimizer):
+            raise TypeError('{} is not an Optimizer'.format(
+                type(optimizer).__name__))
         self.optimizer = optimizer
-        cp_warmup_param_scheduler = copy.deepcopy(warmup_param_scheduler)
-        cp_warmup_param_scheduler['by_epoch'] = warmup_by_epoch
-        self.warmup_param_scheduler = build_from_cfg(cp_warmup_param_scheduler, LR_PARAM_SCHEDULERS)
-        assert isinstance(self.warmup_param_scheduler, ParamScheduler)
 
-        cp_regular_param_scheduler = copy.deepcopy(regular_param_scheduler)
-        cp_regular_param_scheduler['by_epoch'] = by_epoch
-        self.regular_param_scheduler = build_from_cfg(cp_regular_param_scheduler, LR_PARAM_SCHEDULERS)
+        # Initialize epoch and base learning rates
+        for group in optimizer.param_groups:
+            group.setdefault('initial_lr', group['lr'])
 
-        self.by_epoch = by_epoch
-        self.warmup_by_epoch = warmup_by_epoch
-        self.warmup_iter_or_epochs = warmup_iter_or_epochs
+        self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
 
-        self.base_lr = []  # initial lr for all param groups
+        if not isinstance(param_schedulers,list):
+            param_schedulers=[param_schedulers]
+        self.param_schedulers=param_schedulers
 
-    def before_run(self, runner):
-        # NOTE: when resuming from a checkpoint, if 'initial_lr' is not saved,
-        # it will be set according to the optimizer params
-        if isinstance(runner.optimizer, dict):
-            self.base_lr = {}
-            for k, optim in runner.optimizer.items():
-                for group in optim.param_groups:
-                    group.setdefault('initial_lr', group['lr'])
-                _base_lr = [
-                    group['initial_lr'] for group in optim.param_groups
-                ]
-                self.base_lr.update({k: _base_lr})
-        else:
-            for group in runner.optimizer.param_groups:
-                group.setdefault('initial_lr', group['lr'])
-            self.base_lr = [
-                group['initial_lr'] for group in runner.optimizer.param_groups
-            ]
+        self.last_epoch = -1
 
-    def _set_lr(self, runner, lr_groups):
-        if isinstance(runner.optimizer, dict):
-            for k, optim in runner.optimizer.items():
-                for param_group, lr in zip(optim.param_groups, lr_groups[k]):
-                    param_group['lr'] = lr
-        else:
-            for param_group, lr in zip(runner.optimizer.param_groups,
-                                       lr_groups):
-                param_group['lr'] = lr
 
-    def before_train_epoch(self, runner):
-        cur_epoch = runner.epoch
-        if self.warmup_by_epoch and cur_epoch < self.warmup_iter_or_epochs:
-            lr_groups = [self.warmup_param_scheduler(runner, base_lr) for base_lr in self.base_lr]
-            self._set_lr(runner, lr_groups)
-            return
+    def state_dict(self):
+        """Returns the state of the scheduler as a :class:`dict`.
 
-        if self.by_epoch:
-            lr_groups = [self.regular_param_scheduler(runner, base_lr) for base_lr in self.base_lr]
-            self._set_lr(runner, lr_groups)
+        It contains an entry for every variable in self.__dict__ which
+        is not the optimizer.
+        """
+        save_dict={}
+        for i, param_scheduler in enumerate(self.param_schedulers):
+            save_dict[i]=param_scheduler.state_dict()
+        return save_dict
 
-    def before_train_iter(self, runner):
-        cur_iter = runner.iter
-        if not self.warmup_by_epoch and cur_iter < self.warmup_iter_or_epochs:
-            lr_groups = [self.warmup_param_scheduler(runner, base_lr) for base_lr in self.base_lr]
-            self._set_lr(runner, lr_groups)
-            return
 
-        if not self.by_epoch:
-            lr_groups = [self.regular_param_scheduler(runner, base_lr) for base_lr in self.base_lr]
-            self._set_lr(runner, lr_groups)
+    def load_state_dict(self, state_dict):
+        """Loads the schedulers state.
+
+        Arguments:
+            state_dict (dict): scheduler state. Should be an object returned
+                from a call to :meth:`state_dict`.
+        """
+        for pstate_dict,param_scheduler in zip(state_dict,self.param_schedulers):
+            param_scheduler.load_state_dict(pstate_dict)
+
+
+    def get_last_lr(self):
+        """ Return last computed learning rate by current scheduler.
+        """
+        return self._last_lr
+
+
+    def step(self, runner):
+        values=None
+        for scheduler in self.param_schedulers:
+            if scheduler['by_epoch']:
+                if scheduler.begin <= runner.epoch <= scheduler.end:
+                    values = [scheduler.step(runner, base_lr) for base_lr in self.base_lrs]
+                    break
+
+            else:
+                if scheduler.begin <= runner.iter <= scheduler.end:
+                    values = [scheduler.step(runner, base_lr) for base_lr in self.base_lrs]
+                    break
+
+        assert values is not None
+        for i, data in enumerate(zip(self.optimizer.param_groups, values)):
+            param_group, lr = data
+            param_group['lr'] = lr
+
+        self._last_lr = [group['lr'] for group in self.optimizer.param_groups]

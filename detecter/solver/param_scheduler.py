@@ -1,7 +1,7 @@
-from .builder import LR_PARAM_SCHEDULERS
 import cvcore
+from .builder import PARAM_SCHEDULERS
 
-__all__ = ['ParamScheduler', 'LambdaParamScheduler', 'ConstantParamScheduler', 'CompositeParamScheduler',
+__all__ = ['ParamScheduler', 'LambdaParamScheduler', 'ConstantParamScheduler',
            'StepParamScheduler', 'LinearParamScheduler']
 
 
@@ -13,7 +13,7 @@ class ParamScheduler:
         raise NotImplementedError("Param schedulers must override get_lr")
 
 
-@LR_PARAM_SCHEDULERS.register_module()
+@PARAM_SCHEDULERS.register_module()
 class LambdaParamScheduler(ParamScheduler):
     def __init__(self, scheduler_fun, **kwargs):
         super(LambdaParamScheduler, self).__init__(**kwargs)
@@ -25,7 +25,7 @@ class LambdaParamScheduler(ParamScheduler):
         return base_lr * self.scheduler_fun(progress)
 
 
-@LR_PARAM_SCHEDULERS.register_module()
+@PARAM_SCHEDULERS.register_module()
 class ConstantParamScheduler(ParamScheduler):
     """
     Returns a constant value for a param.
@@ -39,10 +39,7 @@ class ConstantParamScheduler(ParamScheduler):
         return base_lr * self._value
 
 
-# 这种写法不够通用，因为传入涉及base_lr，也就是说这个类只能用lr_schedule
-# 但是ParamScheduler设计的初衷不是为了lr而设计，而是任何值的变化过程，例如 ema 等等也可以调用
-# TODO： 后续需要重新设计
-@LR_PARAM_SCHEDULERS.register_module()
+@PARAM_SCHEDULERS.register_module()
 class StepParamScheduler(ParamScheduler):
     """Step LR scheduler with min_lr clipping.
 
@@ -90,7 +87,7 @@ class StepParamScheduler(ParamScheduler):
         return lr
 
 
-@LR_PARAM_SCHEDULERS.register_module()
+@PARAM_SCHEDULERS.register_module()
 class LinearParamScheduler(ParamScheduler):
     def __init__(self, start_step, end_step, start_value=0, end_value=1, **kwargs):
         super(LinearParamScheduler, self).__init__(**kwargs)
@@ -107,8 +104,3 @@ class LinearParamScheduler(ParamScheduler):
         # interpolate between start and end values
         return base_lr * (self._end_value * where + self._start_value * (1 - where))
 
-
-# 基于解耦原则，还是应该实现复合曲线类，不然自动根据个数在hook中组合，感觉会不好维护
-@LR_PARAM_SCHEDULERS.register_module()
-class CompositeParamScheduler(ParamScheduler):
-    pass

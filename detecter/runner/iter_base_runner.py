@@ -25,6 +25,8 @@ class IterBasedRunner(BaseRunner):
         losses.backward()
         self.optimizer.step()
 
+        self.scheduler.step(self)
+
         self.call_hook('after_train_iter')
         self._iter += 1
 

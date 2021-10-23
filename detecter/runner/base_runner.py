@@ -52,7 +52,6 @@ class BaseRunner(metaclass=ABCMeta):
         self.dataloader = dataloader
         self.optimizer = optimizer
         self.scheduler = scheduler  # hook
-        assert isinstance(self.scheduler, Hook)
 
         self.logger = logger
         self.meta = meta
