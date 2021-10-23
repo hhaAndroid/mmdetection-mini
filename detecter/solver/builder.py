@@ -40,5 +40,4 @@ def build_lr_scheduler(cfg, optimizer, default_args=None):
     cp_cfg = copy.deepcopy(cfg)
     cp_cfg['optimizer'] = optimizer
     lr_scheduler = build_from_cfg(cp_cfg, LR_SCHEDULERS, default_args)
-    assert isinstance(lr_scheduler, Hook)
     return lr_scheduler

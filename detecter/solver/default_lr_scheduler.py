@@ -2,27 +2,21 @@ from torch.optim import Optimizer
 from .builder import LR_SCHEDULERS
 from cvcore import build_from_cfg
 from .builder import PARAM_SCHEDULERS
+import copy
 
 __all__ = ['LRScheduler','build_default_lr_scheduler']
 
 
 
 @LR_SCHEDULERS.register_module()
-def build_default_lr_scheduler(optimizer,param_schedulers_cfg):
-    if not isinstance(param_schedulers_cfg, list):
-        param_schedulers_cfg = [param_schedulers_cfg]
-
-    param_schedulers=[]
-    for param_scheduler_cfg in param_schedulers_cfg:
-        param_schedulers.append(build_from_cfg(param_scheduler_cfg,PARAM_SCHEDULERS))
-
-    return LRScheduler(optimizer,param_schedulers)
+def build_default_lr_scheduler(optimizer,**lr_scheduler_cfg):
+    return LRScheduler(optimizer, **lr_scheduler_cfg)
 
 
 
-class LRScheduler(object):
+class LRScheduler:
 
-    def __init__(self, optimizer, param_schedulers):
+    def __init__(self, optimizer, param_scheduler, param_steps, by_epoch=False):
 
         # Attach optimizer
         if not isinstance(optimizer, Optimizer):
@@ -36,8 +30,28 @@ class LRScheduler(object):
 
         self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
 
-        if not isinstance(param_schedulers,list):
-            param_schedulers=[param_schedulers]
+
+        if not isinstance(param_scheduler,list):
+            param_scheduler=[param_scheduler]
+
+        assert len(param_scheduler)== len(param_steps) or len(param_scheduler)+1 == len(param_steps)
+        if len(param_scheduler)== len(param_steps):
+            param_steps.append(-1)
+
+        cp_param_schedulers_cfg=copy.deepcopy(param_scheduler)
+
+        param_schedulers=[]
+        for i,param_scheduler_cfg in enumerate(cp_param_schedulers_cfg):
+            if 'by_epoch' not in param_scheduler_cfg:
+                param_scheduler_cfg['by_epoch']=by_epoch
+            if 'begin' not in param_scheduler_cfg:
+                param_scheduler_cfg['begin']=param_steps[i]
+            if 'end' not in param_scheduler_cfg:
+                param_scheduler_cfg['end']=param_steps[i+1]
+
+            param_scheduler=build_from_cfg(param_scheduler_cfg,PARAM_SCHEDULERS)
+            param_schedulers.append(param_scheduler)
+
         self.param_schedulers=param_schedulers
 
         self.last_epoch = -1
@@ -75,12 +89,16 @@ class LRScheduler(object):
     def step(self, runner):
         values=None
         for scheduler in self.param_schedulers:
-            if scheduler['by_epoch']:
+            if scheduler.by_epoch:
+                if scheduler.end == -1: scheduler.end=runner.max_epochs
+
                 if scheduler.begin <= runner.epoch <= scheduler.end:
                     values = [scheduler.step(runner, base_lr) for base_lr in self.base_lrs]
                     break
 
             else:
+                if scheduler.end == -1: scheduler.end = runner.max_iters
+
                 if scheduler.begin <= runner.iter <= scheduler.end:
                     values = [scheduler.step(runner, base_lr) for base_lr in self.base_lrs]
                     break

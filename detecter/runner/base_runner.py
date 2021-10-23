@@ -171,9 +171,6 @@ class BaseRunner(metaclass=ABCMeta):
         pass
 
     def _register_default_hook(self):
-        # scheduler
-        self.register_hook(self.scheduler, priority=99)
-
         # ckpt hook
         if dist_comm.is_main_process():
             self.register_hook(PeriodicCheckpointer(self.checkpointer, self.cfg.checkpoint.by_epoch, self.cfg.checkpoint.period))

@@ -6,9 +6,11 @@ optimizer = dict(
 
 
 lr_scheduler=dict(type='build_default_lr_scheduler',
+                  param_steps=[0,500],
+                  by_epoch=False,
                   param_scheduler=[
-                      dict(type='LinearParamScheduler', begin=0, end=500, start_value=0.001, by_epoch=False),
-                      dict(type='StepParamScheduler', begin=500, end=100000,step=[60000, 80000], by_epoch=False)])
+                      dict(type='LinearParamScheduler', start_value=0.001),
+                      dict(type='StepParamScheduler', step=[60000, 80000])])
 
 
 runner = dict(type='IterBasedRunner', max_iters=90000)

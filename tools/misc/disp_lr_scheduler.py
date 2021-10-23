@@ -73,11 +73,13 @@ def main():
     optimizer = build_optimizer(cfg.optimizer, detector)
     scheduler = build_lr_scheduler(cfg.lr_scheduler, optimizer)
 
+    cfg.pop('evaluator')
     cp_train_cfg = copy.deepcopy(cfg.dataloader.train)
     cp_train_cfg['aspect_ratio_grouping'] = False
     train_dataloader = build_dataloader(cp_train_cfg, DemoDataset())
+
     default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
-                        scheduler=scheduler, logger=Logger.init())
+                        scheduler=scheduler, logger=Logger.init(),cfg=cfg)
     runner = build_runner(cfg.runner, default_args)
     runner.register_hook(DispLRHook(), 100)
     runner.run()

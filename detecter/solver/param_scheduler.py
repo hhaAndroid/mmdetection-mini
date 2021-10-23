@@ -6,10 +6,12 @@ __all__ = ['ParamScheduler', 'LambdaParamScheduler', 'ConstantParamScheduler',
 
 
 class ParamScheduler:
-    def __init__(self, by_epoch):
+    def __init__(self, by_epoch, begin, end):
         self.by_epoch = by_epoch
+        self.begin = begin
+        self.end = end
 
-    def __call__(self, runner, base_lr):
+    def step(self, runner, base_lr):
         raise NotImplementedError("Param schedulers must override get_lr")
 
 
@@ -20,7 +22,7 @@ class LambdaParamScheduler(ParamScheduler):
         assert scheduler_fun is not None
         self.scheduler_fun = scheduler_fun
 
-    def __call__(self, runner, base_lr):
+    def step(self, runner, base_lr):
         progress = runner.epoch if self.by_epoch else runner.iter
         return base_lr * self.scheduler_fun(progress)
 
@@ -35,7 +37,7 @@ class ConstantParamScheduler(ParamScheduler):
         super(ConstantParamScheduler, self).__init__(**kwargs)
         self._value = value
 
-    def __call__(self, runner, base_lr):
+    def step(self, runner, base_lr):
         return base_lr * self._value
 
 
@@ -62,20 +64,20 @@ class StepParamScheduler(ParamScheduler):
             assert step > 0
         else:
             raise TypeError('"step" must be a list or integer')
-        self.step = step
+        self._step = step
         self.gamma = gamma
         self.min_lr = min_lr
 
-    def __call__(self, runner, base_lr):
+    def step(self, runner, base_lr):
         # progress 这个参数应该是在外面计算好传入，而不是在每个类调用时候判断
         progress = runner.epoch if self.by_epoch else runner.iter
 
         # calculate exponential term
-        if isinstance(self.step, int):
-            exp = progress // self.step
+        if isinstance(self._step, int):
+            exp = progress // self._step
         else:
-            exp = len(self.step)
-            for i, s in enumerate(self.step):
+            exp = len(self._step)
+            for i, s in enumerate(self._step):
                 if progress < s:
                     exp = i
                     break
@@ -89,18 +91,15 @@ class StepParamScheduler(ParamScheduler):
 
 @PARAM_SCHEDULERS.register_module()
 class LinearParamScheduler(ParamScheduler):
-    def __init__(self, start_step, end_step, start_value=0, end_value=1, **kwargs):
+    def __init__(self, start_value=0, end_value=1, **kwargs):
         super(LinearParamScheduler, self).__init__(**kwargs)
-        assert end_step > start_step
-        self._start_step = start_step
-        self._end_step = end_step
         self._start_value = start_value
         self._end_value = end_value
 
-    def __call__(self, runner, base_lr):
+    def step(self, runner, base_lr):
         progress = runner.epoch if self.by_epoch else runner.iter
-        assert self._start_step <= progress <= self._end_step
-        where = (progress - self._start_step) / (self._end_step - self._start_step)
+        assert self.begin <= progress <= self.end
+        where = (progress - self.begin) / (self.end - self.begin)
         # interpolate between start and end values
         return base_lr * (self._end_value * where + self._start_value * (1 - where))
 
