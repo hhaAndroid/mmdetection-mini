@@ -450,13 +450,14 @@ class AnchorHead(BaseDenseHead):
         pred_anchor_deltas = [permute_to_N_HWA_K(x, 4) for x in pred_anchor_deltas]
 
         image_sizes = [inputs['img'].shape[-2:] for inputs in batched_inputs]
+        img_metas = [x["img_meta"] for x in batched_inputs]
 
         results: List[Instances] = []
         for img_idx, image_size in enumerate(image_sizes):
             pred_logits_per_image = [x[img_idx] for x in pred_logits]
             deltas_per_image = [x[img_idx] for x in pred_anchor_deltas]
             results_per_image = self.get_bboxes_single(
-                mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size
+                mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size,img_metas[img_idx]
             )
             results.append(results_per_image)
         return results
@@ -467,6 +468,7 @@ class AnchorHead(BaseDenseHead):
         box_cls: List[Tensor],
         box_delta: List[Tensor],
         image_size: Tuple[int, int],
+        img_meta: Dict
     ):
         """
         Single-image inference. Return bounding-box detection results by thresholding
@@ -520,6 +522,10 @@ class AnchorHead(BaseDenseHead):
         boxes_all, scores_all, class_idxs_all = [
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
+
+        boxes_all /= boxes_all.new_tensor(
+            img_meta['scale_factor'])
+
         keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.test_cfg.nms.iou_threshold)
         keep = keep[: self.test_cfg.max_detections_per_image]
 
