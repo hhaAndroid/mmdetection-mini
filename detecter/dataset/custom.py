@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import os.path as osp
 import warnings
+import copy
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -113,7 +114,7 @@ class CustomDataset(Dataset):
                 introduced by pipeline.
         """
 
-        results = self.data_infos[idx]
+        results = copy.deepcopy(self.data_infos[idx])
         self.pre_pipeline(results)
         return self.pipeline(results)
 
