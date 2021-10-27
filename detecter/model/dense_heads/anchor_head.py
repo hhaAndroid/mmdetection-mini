@@ -457,7 +457,7 @@ class AnchorHead(BaseDenseHead):
             pred_logits_per_image = [x[img_idx] for x in pred_logits]
             deltas_per_image = [x[img_idx] for x in pred_anchor_deltas]
             results_per_image = self.get_bboxes_single(
-                mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size,img_metas[img_idx]
+                mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size, img_metas[img_idx]
             )
             results.append(results_per_image)
         return results
@@ -513,7 +513,7 @@ class AnchorHead(BaseDenseHead):
             box_reg_i = box_reg_i[anchor_idxs]
             anchors_i = anchors_i[anchor_idxs]
             # predict boxes
-            predicted_boxes = self.bbox_coder.decode(anchors_i, box_reg_i)
+            predicted_boxes = self.bbox_coder.decode(anchors_i, box_reg_i, max_shape=image_size)
 
             boxes_all.append(predicted_boxes)
             scores_all.append(predicted_prob)

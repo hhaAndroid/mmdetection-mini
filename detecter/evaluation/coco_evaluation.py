@@ -218,8 +218,8 @@ class COCOEvaluator(DatasetEvaluator):
         tasks = self._tasks or self._tasks_from_predictions(coco_results)
 
         # unmap the category ids for COCO
-        if hasattr(self._metadata, "thing_dataset_id_to_contiguous_id"):
-            dataset_id_to_contiguous_id = self._metadata.thing_dataset_id_to_contiguous_id
+        if "thing_dataset_id_to_contiguous_id" in self._metadata:
+            dataset_id_to_contiguous_id = self._metadata["thing_dataset_id_to_contiguous_id"]
             all_contiguous_ids = list(dataset_id_to_contiguous_id.values())
             num_classes = len(all_contiguous_ids)
             assert min(all_contiguous_ids) == 0 and max(all_contiguous_ids) == num_classes - 1

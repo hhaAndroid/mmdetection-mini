@@ -51,6 +51,7 @@ class CustomDataset(Dataset):
             valid_inds = self._filter_imgs()
             self.data_infos = [self.data_infos[i] for i in valid_inds]
 
+        assert len(self.data_infos) > 0, 'dataset is empty'
         # processing pipeline
         self.pipeline = Compose(pipeline)
 
