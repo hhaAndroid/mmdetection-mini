@@ -12,9 +12,10 @@ __all__ = ['BaseDetector']
 class BaseDetector(BaseModule, metaclass=ABCMeta):
     """Base class for detectors."""
 
-    def __init__(self, comm_cfg, init_cfg=None, **kwargs):
+    def __init__(self, comm_cfg, init_cfg=None, vis_interval=-1, **kwargs):
         pixel_mean = comm_cfg['pixel_mean']
         pixel_std = comm_cfg['pixel_std']
+        self.vis_interval = vis_interval
 
         super(BaseDetector, self).__init__(init_cfg)
         self.register_buffer("pixel_mean", torch.tensor(pixel_mean).view(-1, 1, 1), False)

@@ -4,7 +4,6 @@ from .base_runner import BaseRunner
 from .builder import RUNNERS
 from cvcore.utils import EventStorage, LoggerStorage
 import cvcore
-from cvcore import Logger
 
 __all__ = ['IterBasedRunner']
 

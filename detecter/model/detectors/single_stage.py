@@ -22,13 +22,15 @@ class SingleStageDetector(BaseDetector):
                  train_cfg=None,
                  test_cfg=None,
                  init_cfg=None,
+                 vis_interval=-1,
                  **kwargs):
-        super(SingleStageDetector, self).__init__(comm_cfg, init_cfg, **kwargs)
+        super(SingleStageDetector, self).__init__(comm_cfg, init_cfg, vis_interval, **kwargs)
         self.backbone = build_backbone(backbone)
         if neck is not None:
             self.neck = build_neck(neck)
         bbox_head.update(train_cfg=train_cfg)
         bbox_head.update(test_cfg=test_cfg)
+        bbox_head.update(vis_interval=self.vis_interval)
         self.bbox_head = build_head(bbox_head)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg

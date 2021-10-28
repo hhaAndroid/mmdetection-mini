@@ -125,7 +125,10 @@ def main(args):
     meta['exp_name'] = osp.basename(args.config)
 
     # detector
-    detector = build_detector(cfg.model)
+    if 'vis_interval' in cfg:
+        detector = build_detector(cfg.model, dict(vis_interval=cfg.vis_interval))
+    else:
+        detector = build_detector(cfg.model)
     detector.init_weights()
     detector = detector.cuda()
 

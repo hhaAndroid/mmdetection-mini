@@ -46,9 +46,9 @@ def build_loss(cfg):
     return build_from_cfg(cfg, LOSSES)
 
 
-def build_detector(cfg):
+def build_detector(cfg, default_args=None):
     """Build detector."""
-    return build_from_cfg(cfg, DETECTORS)
+    return build_from_cfg(cfg, DETECTORS, default_args)
 
 
 def build_bricks(cfg):

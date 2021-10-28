@@ -1,18 +1,17 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch
-import torch.nn as nn
+from cvcore import get_event_storage, convert_image_to_rgb
 
 from detecter.core import (build_prior_generator,
                            build_assigner, build_bbox_coder, build_sampler, multiclass_nms)
-from detecter.utils import multi_apply, images_to_levels,cat,nonzero_tuple
+from detecter.utils import multi_apply, images_to_levels, cat, nonzero_tuple
 
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
 from detecter.core.bbox import batched_nms
-from detecter.core.structures import Instances,Boxes
+from detecter.core.structures import Instances, Boxes
 from typing import Dict, List, Tuple
 from torch import Tensor
-
 
 __all__ = ['AnchorHead']
 
@@ -75,8 +74,9 @@ class AnchorHead(BaseDenseHead):
                      type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0),
                  train_cfg=None,
                  test_cfg=None,
-                 init_cfg=dict(type='Normal', layer='Conv2d', std=0.01)):
-        super(AnchorHead, self).__init__(init_cfg)
+                 init_cfg=dict(type='Normal', layer='Conv2d', std=0.01),
+                 vis_interval=-1):
+        super(AnchorHead, self).__init__(init_cfg, vis_interval)
         self.in_channels = in_channels
         self.num_classes = num_classes
         self.feat_channels = feat_channels
@@ -181,7 +181,13 @@ class AnchorHead(BaseDenseHead):
             bbox_targets_list,
             bbox_weights_list,
             num_total_samples=num_total_samples)
-        return dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
+        loss = dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
+
+        if self.vis_interval > 0:
+            storage = get_event_storage()
+            if storage.iter % self.vis_interval == 0:
+                self._visualize_training(batched_inputs)
+        return loss
 
     def get_targets(self,
                     anchor_list,
@@ -463,12 +469,12 @@ class AnchorHead(BaseDenseHead):
         return results
 
     def get_bboxes_single(
-        self,
-        anchors: List[Boxes],
-        box_cls: List[Tensor],
-        box_delta: List[Tensor],
-        image_size: Tuple[int, int],
-        img_meta: Dict
+            self,
+            anchors: List[Boxes],
+            box_cls: List[Tensor],
+            box_delta: List[Tensor],
+            image_size: Tuple[int, int],
+            img_meta: Dict
     ):
         """
         Single-image inference. Return bounding-box detection results by thresholding
@@ -534,3 +540,23 @@ class AnchorHead(BaseDenseHead):
         result.scores = scores_all[keep]
         result.pred_classes = class_idxs_all[keep]
         return result
+
+    def _visualize_training(self, batched_inputs):
+        storage = get_event_storage()
+        for input in batched_inputs:
+            img = input["img"]
+            vis_img = convert_image_to_rgb(img.permute(1, 2, 0), "BGR")
+            # v_gt = Visualizer(img, None)
+            # v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
+            # anno_img = v_gt.get_image()
+            # box_size = min(len(prop.proposal_boxes), max_vis_prop)
+            # v_pred = Visualizer(img, None)
+            # v_pred = v_pred.overlay_instances(
+            #     boxes=prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
+            # )
+            # prop_img = v_pred.get_image()
+            # vis_img = np.concatenate((anno_img, prop_img), axis=1)
+            vis_img = vis_img.transpose(2, 0, 1)
+            vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
+            storage.put_image(vis_name, vis_img)
+            break  # only visualize one image in a batch
