@@ -44,7 +44,8 @@ model = dict(
     # common settings
     comm_cfg=dict(
         pixel_mean=[123.675, 116.28, 103.53],
-        pixel_std=[58.395, 57.12, 57.375]
+        pixel_std=[58.395, 57.12, 57.375],
+        to_rgb=True,
     ),
     # model training and testing settings
     train_cfg=dict(

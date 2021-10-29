@@ -9,7 +9,7 @@ from detecter.utils import multi_apply, images_to_levels, cat, nonzero_tuple
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
 from detecter.core.bbox import batched_nms
-from detecter.core.structures import Instances, Boxes
+from detecter.core.structures import InstanceData, Boxes
 from typing import Dict, List, Tuple
 from torch import Tensor
 
@@ -156,8 +156,9 @@ class AnchorHead(BaseDenseHead):
 
         device = cls_scores[0].device
 
-        gt_instances = [x["annotations"].to(device) for x in batched_inputs]
-        img_metas = [x["img_meta"] for x in batched_inputs]
+        gt_instances = [data['data_sample'].gt_instances.to(device) for data in batched_inputs]
+        # gt_instances = [x["annotations"].to(device) for x in batched_inputs]
+        img_metas = [x["img_metas"] for x in batched_inputs]
 
         multi_level_anchors = self.get_anchors(featmap_sizes, device=device)
 
@@ -235,8 +236,8 @@ class AnchorHead(BaseDenseHead):
         num_imgs = len(img_metas)
 
         gt_bboxes_ignore_list = None
-        gt_bboxes_list = [instance.gt_bboxes.tensor for instance in gt_instances]
-        gt_labels_list = [instance.gt_labels for instance in gt_instances]
+        gt_bboxes_list = [instance.bboxes.tensor for instance in gt_instances]
+        gt_labels_list = [instance.labels for instance in gt_instances]
 
         # anchor number of multi levels
         anchors = torch.cat(anchor_list)
@@ -458,7 +459,7 @@ class AnchorHead(BaseDenseHead):
         image_sizes = [inputs['img'].shape[-2:] for inputs in batched_inputs]
         img_metas = [x["img_meta"] for x in batched_inputs]
 
-        results: List[Instances] = []
+        results: List[InstanceData] = []
         for img_idx, image_size in enumerate(image_sizes):
             pred_logits_per_image = [x[img_idx] for x in pred_logits]
             deltas_per_image = [x[img_idx] for x in pred_anchor_deltas]
@@ -535,7 +536,7 @@ class AnchorHead(BaseDenseHead):
         keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.test_cfg.nms.iou_threshold)
         keep = keep[: self.test_cfg.max_detections_per_image]
 
-        result = Instances(image_size)
+        result = InstanceData()
         result.pred_boxes = Boxes(boxes_all[keep])
         result.scores = scores_all[keep]
         result.pred_classes = class_idxs_all[keep]

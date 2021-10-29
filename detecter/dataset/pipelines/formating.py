@@ -1,68 +1,173 @@
 from ..builder import PIPELINES
-from ...core.structures import Instances, Boxes
-import warnings
+from ...core.structures import InstanceData, Boxes, GeneralData
 import torch
 import numpy as np
+import cvcore
+from collections.abc import Sequence
 
-__all__ = ['Collect', 'ToTensor']
+__all__ = ['DefaultFormatBundle','Collect']
+
+
+def to_tensor(data):
+    """Convert objects of various python types to :obj:`torch.Tensor`.
+    Supported types are: :class:`numpy.ndarray`, :class:`torch.Tensor`,
+    :class:`Sequence`, :class:`int` and :class:`float`.
+    Args:
+        data (torch.Tensor | numpy.ndarray | Sequence | int | float): Data to
+            be converted.
+    """
+
+    if isinstance(data, torch.Tensor):
+        return data
+    elif isinstance(data, np.ndarray):
+        return torch.from_numpy(data)
+    elif isinstance(data, Sequence) and not cvcore.is_str(data):
+        return torch.tensor(data)
+    elif isinstance(data, int):
+        return torch.LongTensor([data])
+    elif isinstance(data, float):
+        return torch.FloatTensor([data])
+    else:
+        raise TypeError(f'type {type(data)} cannot be converted to tensor.')
 
 
 @PIPELINES.register_module()
-class ToTensor:
-    def __init__(self, keys=None):
-        self.keys = keys
+class DefaultFormatBundle:
+    """Default formatting bundle.
+    It simplifies the pipeline of formatting common fields, including "img",
+    "proposals", "gt_bboxes", "gt_labels", "gt_masks" and "gt_semantic_seg".
+    These fields are formatted as follows.
+    - img: (1)transpose, (2)to tensor
+    - proposals: (1)to tensor, (2)to InstanceData
+    - gt_bboxes: (1)to tensor, (2)to InstanceData
+    - gt_bboxes_ignore: (1)to tensor, (2)to InstanceData
+    - gt_labels: (1)to tensor, (2)to InstanceData
+    - gt_masks: (1)to tensor, (2)to InstanceData
+    - gt_semantic_seg: (1)unsqueeze dim-0 (2)to tensor, \
+                       (3)to InstanceData
+    """
+    mapping_table = {
+        'proposals': 'proposals',
+        'gt_bboxes': 'bboxes',
+        'gt_labels': 'labels',
+        'gt_masks': 'masks'
+    }
 
     def __call__(self, results):
-        results["img"] = torch.as_tensor(np.ascontiguousarray(results['img'].transpose(2, 0, 1)))
-        if self.keys is not None:
-            for key in self.keys:
-                results[key] = torch.as_tensor(results[key])
+        """Call function to transform and format common fields in results.
+        Args:
+            results (dict): Result dict contains the data to convert.
+        Returns:
+            dict: The result dict contains the data that is formatted with \
+                default bundle.
+        """
+
+        if 'img' in results:
+            img = results['img']
+            # add default meta keys
+            results = self._add_default_meta_keys(results)
+            if len(img.shape) < 3:
+                img = np.expand_dims(img, -1)
+            img = np.ascontiguousarray(img.transpose(2, 0, 1))
+            results['img'] = to_tensor(img)
+
+        data_sample = GeneralData()
+        instance_data = InstanceData()
+        for key in self.mapping_table.keys():
+            if key not in results:
+                continue
+            if key =='gt_bboxes':
+                instance_data[self.mapping_table[key]] = Boxes(to_tensor(results[key]))
+            else:
+                instance_data[self.mapping_table[key]] = to_tensor(results[key])
+        data_sample.gt_instances = instance_data
+
+        if 'gt_bboxes_ignore' in results:
+            ignore_instance_data = InstanceData()
+            ignore_instance_data.bboxes = Boxes(to_tensor(
+                results['gt_bboxes_ignore']))
+            data_sample.instances_ignore = ignore_instance_data
+
+        if 'gt_semantic_seg' in results:
+            data_sample.gt_sem_seg = to_tensor(results['gt_semantic_seg'][None,
+                                                                          ...])
+
+        results['data_sample'] = data_sample
+
         return results
+
+    def _add_default_meta_keys(self, results):
+        """Add default meta keys.
+        We set default meta keys including `pad_shape`, `scale_factor` and
+        `img_norm_cfg` to avoid the case where no `Resize`, `Normalize` and
+        `Pad` are implemented during the whole pipeline.
+        Args:
+            results (dict): Result dict contains the data to convert.
+        Returns:
+            results (dict): Updated result dict contains the data to convert.
+        """
+        img = results['img']
+        results.setdefault('pad_shape', img.shape)
+        results.setdefault('scale_factor', 1.0)
+        return results
+
+    def __repr__(self):
+        return self.__class__.__name__
+
 
 
 @PIPELINES.register_module()
 class Collect:
+    """Collect data from the loader relevant to the specific task.
+    This is usually the last stage of the data loader pipeline. Typically keys
+    is set to some subset of "img", "proposals", "gt_bboxes",
+    "gt_bboxes_ignore", "gt_labels", and/or "gt_masks".
+    The "img_meta" item is always populated.  The contents of the "img_meta"
+    dictionary depends on "meta_keys". By default this includes:
+        - "img_shape": shape of the image input to the network as a tuple \
+            (h, w, c).  Note that images may be zero padded on the \
+            bottom/right if the batch tensor is larger than this shape.
+        - "scale_factor": a float indicating the preprocessing scale
+        - "flip": a boolean indicating if image flip transform was used
+        - "filename": path to the image file
+        - "ori_shape": original shape of the image as a tuple (h, w, c)
+        - "pad_shape": image shape after padding
+    Args:
+        keys (Sequence[str]): Keys of results to be collected in ``data``.
+        meta_keys (Sequence[str], optional): Meta keys to be converted to
+            ``mmcv.DataContainer`` and collected in ``data[img_metas]``.
+            Default: ``('filename', 'ori_filename', 'ori_shape', 'img_shape',
+            'pad_shape', 'scale_factor', 'flip', 'flip_direction')``
+    """
+
     def __init__(self,
-                 keys=None,
-                 meta_keys=('filename', 'ori_shape', 'img_shape', 'scale_factor')):
+                 keys,
+                 meta_keys=('filename', 'ori_filename', 'ori_shape',
+                            'img_shape', 'pad_shape', 'scale_factor', 'flip',
+                            'flip_direction')):
         self.keys = keys
         self.meta_keys = meta_keys
 
     def __call__(self, results):
-        """Call function to collect keys in results.
+        """Call function to collect keys in results. The keys in ``meta_keys``
+        will be converted to :obj:mmcv.DataContainer.
         Args:
             results (dict): Result dict contains the data to collect.
-
         Returns:
             dict: The result dict contains the following keys
-
                 - keys in``self.keys``
                 - ``img_metas``
         """
-        data = {'img': results['img']}
 
-        if self.keys is not None:
-            instance = Instances(results['img_shape'])
-            for key in self.keys:
-                instance._fields[key] = results[key]
-
-            if 'gt_bboxes' in self.keys:
-                instance.gt_bboxes = Boxes(results['gt_bboxes'])
-
-            data['annotations'] = instance
-
+        data = {}
         img_meta = {}
-        if 'image_id' in results:
-            img_meta = {'image_id': results['image_id']}
-
         for key in self.meta_keys:
-            if key not in results:
-                warnings.warn(f'{key} not in results. It has skip.')
             img_meta[key] = results[key]
-        data['img_meta'] = img_meta
-
+        data['img_metas'] = img_meta
+        for key in self.keys:
+            data[key] = results[key]
         return data
 
     def __repr__(self):
         return self.__class__.__name__ + \
-               f'(keys={self.keys}, meta_keys={self.meta_keys})'
+            f'(keys={self.keys}, meta_keys={self.meta_keys})'

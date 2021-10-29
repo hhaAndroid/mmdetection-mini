@@ -4,7 +4,7 @@ import os
 dataset_type = 'CocoDataset'
 X_DATA = os.getenv('X_DATA', 'data/')
 # data_root = X_DATA + 'coco/'
-data_root = '/home/PJLAB/huanghaian/dataset/project/'
+data_root = '/home/hha/dataset/project/'
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -12,8 +12,8 @@ train_pipeline = [
     dict(type='Resize', img_scale=(416, 416), keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='Pad', size_divisor=32),
-    dict(type='ToTensor', keys=['gt_bboxes', 'gt_labels']),
-    dict(type='Collect', keys=['gt_bboxes', 'gt_labels']),
+    dict(type='DefaultFormatBundle'),
+    dict(type='Collect', keys=['img', 'data_sample']),
 ]
 
 val_pipeline = [
@@ -21,16 +21,16 @@ val_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='Resize', img_scale=(416, 416), keep_ratio=True),
     dict(type='Pad', size_divisor=32),
-    dict(type='ToTensor', keys=['gt_bboxes', 'gt_labels']),
-    dict(type='Collect', keys=['gt_bboxes', 'gt_labels']),
+    dict(type='DefaultFormatBundle'),
+    dict(type='Collect', keys=['img', 'data_sample']),
 ]
 
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='Resize', img_scale=(416, 416), keep_ratio=True),
     dict(type='Pad', size_divisor=32),
-    dict(type='ToTensor'),
-    dict(type='Collect'),
+    dict(type='DefaultFormatBundle'),
+    dict(type='Collect', keys=['img']),
 ]
 
 # test_pipeline = [

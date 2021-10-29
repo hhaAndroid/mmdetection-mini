@@ -24,7 +24,7 @@ from cvcore.utils import dist_comm as comm
 from .base_evaluator import DatasetEvaluator
 from .builder import EVALUATORS
 from cvcore import Logger, PathManager
-from detecter.core.structures import BoxMode, Instances
+from detecter.core.structures import BoxMode, InstanceData
 
 
 def create_small_table(small_dict):
@@ -156,7 +156,7 @@ class COCOEvaluator(DatasetEvaluator):
         for input, output in zip(inputs, outputs):
             prediction = {"image_id": input['img_meta']["image_id"]}
 
-            if isinstance(output, Instances):
+            if isinstance(output, InstanceData):
                 prediction["instances"] = instances_to_coco_json(output.to(self._cpu_device),
                                                                  input['img_meta']["image_id"])
             # if "proposals" in output:

@@ -13,11 +13,12 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
     """Base class for detectors."""
 
     def __init__(self, comm_cfg, init_cfg=None, vis_interval=-1, **kwargs):
+        super(BaseDetector, self).__init__(init_cfg)
+        self.vis_interval = vis_interval
         pixel_mean = comm_cfg['pixel_mean']
         pixel_std = comm_cfg['pixel_std']
-        self.vis_interval = vis_interval
+        self.to_rgb = comm_cfg['to_rgb']
 
-        super(BaseDetector, self).__init__(init_cfg)
         self.register_buffer("pixel_mean", torch.tensor(pixel_mean).view(-1, 1, 1), False)
         self.register_buffer("pixel_std", torch.tensor(pixel_std).view(-1, 1, 1), False)
 
@@ -37,6 +38,8 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
 
     def preprocess_image(self, batched_inputs):
         images = [x["img"].to(self.device) for x in batched_inputs]
+        if self.to_rgb and images[0].size(0) == 3:
+            images = [image[[2, 1, 0], ...] for image in images]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images)
         return images

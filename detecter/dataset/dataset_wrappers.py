@@ -31,7 +31,7 @@ class AspectRatioGroupedDataset(IterableDataset):
 
     def __iter__(self):
         for d in self.dataset:
-            image_shape_hw = d['img_meta']['img_shape']
+            image_shape_hw = d['img_metas']['img_shape']
             h, w = image_shape_hw[:2]
             bucket_id = 0 if w > h else 1
             bucket = self._buckets[bucket_id]
