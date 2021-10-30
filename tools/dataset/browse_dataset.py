@@ -51,7 +51,7 @@ def main():
         dataloader = build_dataloader(dataloader_cfg, dataset)
         loader = dataloader
 
-    visualizer = DetVisualizer(metadata=gloabl_metas)
+    visualizer = DetVisualizer(metadata=None)
     for data in loader:
         if not args.dataloader:
             data = [data]

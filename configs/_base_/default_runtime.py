@@ -1,5 +1,5 @@
 log_level = 'INFO'
-vis_interval = 10  # don't show
+vis_interval = 200  # don't show
 
 logger = dict(type='PyLogging', log_level='info')
 
@@ -10,7 +10,7 @@ custom_hooks = [
 ]
 
 evaluator = dict(by_epoch=False,
-                 eval_period=500,
+                 eval_period=1000,
                  eval_func=dict(type='COCOEvaluator'))
 
-checkpoint = dict(by_epoch=False, period=500)
+checkpoint = dict(by_epoch=False, period=1000)

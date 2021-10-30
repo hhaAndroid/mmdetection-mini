@@ -154,11 +154,11 @@ class COCOEvaluator(DatasetEvaluator):
                 "instances" that contains :class:`Instances`.
         """
         for input, output in zip(inputs, outputs):
-            prediction = {"image_id": input['img_meta']["image_id"]}
+            prediction = {"image_id": input['img_metas']["image_id"]}
 
             if isinstance(output, InstanceData):
                 prediction["instances"] = instances_to_coco_json(output.to(self._cpu_device),
-                                                                 input['img_meta']["image_id"])
+                                                                 input['img_metas']["image_id"])
             # if "proposals" in output:
             #     prediction["proposals"] = output["proposals"].to(self._cpu_device)
             if len(prediction) > 1:
@@ -394,11 +394,11 @@ def instances_to_coco_json(instances, img_id):
     if num_instance == 0:
         return []
 
-    boxes = instances.pred_boxes.tensor.numpy()
+    boxes = instances.bboxes.tensor.numpy()
     boxes = BoxMode.convert(boxes, BoxMode.XYXY_ABS, BoxMode.XYWH_ABS)
     boxes = boxes.tolist()
     scores = instances.scores.tolist()
-    classes = instances.pred_classes.tolist()
+    classes = instances.labels.tolist()
 
     # has_mask = instances.has("pred_masks")
     # if has_mask:

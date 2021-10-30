@@ -9,9 +9,12 @@ from detecter.utils import multi_apply, images_to_levels, cat, nonzero_tuple
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
 from detecter.core.bbox import batched_nms
-from detecter.core.structures import InstanceData, Boxes
+from detecter.core.structures import InstanceData, Boxes,GeneralData
 from typing import Dict, List, Tuple
 from torch import Tensor
+import numpy as np
+import copy
+
 
 __all__ = ['AnchorHead']
 
@@ -103,6 +106,9 @@ class AnchorHead(BaseDenseHead):
         self.anchor_generator = build_prior_generator(anchor_generator)
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
         self._init_layers()
+        if self.vis_interval >0:
+            from detecter.visualizer import DetVisualizer
+            self.visualizer=DetVisualizer()
 
     @torch.no_grad()
     def get_anchors(self, featmap_sizes, device='cuda'):
@@ -187,7 +193,18 @@ class AnchorHead(BaseDenseHead):
         if self.vis_interval > 0:
             storage = get_event_storage()
             if storage.iter % self.vis_interval == 0:
-                self._visualize_training(batched_inputs)
+
+                with torch.no_grad():
+                    imgs=[]
+                    data_samples=[]
+                    results=self.get_bboxes(cls_scores,bbox_preds,batched_inputs,skip_post=True)
+                    for (input,result) in zip(batched_inputs,results):
+                        imgs.append(input['img'])
+                        data_sample = input["data_sample"]
+                        data_sample.pred_instances=result.to('cpu')
+                        data_samples.append(data_sample)
+
+                    self._visualize_training(imgs,data_samples)
         return loss
 
     def get_targets(self,
@@ -416,6 +433,7 @@ class AnchorHead(BaseDenseHead):
                    pred_logits,
                    pred_anchor_deltas,
                    batched_inputs,
+                   skip_post=False,
                    **kwargs):
         """Transform network output for a batch into bbox predictions.
 
@@ -457,7 +475,7 @@ class AnchorHead(BaseDenseHead):
         pred_anchor_deltas = [permute_to_N_HWA_K(x, 4) for x in pred_anchor_deltas]
 
         image_sizes = [inputs['img'].shape[-2:] for inputs in batched_inputs]
-        img_metas = [x["img_meta"] for x in batched_inputs]
+        img_metas = [x["img_metas"] for x in batched_inputs]
 
         results: List[InstanceData] = []
         for img_idx, image_size in enumerate(image_sizes):
@@ -466,6 +484,12 @@ class AnchorHead(BaseDenseHead):
             results_per_image = self.get_bboxes_single(
                 mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size, img_metas[img_idx]
             )
+
+            if not skip_post:
+                scale_factor=img_metas[img_idx]['scale_factor']
+                results_per_image.bboxes.scale(1.0/scale_factor[0],
+                                               1.0/scale_factor[1])
+
             results.append(results_per_image)
         return results
 
@@ -530,34 +554,33 @@ class AnchorHead(BaseDenseHead):
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
 
-        boxes_all /= boxes_all.new_tensor(
-            img_meta['scale_factor'])
+        # boxes_all /= boxes_all.new_tensor(
+        #     img_meta['scale_factor'])
 
         keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.test_cfg.nms.iou_threshold)
         keep = keep[: self.test_cfg.max_detections_per_image]
 
-        result = InstanceData()
-        result.pred_boxes = Boxes(boxes_all[keep])
-        result.scores = scores_all[keep]
-        result.pred_classes = class_idxs_all[keep]
-        return result
+        pred_result = InstanceData()
+        pred_result.bboxes = Boxes(boxes_all[keep])
+        pred_result.scores = scores_all[keep]
+        pred_result.labels = class_idxs_all[keep]
+        return pred_result
 
-    def _visualize_training(self, batched_inputs):
+    def _visualize_training(self, images,data_samples):
+        assert self.visualizer
         storage = get_event_storage()
-        for input in batched_inputs:
-            img = input["img"]
-            vis_img = convert_image_to_rgb(img.permute(1, 2, 0), "BGR")
-            # v_gt = Visualizer(img, None)
-            # v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
-            # anno_img = v_gt.get_image()
-            # box_size = min(len(prop.proposal_boxes), max_vis_prop)
-            # v_pred = Visualizer(img, None)
-            # v_pred = v_pred.overlay_instances(
-            #     boxes=prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
-            # )
-            # prop_img = v_pred.get_image()
-            # vis_img = np.concatenate((anno_img, prop_img), axis=1)
-            vis_img = vis_img.transpose(2, 0, 1)
+        for (img,data_sample) in zip(images,data_samples):
+            vis_img = convert_image_to_rgb(img.permute(1, 2, 0), "RGB")
+            self.visualizer.set_image(vis_img)
+            self.visualizer.draw(data_sample,show_gt=True,show_pred=False)
+            gt_vis_img=self.visualizer.get_image()
+
+            self.visualizer.set_image(vis_img)
+            self.visualizer.draw(data_sample, show_gt=False, show_pred=True)
+            pred_vis_img = self.visualizer.get_image()
+
+            concat = np.concatenate((gt_vis_img, pred_vis_img), axis=1)
+            vis_img = concat.transpose(2, 0, 1)
             vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
             storage.put_image(vis_name, vis_img)
             break  # only visualize one image in a batch

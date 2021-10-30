@@ -208,12 +208,18 @@ class DetVisualizer(BaseVisualizer):
         """gt_vis_setting=dict(bbox_param=dict(color='g'))"""  # 用户配置例子
 
         self._class_wise = class_wise
-        thing_classes = self.metadata.get('thing_classes', [])
-        image2color = None
+        if self.metadata:
+            thing_classes = self.metadata.get('thing_classes', [])
+        else:
+            thing_classes=[]
+
+        image2color = dict()
         if len(thing_classes) > 0:
-            image2color = dict()
             for clazz in thing_classes:
                 image2color[clazz] = (np.random.random((1, 3)) * 0.7 + 0.3).tolist()[0]
+        else:
+            for clazz_idx in range(5000):
+                image2color[str(clazz_idx)] = (np.random.random((1, 3)) * 0.7 + 0.3).tolist()[0]
         self.image2color=image2color
 
     # ------------------------------------------------------------------------
@@ -247,7 +253,6 @@ class DetVisualizer(BaseVisualizer):
     def draw_instance(self, instances, data_type):
         bbox_params=self._default_gt_bbox_params if data_type==DataType.GT else self._default_pred_bbox_params
         if 'bboxes' in instances:
-
             self._draw_bboxes(instances,bbox_params)
         return self
 
@@ -266,10 +271,13 @@ class DetVisualizer(BaseVisualizer):
 
 
     def _draw_bboxes(self,instances,bbox_params):
-        thing_classes = self.metadata.get('thing_classes', [])
+        if self.metadata:
+            thing_classes = self.metadata.get('thing_classes', [])
+        else:
+            thing_classes=None
         if self._class_wise:
             for (bbox,label) in zip(instances.bboxes.tensor.numpy(),instances.labels.numpy()):
-                clazz=thing_classes[label]
+                clazz= thing_classes[label]  if thing_classes  else str(label)
                 edge_color=self.image2color[clazz]
                 bbox_params['edge_color']=edge_color
                 self.draw_bbox(bbox, **bbox_params)

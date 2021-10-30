@@ -144,7 +144,7 @@ class Collect:
                  keys,
                  meta_keys=('filename', 'ori_filename', 'ori_shape',
                             'img_shape', 'pad_shape', 'scale_factor', 'flip',
-                            'flip_direction')):
+                            'flip_direction','image_id')):
         self.keys = keys
         self.meta_keys = meta_keys
 

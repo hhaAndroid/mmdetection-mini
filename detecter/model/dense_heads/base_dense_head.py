@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 from cvcore.cnn import BaseModule
 
+
 __all__ = ['BaseDenseHead']
 
 
@@ -12,6 +13,7 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
     def __init__(self, init_cfg=None, vis_interval=-1):
         super(BaseDenseHead, self).__init__(init_cfg)
         self.vis_interval = vis_interval
+
 
     def _init_layers(self):
         """Initialize layers of the head."""
