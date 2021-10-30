@@ -32,29 +32,37 @@ class PeriodicWriterHook(Hook):
             writers_obj.append(w)
 
         self._writers = writers_obj
-        self._interval = interval
+        if isinstance(interval,dict):
+            self._train_interval=interval['train']
+            self._val_interval=interval['val']
+        else:
+            self._train_interval = interval
+            self._val_interval = -1
 
     def before_run(self, runner):
-        if self._interval <= 0:
+        if self._train_interval <= 0 and self._val_interval<=0:
             return
         for writer in self._writers:
             writer.init(runner)
 
-    def before_iter(self, runner):
-        storage = get_event_storage()
-        storage.iter = runner.iter
-
     def after_train_iter(self, runner):
-        if self._interval <= 0:
+        if self._train_interval <= 0:
             return
-        if (runner.iter + 1) % self._interval == 0 or (
+        if (runner.iter + 1) % self._train_interval == 0 or (
                 runner.iter == runner.max_iters - 1
         ):
             for writer in self._writers:
                 writer.write()
 
+    def after_val_iter(self, runner):
+        if self._val_interval<=0:
+            return
+        if (runner.val_iter + 1) % self._val_interval == 0:
+            for writer in self._writers:
+                writer.write()
+
     def after_run(self, runner):
-        if self._interval <= 0:
+        if self._train_interval <= 0:
             return
         for writer in self._writers:
             # If any new data is found (e.g. produced by other after_train),

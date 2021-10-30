@@ -37,7 +37,6 @@ class BaseRunner(metaclass=ABCMeta):
 
     def __init__(self,
                  model,
-                 dataloader,
                  optimizer,
                  scheduler,
                  logger,
@@ -49,7 +48,7 @@ class BaseRunner(metaclass=ABCMeta):
 
         self.cfg = cfg
         self.model = create_ddp_model(model, broadcast_buffers=False)
-        self.dataloader = dataloader
+        self.dataloader = None
         self.optimizer = optimizer
         self.scheduler = scheduler  # hook
 
@@ -167,29 +166,30 @@ class BaseRunner(metaclass=ABCMeta):
         return self._max_iters
 
     @abstractmethod
-    def run(self):
+    def run(self, data_loaders, workflow, **kwargs):
         pass
+
 
     def _register_default_hook(self):
         # ckpt hook
         if dist_comm.is_main_process():
             self.register_hook(PeriodicCheckpointer(self.checkpointer, self.cfg.checkpoint.by_epoch, self.cfg.checkpoint.period))
 
-        # evalhook
-        if 'evaluator' in self.cfg:
-            evaluator_cfg = self.cfg.evaluator.copy()
-            priority = 100
-            if 'priority' in evaluator_cfg:
-                priority = evaluator_cfg['priority']
-
-            def test_and_save_results():
-                self._last_eval_results = eval_func(self.cfg, self.model)
-                return self._last_eval_results
-
-            by_epoch = evaluator_cfg.get('by_epoch', True)
-            eval_period = evaluator_cfg.get('eval_period', 1)
-
-            self.register_hook(EvalHook(test_and_save_results, by_epoch, eval_period), priority)
+        # # evalhook
+        # if 'evaluator' in self.cfg:
+        #     evaluator_cfg = self.cfg.evaluator.copy()
+        #     priority = 100
+        #     if 'priority' in evaluator_cfg:
+        #         priority = evaluator_cfg['priority']
+        #
+        #     def test_and_save_results():
+        #         self._last_eval_results = eval_func(self.cfg, self.model)
+        #         return self._last_eval_results
+        #
+        #     by_epoch = evaluator_cfg.get('by_epoch', True)
+        #     eval_period = evaluator_cfg.get('eval_period', 1)
+        #
+        #     self.register_hook(EvalHook(test_and_save_results, by_epoch, eval_period), priority)
 
     def register_hook(self, hook, priority='NORMAL'):
         """Register a hook into the hook list.

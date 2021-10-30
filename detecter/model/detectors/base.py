@@ -14,7 +14,7 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
 
     def __init__(self, comm_cfg, init_cfg=None, vis_interval=-1, **kwargs):
         super(BaseDetector, self).__init__(init_cfg)
-        self.vis_interval = vis_interval
+
         pixel_mean = comm_cfg['pixel_mean']
         pixel_std = comm_cfg['pixel_std']
         self.to_rgb = comm_cfg['to_rgb']

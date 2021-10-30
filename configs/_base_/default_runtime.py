@@ -1,5 +1,5 @@
 log_level = 'INFO'
-vis_interval = 200  # don't show
+vis_interval=dict(train=500,val=20)
 
 logger = dict(type='PyLogging', log_level='info')
 
@@ -9,8 +9,9 @@ custom_hooks = [
          writers=[dict(type='TensorboardWriter')]),  # LOW
 ]
 
-evaluator = dict(by_epoch=False,
-                 eval_period=1000,
-                 eval_func=dict(type='COCOEvaluator'))
+evaluator = dict(type='COCOEvaluator')
 
-checkpoint = dict(by_epoch=False, period=1000)
+checkpoint = dict(by_epoch=False, period=50)
+
+
+workflow=[('train',1000), ('val',1)]

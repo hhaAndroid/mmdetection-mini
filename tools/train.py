@@ -12,6 +12,7 @@ from detecter.utils import collect_env, set_random_seed
 import os
 import sys
 from loguru import logger
+import copy
 
 
 def parse_args():
@@ -136,7 +137,7 @@ def main(args):
     train_dataset = build_dataset(cfg.data.train)
 
     # dataloader
-    train_dataloader = build_dataloader(cfg.dataloader.train, train_dataset)
+    dataloaders = [build_dataloader(cfg.dataloader.train, train_dataset)]
 
     # optimizer
     optimizer = build_optimizer(cfg.optimizer, detector)
@@ -145,9 +146,15 @@ def main(args):
     scheduler = build_lr_scheduler(cfg.lr_scheduler, optimizer)
 
     # runner
-    default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
+    default_args = dict(model=detector, optimizer=optimizer,
                         scheduler=scheduler, meta=meta, logger=logger, cfg=cfg, work_dir=cfg.work_dir)
     runner = build_runner(cfg.runner, default_args)
+
+    if len(cfg.workflow) == 2:
+        val_dataset = copy.deepcopy(cfg.data.val)
+        val_dataset=build_dataset(val_dataset)
+        val_dataloader = build_dataloader(cfg.dataloader.val, val_dataset)
+        dataloaders.append(val_dataloader)
 
     # hook
     # user-defined hooks
@@ -168,7 +175,8 @@ def main(args):
         runner.resume_or_load(cfg.resume_from, resume=True)
     elif 'load_from' in cfg and cfg.load_from:
         runner.resume_or_load(cfg.load_from, resume=False)
-    runner.run()
+
+    runner.run(dataloaders, cfg.workflow)
 
 
 if __name__ == '__main__':

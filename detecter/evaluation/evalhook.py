@@ -1,10 +1,13 @@
 from cvcore import Hook
 from cvcore.utils import dist_comm
 from ..utils.misc import flatten_results_dict
+from cvcore.utils import EventStorage
+
 
 __all__ = ['EvalHook']
 
 
+# TODO： 废弃
 class EvalHook(Hook):
     """
     Run an evaluation function periodically, and at the end of training.
@@ -28,31 +31,36 @@ class EvalHook(Hook):
         self.by_epoch = by_epoch
         self._period = eval_period
         self._func = eval_function
+        self.val_event_storage=EventStorage()
 
     def _do_eval(self, runner):
-        results = self._func()
+        with self.val_event_storage:
+            results = self._func()
 
-        if results:
-            assert isinstance(
-                results, dict
-            ), "Eval function must return a dict. Got {} instead.".format(results)
+            if results:
+                assert isinstance(
+                    results, dict
+                ), "Eval function must return a dict. Got {} instead.".format(results)
 
-            flattened_results = flatten_results_dict(results)
-            for k, v in flattened_results.items():
-                try:
-                    v = float(v)
-                except Exception as e:
-                    raise ValueError(
-                        "[EvalHook] eval_function should return a nested dict of float. "
-                        "Got '{}: {}' instead.".format(k, v)
-                    ) from e
-            runner.event_storage.put_scalars(**flattened_results, smoothing_hint=False)
+                flattened_results = flatten_results_dict(results)
+                for k, v in flattened_results.items():
+                    try:
+                        v = float(v)
+                    except Exception as e:
+                        raise ValueError(
+                            "[EvalHook] eval_function should return a nested dict of float. "
+                            "Got '{}: {}' instead.".format(k, v)
+                        ) from e
+                runner.event_storage.put_scalars(**flattened_results, smoothing_hint=False)
 
-        # Evaluation may take different time among workers.
-        # A barrier make them start the next iteration together.
-        dist_comm.synchronize()
+            # Evaluation may take different time among workers.
+            # A barrier make them start the next iteration together.
+            dist_comm.synchronize()
+
 
     def after_iter(self, runner):
+        self.val_event_storage.iter = runner.iter
+
         if not self.by_epoch:
             next_iter = runner.iter + 1
             if self._period > 0 and next_iter % self._period == 0:

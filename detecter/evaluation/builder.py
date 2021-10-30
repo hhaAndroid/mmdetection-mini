@@ -1,4 +1,4 @@
-from cvcore import Registry, build_from_cfg, Logger
+from cvcore import Registry, build_from_cfg, Logger, get_event_storage
 from .base_evaluator import DatasetEvaluator
 from ..dataset import build_dataset
 from ..dataloader import build_dataloader
@@ -12,7 +12,7 @@ from contextlib import ExitStack, contextmanager
 import datetime
 import torch.nn as nn
 
-__all__ = ['build_evaluator', 'EVALUATORS', 'eval_func', 'inference_on_dataset']
+__all__ = ['build_evaluator', 'EVALUATORS', 'eval_func', 'inference_on_dataset', 'print_csv_format']
 
 EVALUATORS = Registry('evaluator')
 
@@ -124,6 +124,7 @@ def inference_on_dataset(model, data_loader, evaluator):
 
         start_data_time = time.perf_counter()
         for idx, inputs in enumerate(data_loader):
+
             total_data_time += time.perf_counter() - start_data_time
             if idx == num_warmup:
                 start_time = time.perf_counter()

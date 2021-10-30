@@ -30,7 +30,7 @@ class SingleStageDetector(BaseDetector):
             self.neck = build_neck(neck)
         bbox_head.update(train_cfg=train_cfg)
         bbox_head.update(test_cfg=test_cfg)
-        bbox_head.update(vis_interval=self.vis_interval)
+        bbox_head.update(vis_interval=vis_interval)
         self.bbox_head = build_head(bbox_head)
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg

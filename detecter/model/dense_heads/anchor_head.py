@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple
 from torch import Tensor
 import numpy as np
 import copy
+from detecter.visualizer import DetVisualizer
 
 
 __all__ = ['AnchorHead']
@@ -106,8 +107,7 @@ class AnchorHead(BaseDenseHead):
         self.anchor_generator = build_prior_generator(anchor_generator)
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
         self._init_layers()
-        if self.vis_interval >0:
-            from detecter.visualizer import DetVisualizer
+        if self.train_vis_interval > 0 or self.val_vis_interval > 0:
             self.visualizer=DetVisualizer()
 
     @torch.no_grad()
@@ -190,9 +190,9 @@ class AnchorHead(BaseDenseHead):
             num_total_samples=num_total_samples)
         loss = dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
 
-        if self.vis_interval > 0:
+        if self.train_vis_interval > 0:
             storage = get_event_storage()
-            if storage.iter % self.vis_interval == 0:
+            if storage.iter % self.train_vis_interval == 0:
 
                 with torch.no_grad():
                     imgs=[]
