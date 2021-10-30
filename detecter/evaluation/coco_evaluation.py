@@ -124,7 +124,7 @@ class COCOEvaluator(DatasetEvaluator):
         self._do_evaluation = True
         self._cpu_device = torch.device("cpu")
         self._logger = Logger
-        self._metadata = dataloader.dataset.get_global_meta()
+        self._metadata = dataloader.dataset.get_global_metas()
         if "json_file" not in self._metadata:
             if output_dir is None:
                 raise ValueError(

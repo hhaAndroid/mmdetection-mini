@@ -1,7 +1,8 @@
 import argparse
-from cvcore import DictAction, Config, Visualizer, convert_image_to_rgb, ColorMode
+from cvcore import DictAction, Config, convert_image_to_rgb, ColorMode
 from detecter.dataset import build_dataset
 from detecter.dataloader import build_dataloader
+from detecter.visualizer import DetVisualizer
 import cv2
 
 
@@ -50,20 +51,33 @@ def main():
         dataloader = build_dataloader(dataloader_cfg, dataset)
         loader = dataloader
 
-    def output(vis, fname=None):
-        if fname is not None:
-            print(fname)
-        cv2.imshow("window", vis.output.get_image()[:, :, ::-1])
-        cv2.waitKey()
-
+    visualizer = DetVisualizer(metadata=gloabl_metas)
     for data in loader:
         if not args.dataloader:
             data = [data]
         img = data[0]['img']
-        annotations = data[0]['annotations']
-        visualizer = Visualizer(convert_image_to_rgb(img, "BGR"), gloabl_metas, instance_mode=ColorMode.SEGMENTATION)
-        visualizer.draw_instance_annotations(annotations)
-        output(visualizer)
+        data_sample = data[0]['data_sample']
+
+        visualizer.set_image(convert_image_to_rgb(img.permute(1,2,0), "RGB"))
+        visualizer.draw(data_sample)
+        gt_draw_image=visualizer.get_image()
+
+        # 假装有pred
+        gt_bboxes = data_sample.gt_instances.bboxes.clone().tensor
+        gt_bboxes = gt_bboxes + 10
+        from detecter.core.structures import Boxes, InstanceData
+        pred_instance = InstanceData()
+        pred_instance.bboxes = Boxes(gt_bboxes)
+        pred_instance.labels = data_sample.gt_instances.labels
+        data_sample.pred_instances = pred_instance
+        data_sample.pop('gt_instances')
+        visualizer.set_image(convert_image_to_rgb(img.permute(1, 2, 0), "RGB"))
+        visualizer.draw(data_sample)
+        pred_draw_image = visualizer.get_image()
+        import numpy as np
+        concat = np.concatenate((gt_draw_image, pred_draw_image), axis=1)
+
+        visualizer.show(concat)
 
 
 if __name__ == '__main__':

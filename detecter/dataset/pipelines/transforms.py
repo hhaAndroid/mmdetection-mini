@@ -427,6 +427,11 @@ class RandomFlip:
             dict: Flipped results, 'flip', 'flip_direction' keys are added \
                 into result dict.
         """
+        # TODO； Check
+        if self.flip_ratio is None:
+            results['flip']=False
+            results['flip_direction']=self.direction
+            return results
 
         if 'flip' not in results:
             if isinstance(self.direction, list):

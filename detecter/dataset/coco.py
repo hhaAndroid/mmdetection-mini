@@ -145,5 +145,5 @@ class CocoDataset(CustomDataset):
 
         return ann
 
-    def get_global_meta(self):
+    def get_global_metas(self):
         return {"thing_classes": self.CLASSES, 'json_file': self.ann_file, 'thing_dataset_id_to_contiguous_id': self.cat2label}

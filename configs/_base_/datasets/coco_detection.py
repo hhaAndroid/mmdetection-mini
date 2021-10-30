@@ -20,6 +20,7 @@ val_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='Resize', img_scale=(416, 416), keep_ratio=True),
+    dict(type='RandomFlip'),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'data_sample']),
@@ -28,6 +29,7 @@ val_pipeline = [
 test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='Resize', img_scale=(416, 416), keep_ratio=True),
+    dict(type='RandomFlip'),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img']),

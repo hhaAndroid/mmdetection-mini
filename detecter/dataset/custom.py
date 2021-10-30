@@ -150,5 +150,5 @@ class CustomDataset(Dataset):
         return self.data_infos
 
     # 重要
-    def get_global_meta(self):
+    def get_global_metas(self):
         return {"class": self.CLASSES}
