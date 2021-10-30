@@ -58,8 +58,8 @@ class IterBasedRunner(BaseRunner):
 
         self.val_iter=0
 
-        with EventStorage() as val_event_storage:
-            self.call_hook('before_val_epoch')
+        self.call_hook('before_val_epoch')
+        with self.val_event_storage:
             with ExitStack() as stack:
                 if isinstance(self.model, nn.Module):
                     stack.enter_context(inference_context(self.model))
@@ -69,7 +69,7 @@ class IterBasedRunner(BaseRunner):
                     self.call_hook('before_val_iter')
                     outputs = self.model(inputs)
 
-                    val_event_storage.iter +=1
+                    self.val_event_storage.iter +=1
 
                     self.call_hook('after_val_iter')
                     evaluator.process(inputs, outputs)
@@ -79,14 +79,14 @@ class IterBasedRunner(BaseRunner):
             # An evaluator may return None when not in main process.
             # Replace it by an empty dict instead to make it easier for downstream code to handle
             if results is None:
-                results = {}
+                    results = {}
 
             if dist_comm.is_main_process():
                 assert isinstance(
-                    results, dict
-                ), "Evaluator must return a dict on the main process. Got {} instead.".format(
-                    results
-                )
+                        results, dict
+                    ), "Evaluator must return a dict on the main process. Got {} instead.".format(
+                        results
+                    )
                 # Logger.info("Evaluation results for {} in csv format:".format(val_dataset.__name__))
                 print_csv_format(results)
             self.call_hook('after_val_epoch')
@@ -104,9 +104,10 @@ class IterBasedRunner(BaseRunner):
         #                  self.get_hook_info())
 
         iter_loaders = [iter(data_loaders[0]),data_loaders[1]]
+        if len(iter_loaders) == 2:
+            self.val_event_storage=EventStorage()
 
         with EventStorage(self.iter) as self.event_storage:
-
             with LoggerStorage() as self.log_storage:
                 self.call_hook('before_run')
 
