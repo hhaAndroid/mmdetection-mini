@@ -9,10 +9,16 @@ custom_hooks = [
          writers=[dict(type='TensorboardWriter')]),  # LOW
 ]
 
+# test_custom_hooks = [
+#     dict(type='DefaultLoggerHook', priority=100, interval=1),  # LOW
+#     dict(type='PeriodicWriterHook', priority=100, interval=vis_interval,
+#          writers=[dict(type='TensorboardWriter')]),  # LOW
+# ]
+
 test_custom_hooks = [
     dict(type='DefaultLoggerHook', priority=100, interval=1),  # LOW
     dict(type='PeriodicWriterHook', priority=100, interval=vis_interval,
-         writers=[dict(type='TensorboardWriter')]),  # LOW
+         writers=[dict(type='WandbWriter',init_kwargs=dict(project='onestage',entity="huanghaian"))]),  # LOW
 ]
 
 
