@@ -9,9 +9,13 @@ custom_hooks = [
          writers=[dict(type='TensorboardWriter')]),  # LOW
 ]
 
+test_custom_hooks = [
+    dict(type='DefaultLoggerHook', priority=100, interval=1),  # LOW
+    dict(type='PeriodicWriterHook', priority=100, interval=vis_interval,
+         writers=[dict(type='TensorboardWriter')]),  # LOW
+]
+
+
 evaluator = dict(type='COCOEvaluator')
-
-checkpoint = dict(by_epoch=False, period=50)
-
-
+checkpoint = dict(by_epoch=False, period=1000)
 workflow=[('train',1000), ('val',1)]

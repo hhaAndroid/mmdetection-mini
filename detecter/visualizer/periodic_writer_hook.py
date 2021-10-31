@@ -61,6 +61,10 @@ class PeriodicWriterHook(Hook):
             for writer in self._writers:
                 writer.write()
 
+    def after_iter(self, runner):
+        self.after_val_iter(runner)
+
+
     def after_run(self, runner):
         if self._train_interval <= 0:
             return

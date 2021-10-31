@@ -1,5 +1,4 @@
 # Copyright (c) Open-MMLab. All rights reserved.
-import logging
 import os.path as osp
 
 from abc import ABCMeta, abstractmethod
@@ -10,7 +9,6 @@ from torch.nn.parallel import DistributedDataParallel
 from cvcore import HOOKS, Hook, get_priority
 
 # from .log_buffer import LogBuffer
-from ..evaluation import EvalHook, eval_func
 from ..utils.checkpoint import DetectionCheckpointer, PeriodicCheckpointer
 import weakref
 
