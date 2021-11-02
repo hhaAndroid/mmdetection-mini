@@ -2,20 +2,21 @@
 import time
 from .base_runner import BaseRunner
 from .builder import RUNNERS
-from cvcore.utils import EventStorage, LoggerStorage
+from cvcore.utils import LoggerStorage
+from detecter.visualizer import EventWriterStorage
 import cvcore
-from contextlib import ExitStack, contextmanager
-from cvcore import build_from_cfg, Logger, get_event_storage
+from contextlib import ExitStack
+from cvcore import build_from_cfg, Logger
 from detecter.evaluation.base_evaluator import DatasetEvaluator
-from detecter.evaluation import EVALUATORS,inference_context,print_csv_format
+from detecter.evaluation import EVALUATORS, inference_context, print_csv_format
 from cvcore.utils import dist_comm
 import copy
 import torch
 import torch.nn as nn
-
+from detecter.visualizer.builder import WRITERS
+from detecter.visualizer.base_writer import BaseWriter
 
 __all__ = ['IterBasedRunner']
-
 
 
 @RUNNERS.register_module()
@@ -24,9 +25,10 @@ class IterBasedRunner(BaseRunner):
 
     This runner train models epoch by epoch.
     """
+
     def train(self, dataloader, **kwargs):
         assert self.model.training
-        self.dataloader=dataloader
+        self.dataloader = dataloader
         data_batch = next(dataloader)
         self.call_hook('before_train_iter')
 
@@ -42,7 +44,6 @@ class IterBasedRunner(BaseRunner):
 
         self.event_storage.iter = self._iter
 
-
     def val(self, dataloader, **kwargs):
         self.dataloader = dataloader
         cp_evaluator_cfg = copy.deepcopy(self.cfg.evaluator)
@@ -56,7 +57,7 @@ class IterBasedRunner(BaseRunner):
         total = len(dataloader)  # inference data loader must have a fixed length
         evaluator.reset()
 
-        self.val_iter=0
+        self.val_iter = 0
 
         self.call_hook('before_val_epoch')
         with self.val_event_storage:
@@ -69,28 +70,27 @@ class IterBasedRunner(BaseRunner):
                     self.call_hook('before_val_iter')
                     outputs = self.model(inputs)
 
-                    self.val_event_storage.iter +=1
+                    self.val_event_storage.iter += 1
 
                     self.call_hook('after_val_iter')
                     evaluator.process(inputs, outputs)
-                    self.val_iter +=1
+                    self.val_iter += 1
 
             results = evaluator.evaluate()
             # An evaluator may return None when not in main process.
             # Replace it by an empty dict instead to make it easier for downstream code to handle
             if results is None:
-                    results = {}
+                results = {}
 
             if dist_comm.is_main_process():
                 assert isinstance(
-                        results, dict
-                    ), "Evaluator must return a dict on the main process. Got {} instead.".format(
-                        results
-                    )
+                    results, dict
+                ), "Evaluator must return a dict on the main process. Got {} instead.".format(
+                    results
+                )
                 # Logger.info("Evaluation results for {} in csv format:".format(val_dataset.__name__))
                 print_csv_format(results)
             self.call_hook('after_val_epoch')
-
 
     def run(self, data_loaders, workflow, max_iters=None, **kwargs):
         """Start running.
@@ -103,11 +103,25 @@ class IterBasedRunner(BaseRunner):
         # self.logger.info('Hooks will be executed in the following order:\n%s',
         #                  self.get_hook_info())
 
-        iter_loaders = [iter(data_loaders[0]),data_loaders[1]]
-        if len(iter_loaders) == 2:
-            self.val_event_storage=EventStorage()
+        # build writer
+        writers = self.cfg.writer
+        if not isinstance(writers, list):
+            writers = [writers]
 
-        with EventStorage(self.iter) as self.event_storage:
+        writers_obj = []
+        for w in writers:
+            if isinstance(w, dict):
+                w = build_from_cfg(w, WRITERS)
+            else:
+                assert isinstance(w, BaseWriter), w
+            w.init(self)
+            writers_obj.append(w)
+
+        iter_loaders = [iter(data_loaders[0]), data_loaders[1]]
+        if len(iter_loaders) == 2:
+            self.val_event_storage = EventWriterStorage(writers_obj)
+
+        with EventWriterStorage(writers_obj, self.iter+1) as self.event_storage:
             with LoggerStorage() as self.log_storage:
                 self.call_hook('before_run')
 

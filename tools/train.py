@@ -14,6 +14,7 @@ import sys
 from loguru import logger
 import copy
 
+os.environ.pop('https_proxy')
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
@@ -61,7 +62,6 @@ def parse_args():
     )
     args = parser.parse_args()
     return args
-
 
 @logger.catch
 def main(args):

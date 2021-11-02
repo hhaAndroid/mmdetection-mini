@@ -9,11 +9,11 @@ import matplotlib.figure as mplfigure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from .builder import VISUALIZERS
 import numpy as np
+import mmcv
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Polygon
 
-__all__=['DataType','DetVisualizer']
-
+__all__ = ['DataType', 'DetVisualizer']
 
 EPS = 1e-2
 _SMALL_OBJECT_AREA_THRESH = 1000
@@ -34,9 +34,9 @@ class BaseVisualizer:
         self.metadata = metadata
         self.scale = scale
         if image is not None:
-            self._setup_fig(image,img_metas)
+            self._setup_fig(image, img_metas)
 
-    def _setup_fig(self,image,img_metas):
+    def _setup_fig(self, image, img_metas):
         self.img_metas = img_metas
         self.width, self.height = image.shape[1], image.shape[0]
         self._default_font_size = max(
@@ -60,7 +60,6 @@ class BaseVisualizer:
         img = image.astype("uint8")
         self.ax.imshow(img, extent=(0, self.width, self.height, 0), interpolation="nearest")
 
-
     # 可选 方便后续链式调用
     def set_image(self, image, img_metas=None):
         self._setup_fig(image, img_metas)
@@ -74,13 +73,17 @@ class BaseVisualizer:
         rgb, alpha = np.split(img_rgba, [3], axis=2)
         return rgb.astype("uint8")
 
-    def save(self, filepath):
-        self.fig.savefig(filepath)
+    def save(self, filepath, drawed_image=None):
+        if drawed_image is not None:
+            mmcv.imwrite(drawed_image, filepath)
+        else:
+            self.fig.savefig(filepath)
 
-    def show(self, drawed_image=None, winname='window',wait_time=0):
-        cv2.namedWindow(winname,0)
-        cv2.imshow(winname,self.get_image() if drawed_image is None else drawed_image)
+    def show(self, drawed_image=None, winname='window', wait_time=0):
+        cv2.namedWindow(winname, 0)
+        cv2.imshow(winname, self.get_image() if drawed_image is None else drawed_image)
         cv2.waitKey(wait_time)
+        cv2.destroyWindow(winname)
 
     # -------------基础可视化接口-------------
     def draw_bbox(self, bbox, alpha=0.8, edge_color="g", line_style="-", line_width=1, is_filling=True):
@@ -88,7 +91,7 @@ class BaseVisualizer:
         bbox_w = x1 - bbox_x
         bbox_h = y1 - bbox_y
 
-        linewidth=min(max(line_width,1),self._default_font_size / 4)
+        linewidth = min(max(line_width, 1), self._default_font_size / 4)
 
         poly = [[bbox_x, bbox_y], [bbox_x, bbox_y + bbox_h], [bbox_x + bbox_w, bbox_y + bbox_h],
                 [bbox_x + bbox_w, bbox_y]]
@@ -104,7 +107,7 @@ class BaseVisualizer:
                             edgecolor=edge_color,
                             linewidth=linewidth * self.scale,
                             alpha=alpha,
-                            linestyle=line_style,)
+                            linestyle=line_style, )
         self.ax.add_collection(p)
         return self
 
@@ -138,7 +141,7 @@ class BaseVisualizer:
             font_size = self._default_font_size
 
         if bbox is None:
-            bbox=dict(facecolor=color, alpha=0.6)
+            bbox = dict(facecolor=color, alpha=0.6)
 
         x, y = position
         self.ax.text(
@@ -153,7 +156,6 @@ class BaseVisualizer:
             color=color,
         )
         return self
-
 
     def draw_line(self, x_data, y_data, color, linestyle="-", linewidth=None):
         return self
@@ -201,7 +203,6 @@ class DetVisualizer(BaseVisualizer):
         self._gt_bbox_params = gt_bbox_params
         self._pred_bbox_params = pred_bbox_params
 
-
         # default vis setting
         self._default_gt_bbox_params = dict(edge_color='g')  # 设置默认值
         self._default_pred_bbox_params = dict(edge_color='b')  # 设置默认值
@@ -211,7 +212,7 @@ class DetVisualizer(BaseVisualizer):
         if self.metadata:
             thing_classes = self.metadata.get('thing_classes', [])
         else:
-            thing_classes=[]
+            thing_classes = []
 
         image2color = dict()
         if len(thing_classes) > 0:
@@ -220,7 +221,7 @@ class DetVisualizer(BaseVisualizer):
         else:
             for clazz_idx in range(5000):
                 image2color[str(clazz_idx)] = (np.random.random((1, 3)) * 0.7 + 0.3).tolist()[0]
-        self.image2color=image2color
+        self.image2color = image2color
 
     # ------------------------------------------------------------------------
     # high level api，不支持 batch
@@ -228,11 +229,10 @@ class DetVisualizer(BaseVisualizer):
     def draw(self, data_sample, image=None, img_meta=None, show_gt=True, show_pred=True):
         # 图片绘制对象初始化
         if image is not None:
-            self._setup_fig(image,img_meta)
+            self._setup_fig(image, img_meta)
 
         # 用于跨函数调用时候访问额外数据
         self._data_sample = data_sample
-
 
         if show_gt:
             for task in self.task_dict:
@@ -248,14 +248,12 @@ class DetVisualizer(BaseVisualizer):
             if 'proposals' in data_sample:
                 self.draw_proposals(data_sample.proposals, DataType.PRED)
 
-
     @BaseVisualizer.register_task('instances')
     def draw_instance(self, instances, data_type):
-        bbox_params=self._default_gt_bbox_params if data_type==DataType.GT else self._default_pred_bbox_params
+        bbox_params = self._default_gt_bbox_params if data_type == DataType.GT else self._default_pred_bbox_params
         if 'bboxes' in instances:
-            self._draw_bboxes(instances,bbox_params)
+            self._draw_bboxes(instances, bbox_params)
         return self
-
 
     @BaseVisualizer.register_task('sem_seg')
     def draw_sem_seg(self, pixel_data, data_type):
@@ -269,17 +267,16 @@ class DetVisualizer(BaseVisualizer):
     def draw_proposals(self, instances, data_type):
         return self
 
-
-    def _draw_bboxes(self,instances,bbox_params):
+    def _draw_bboxes(self, instances, bbox_params):
         if self.metadata:
             thing_classes = self.metadata.get('thing_classes', [])
         else:
-            thing_classes=None
+            thing_classes = None
         if self._class_wise:
-            for (bbox,label) in zip(instances.bboxes.tensor.numpy(),instances.labels.numpy()):
-                clazz= thing_classes[label]  if thing_classes  else str(label)
-                edge_color=self.image2color[clazz]
-                bbox_params['edge_color']=edge_color
+            for (bbox, label) in zip(instances.bboxes.tensor.numpy(), instances.labels.numpy()):
+                clazz = thing_classes[label] if thing_classes else str(label)
+                edge_color = self.image2color[clazz]
+                bbox_params['edge_color'] = edge_color
                 self.draw_bbox(bbox, **bbox_params)
 
                 x0, y0, x1, y1 = bbox
@@ -315,7 +312,6 @@ class DetVisualizer(BaseVisualizer):
                     bbox=dict(facecolor=bbox_params['edge_color'], alpha=0.6, pad=1),
                     font_size=font_size,
                 )
-
 
     # 属性设置
     def set_bbox_params(self, gt_bbox_params, pred_bbox_params):

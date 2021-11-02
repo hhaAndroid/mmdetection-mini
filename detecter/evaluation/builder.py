@@ -1,4 +1,5 @@
-from cvcore import Registry, build_from_cfg, Logger, get_event_storage
+from cvcore import Registry, build_from_cfg, Logger
+# from detecter.visualizer import
 from .base_evaluator import DatasetEvaluator
 from ..dataset import build_dataset
 from ..dataloader import build_dataloader

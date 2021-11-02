@@ -1,17 +1,18 @@
-from ..utils import EventWriter
-from cvcore.utils import get_event_storage
+from .base_writer import BaseWriter
 from .builder import WRITERS
+from detecter.core.structures import BoxMode
+import torch
 
 __all__ = ['WandbWriter']
 
 
 @WRITERS.register_module()
-class WandbWriter(EventWriter):
+class WandbWriter(BaseWriter):
     """
     Write all scalars to a tensorboard file.
     """
 
-    def __init__(self,init_kwargs=None,commit=True,with_step=True, **kwargs):
+    def __init__(self, init_kwargs=None, commit=True, with_step=False, **kwargs):
         """
         Args:
             log_dir (str): the directory to save the output events
@@ -24,9 +25,10 @@ class WandbWriter(EventWriter):
         self.commit = commit
         self.with_step = with_step
         self.kwargs = kwargs
-        self._last_write = -1
-        self._writer = None
-        self._window_size=20
+        # 必须全局自增长，和 tensorboard 不一样，with_step 设置为 False 也一样
+        # 目前解决办法就是 log 中不存储 step 信息
+        self._step = 1
+        self.image_table = None
 
     def import_wandb(self):
         try:
@@ -36,8 +38,7 @@ class WandbWriter(EventWriter):
                 'Please run "pip install wandb" to install wandb')
         self.wandb = wandb
 
-
-    def init(self, runner):
+    def init(self, runner, **kwargs):
         if self.wandb is None:
             self.import_wandb()
         if self.init_kwargs:
@@ -45,34 +46,56 @@ class WandbWriter(EventWriter):
         else:
             self.wandb.init()
 
+    @property
+    def experiment(self):
+        return self.wandb
 
-    def write(self):
-        storage = get_event_storage()
-        new_last_write = self._last_write
-        for k, (v, iter) in storage.latest_with_smoothing_hint(self._window_size).items():
-            if iter > self._last_write:
-                self.wandb.log((k,v), step=iter, commit=self.commit)
-                new_last_write = max(new_last_write, iter)
-        self._last_write = new_last_write
+    @torch.no_grad()
+    def add_image(self, name, img_rgb, data_sample, iter, **kwargs):
+        if data_sample is not None:
+            # table 总是无法显示，暂时不使用
+            # if self.image_table is None:
+            # self.data_at = self.wandb.Artifact("GT-PRED", type="gt-pred")
+            # image_table = self.wandb.Table(columns=["mode", 'gt', 'pred'])
+            # 必须要有 class,目前写死数据
+            class_set = self.wandb.Classes([{'id': id, 'name': name} for id, name in [(0, 'ok'), (1, 'ng')]])
 
-        # storage.put_{image,histogram} is only meant to be used by
-        # tensorboard writer. So we access its internal fields directly from here.
-        if len(storage._vis_data) >= 1:
-            for img_name, img, step_num in storage._vis_data:
-                self.wandb.log({img_name: self.wandb.Image(img.transpose(1,2,0))},step=step_num)
-            # Storage stores all image data and rely on this writer to clear them.
-            # As a result it assumes only one writer will use its image data.
-            # An alternative design is to let storage store limited recent
-            # data (e.g. only the most recent image) that all writers can access.
-            # In that case a writer may not see all image data if its period is long.
-            storage.clear_images()
+            out_data = [name + str(iter)]
+            if 'gt_instances' in data_sample:
+                gt_instances = data_sample.gt_instances.to('cpu')
+                box_data = gt_instances.bboxes.tensor.tolist()
+                box_labels = gt_instances.labels.tolist()
+                bbox_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
+                              "class_id": int(label),
+                              "domain": "pixel"} for (xyxy, label) in zip(box_data, box_labels)]
+                boxes = {"gt": {"box_data": bbox_data, "class_labels": {0: 'ok', 1: 'ng'}}}
+                gt_data = self.wandb.Image(img_rgb, boxes=boxes, classes=class_set)
+                out_data.append(gt_data)
+            else:
+                out_data.append(self.wandb.Image(img_rgb))
 
-        if len(storage._histograms) >= 1:
-            # for params in storage._histograms:
-            #     self._writer.add_histogram_raw(**params)
-            storage.clear_histograms()
+            if 'pred_instances' in data_sample:
+                pred_instances = data_sample.pred_instances.to('cpu')
+                box_data = pred_instances.bboxes.tensor.tolist()
+                box_labels = pred_instances.labels.tolist()
+                box_scores = pred_instances.scores.tolist()
+                bbox_data = [{"position": {"minX": xyxy[0], "minY": xyxy[1], "maxX": xyxy[2], "maxY": xyxy[3]},
+                              "class_id": int(label),
+                              "scores": {"class_score": score},
+                              "domain": "pixel"} for (xyxy, score, label) in zip(box_data, box_scores, box_labels)]
+                boxes = {"pred": {"box_data": bbox_data, "class_labels": {0: 'ok', 1: 'ng'}}}
+                pred_data = self.wandb.Image(img_rgb, boxes=boxes, classes=class_set)
+                out_data.append(pred_data)
+            else:
+                out_data.append(self.wandb.Image(img_rgb))
 
+            # image_table.add_data(out_data[0], out_data[1], out_data[2])
+            # self.wandb.log({'image': image_table}, commit=self.commit)
+            self.wandb.log({name: [gt_data,pred_data]}, commit=self.commit)
+
+            # self.data_at.add(self.image_table, "GT-PRED")
+            # self.wandb.run.use_artifact(self.data_at)
 
     def close(self):
-        self.wandb.join()
-
+        if hasattr(self, "wandb"):  # doesn't exist when the code fails at import
+            self.wandb.join()

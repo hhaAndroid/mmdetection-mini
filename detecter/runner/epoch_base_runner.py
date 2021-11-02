@@ -12,7 +12,7 @@ from .base_runner import BaseRunner
 from .builder import RUNNERS
 # from .checkpoint import save_checkpoint
 # from .utils import get_host_info
-from cvcore.utils import EventStorage
+from detecter.visualizer import EventWriterStorage
 
 
 @RUNNERS.register_module()
@@ -58,7 +58,7 @@ class EpochBasedRunner(BaseRunner):
         self.logger.info('Hooks will be executed in the following order:\n%s',
                          self.get_hook_info())
 
-        with EventStorage(self.epoch) as self.storage:
+        with EventWriterStorage(self.epoch) as self.storage:
             self.call_hook('before_run')
 
             while self.epoch < self._max_epochs:

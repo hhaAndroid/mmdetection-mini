@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import torch
-from cvcore import get_event_storage, convert_image_to_rgb
+from cvcore import convert_image_to_rgb
+from detecter.visualizer import get_event_storage
 
 from detecter.core import (build_prior_generator,
                            build_assigner, build_bbox_coder, build_sampler, multiclass_nms)
@@ -9,13 +10,12 @@ from detecter.utils import multi_apply, images_to_levels, cat, nonzero_tuple
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
 from detecter.core.bbox import batched_nms
-from detecter.core.structures import InstanceData, Boxes,GeneralData
+from detecter.core.structures import InstanceData, Boxes, GeneralData
 from typing import Dict, List, Tuple
 from torch import Tensor
 import numpy as np
 import copy
 from detecter.visualizer import DetVisualizer
-
 
 __all__ = ['AnchorHead']
 
@@ -108,7 +108,7 @@ class AnchorHead(BaseDenseHead):
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
         self._init_layers()
         if self.train_vis_interval > 0 or self.val_vis_interval > 0:
-            self.visualizer=DetVisualizer()
+            self.visualizer = DetVisualizer()
 
     @torch.no_grad()
     def get_anchors(self, featmap_sizes, device='cuda'):
@@ -195,16 +195,16 @@ class AnchorHead(BaseDenseHead):
             if storage.iter % self.train_vis_interval == 0:
 
                 with torch.no_grad():
-                    imgs=[]
-                    data_samples=[]
-                    results=self.get_bboxes(cls_scores,bbox_preds,batched_inputs,skip_post=True)
-                    for (input,result) in zip(batched_inputs,results):
+                    imgs = []
+                    data_samples = []
+                    results = self.get_bboxes(cls_scores, bbox_preds, batched_inputs, skip_post=True)
+                    for (input, result) in zip(batched_inputs, results):
                         imgs.append(input['img'])
                         data_sample = input["data_sample"]
-                        data_sample.pred_instances=result.to('cpu')
+                        data_sample.pred_instances = result.to('cpu')
                         data_samples.append(data_sample)
 
-                    self._visualize_training(imgs,data_samples)
+                    self._visualize_training(imgs, data_samples)
         return loss
 
     def get_targets(self,
@@ -486,9 +486,9 @@ class AnchorHead(BaseDenseHead):
             )
 
             if not skip_post:
-                scale_factor=img_metas[img_idx]['scale_factor']
-                results_per_image.bboxes.scale(1.0/scale_factor[0],
-                                               1.0/scale_factor[1])
+                scale_factor = img_metas[img_idx]['scale_factor']
+                results_per_image.bboxes.scale(1.0 / scale_factor[0],
+                                               1.0 / scale_factor[1])
 
             results.append(results_per_image)
         return results
@@ -566,21 +566,10 @@ class AnchorHead(BaseDenseHead):
         pred_result.labels = class_idxs_all[keep]
         return pred_result
 
-    def _visualize_training(self, images,data_samples):
-        assert self.visualizer
+    def _visualize_training(self, images, data_samples):
         storage = get_event_storage()
-        for (img,data_sample) in zip(images,data_samples):
+        for (img, data_sample) in zip(images, data_samples):
             vis_img = convert_image_to_rgb(img.permute(1, 2, 0), "RGB")
-            self.visualizer.set_image(vis_img)
-            self.visualizer.draw(data_sample,show_gt=True,show_pred=False)
-            gt_vis_img=self.visualizer.get_image()
-
-            self.visualizer.set_image(vis_img)
-            self.visualizer.draw(data_sample, show_gt=False, show_pred=True)
-            pred_vis_img = self.visualizer.get_image()
-
-            concat = np.concatenate((gt_vis_img, pred_vis_img), axis=1)
-            vis_img = concat.transpose(2, 0, 1)
-            vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
-            storage.put_image(vis_name, vis_img)
+            vis_name = "TRAIN:GT--Predicted"
+            storage.add_image(vis_name, vis_img, data_sample)
             break  # only visualize one image in a batch

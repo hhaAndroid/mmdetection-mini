@@ -3,17 +3,17 @@ import os.path as osp
 import cvcore
 from cvcore.utils import dist_comm
 from torch.nn.parallel import DistributedDataParallel
-from cvcore import Hook, get_priority,Logger
+from cvcore import Hook, get_priority, Logger
+from detecter.visualizer import WRITERS, BaseWriter
 
 import copy
 import time
 import datetime
-import torch
-from cvcore import build_from_cfg, HOOKS, EventStorage
+from cvcore import build_from_cfg, HOOKS
+from detecter.visualizer import EventWriterStorage
 from contextlib import ExitStack, contextmanager
 import torch
 from detecter.evaluation import DatasetEvaluator,inference_context,EVALUATORS
-from detecter.visualizer import PeriodicWriterHook
 import torch.nn as nn
 
 
@@ -141,8 +141,20 @@ class SimpleTestRunner:
         assert isinstance(evaluator, DatasetEvaluator)
 
         self.logger.info("Start inference on {} batches".format(len(dataloader)))
+        writers = self.cfg.writer
+        if not isinstance(writers, list):
+            writers = [writers]
 
-        with EventStorage(0) as self.event_storage:
+        writers_obj = []
+        for w in writers:
+            if isinstance(w, dict):
+                w = build_from_cfg(w, WRITERS)
+            else:
+                assert isinstance(w, BaseWriter), w
+            w.init(self)
+            writers_obj.append(w)
+
+        with EventWriterStorage(writers_obj, 0) as self.event_storage:
             self.call_hook('before_run')
             results=self.inference_on_dataset(dataloader,evaluator)
             return results

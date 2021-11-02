@@ -1,7 +1,7 @@
 from cvcore import Hook
 from cvcore.utils import dist_comm
 from ..utils.misc import flatten_results_dict
-from cvcore.utils import EventStorage
+# from cvcore.utils import EventStorage
 
 
 __all__ = ['EvalHook']
