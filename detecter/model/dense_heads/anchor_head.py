@@ -10,11 +10,10 @@ from detecter.utils import multi_apply, images_to_levels, cat, nonzero_tuple
 from ..builder import HEADS, build_loss
 from .base_dense_head import BaseDenseHead
 from detecter.core.bbox import batched_nms
-from detecter.core.structures import InstanceData, Boxes, GeneralData
-from typing import Dict, List, Tuple
+from detecter.core.structures import InstanceData, Boxes
+from detecter.core.post_processing import ComposePostProcess
+from typing import List, Tuple
 from torch import Tensor
-import numpy as np
-import copy
 from detecter.visualizer import DetVisualizer
 
 __all__ = ['AnchorHead']
@@ -76,6 +75,7 @@ class AnchorHead(BaseDenseHead):
                      loss_weight=1.0),
                  loss_bbox=dict(
                      type='SmoothL1Loss', beta=1.0 / 9.0, loss_weight=1.0),
+                 post_processes=[dict(type='ResizeResultsToOri')],
                  train_cfg=None,
                  test_cfg=None,
                  init_cfg=dict(type='Normal', layer='Conv2d', std=0.01),
@@ -103,6 +103,10 @@ class AnchorHead(BaseDenseHead):
             self.assigner = build_assigner(self.train_cfg.assigner)
             self.sampler = build_sampler(self.train_cfg.sampler, context=self)
             self.sampling = False
+
+        self.post_processes = post_processes
+        if post_processes is not None:
+            self.post_processes = ComposePostProcess(post_processes)
 
         self.anchor_generator = build_prior_generator(anchor_generator)
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
@@ -438,6 +442,7 @@ class AnchorHead(BaseDenseHead):
         """Transform network output for a batch into bbox predictions.
 
         Args:
+            pred_logits:
             cls_scores (list[Tensor]): Box scores for each level in the
                 feature pyramid, has shape
                 (N, num_anchors * num_classes, H, W).
@@ -482,15 +487,15 @@ class AnchorHead(BaseDenseHead):
             pred_logits_per_image = [x[img_idx] for x in pred_logits]
             deltas_per_image = [x[img_idx] for x in pred_anchor_deltas]
             results_per_image = self.get_bboxes_single(
-                mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size, img_metas[img_idx]
-            )
-
-            if not skip_post:
-                scale_factor = img_metas[img_idx]['scale_factor']
-                results_per_image.bboxes.scale(1.0 / scale_factor[0],
-                                               1.0 / scale_factor[1])
-
+                mlvl_anchors, pred_logits_per_image, deltas_per_image, image_size)
             results.append(results_per_image)
+
+        if skip_post:
+            return results
+
+        for img_idx, result in enumerate(results):
+            # inplace
+            results[img_idx] = self.post_processes(result, img_metas[img_idx])
         return results
 
     def get_bboxes_single(
@@ -498,8 +503,7 @@ class AnchorHead(BaseDenseHead):
             anchors: List[Boxes],
             box_cls: List[Tensor],
             box_delta: List[Tensor],
-            image_size: Tuple[int, int],
-            img_meta: Dict
+            image_size: Tuple[int, int]
     ):
         """
         Single-image inference. Return bounding-box detection results by thresholding
@@ -553,9 +557,6 @@ class AnchorHead(BaseDenseHead):
         boxes_all, scores_all, class_idxs_all = [
             cat(x) for x in [boxes_all, scores_all, class_idxs_all]
         ]
-
-        # boxes_all /= boxes_all.new_tensor(
-        #     img_meta['scale_factor'])
 
         keep = batched_nms(boxes_all, scores_all, class_idxs_all, self.test_cfg.nms.iou_threshold)
         keep = keep[: self.test_cfg.max_detections_per_image]

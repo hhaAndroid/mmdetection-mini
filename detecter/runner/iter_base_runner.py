@@ -104,7 +104,7 @@ class IterBasedRunner(BaseRunner):
         #                  self.get_hook_info())
 
         # build writer
-        writers = self.cfg.writer
+        writers = self.cfg.get('writer', [])
         if not isinstance(writers, list):
             writers = [writers]
 
