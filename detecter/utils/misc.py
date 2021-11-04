@@ -7,9 +7,13 @@ import random
 import numpy as np
 from collections.abc import Mapping
 from typing import List
+import os
+from cvcore.utils import dist_comm
+from torch.nn.parallel import DistributedDataParallel
 
 
-__all__ = ['multi_apply', 'unmap', 'flip_tensor', 'images_to_levels', 'set_random_seed','flatten_results_dict','cat','nonzero_tuple']
+__all__ = ['multi_apply', 'unmap', 'flip_tensor', 'images_to_levels', 'set_random_seed', 'flatten_results_dict', 'cat',
+           'nonzero_tuple', 'auto_replace_data_root', 'wrapper_model']
 
 
 def nonzero_tuple(x):
@@ -117,6 +121,7 @@ def flip_tensor(src_tensor, flip_direction):
         out_tensor = torch.flip(src_tensor, [2, 3])
     return out_tensor
 
+
 def flatten_results_dict(results):
     """
     Expand a hierarchical dict of scalars into a flat dict of scalars.
@@ -145,3 +150,29 @@ def cat(tensors: List[torch.Tensor], dim: int = 0):
     if len(tensors) == 1:
         return tensors[0]
     return torch.cat(tensors, dim)
+
+
+def auto_replace_data_root(cfg):
+    cfg_pretty_text = cfg.pretty_text
+    data_root = os.getenv('MMDET_DATA')
+    if data_root is not None:
+        cfg_pretty_text = cfg_pretty_text.replace(cfg.data_root, data_root)
+        cfg = cfg.fromstring(cfg_pretty_text, file_format='.py')
+    return cfg
+
+
+def wrapper_model(model, **kwargs):
+    """
+    Create a DistributedDataParallel model if there are >1 processes.
+
+    Args:
+        model: a torch.nn.Module
+        kwargs: other arguments of :module:`torch.nn.parallel.DistributedDataParallel`.
+    """
+    if dist_comm.get_world_size() == 1:
+        return model
+    if "device_ids" not in kwargs:
+        kwargs["device_ids"] = [dist_comm.get_local_rank()]
+    ddp_model = DistributedDataParallel(model.cuda(), **kwargs)
+    return ddp_model
+

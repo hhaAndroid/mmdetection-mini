@@ -1,20 +1,13 @@
 import argparse
-
-from cvcore import launch, DictAction
-import os.path as osp
-import torch
-import time
-import cvcore
-from cvcore import Config, build_from_cfg, HOOKS
-from cvcore.logger import Logger
-from detecter import build_detector, build_dataset, build_dataloader, build_optimizer, build_lr_scheduler, build_runner
-from detecter.utils import collect_env, set_random_seed
-import os
 import sys
+import os
 from loguru import logger
-import copy
+
+from cvcore import launch, DictAction, Config
+from detecter.runner import DefaultTrainer
 
 os.environ.pop('https_proxy')
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
@@ -63,120 +56,25 @@ def parse_args():
     args = parser.parse_args()
     return args
 
+
 @logger.catch
 def main(args):
     cfg = Config.fromfile(args.config)
+    cfg.config = args.config
+
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
-    # import modules from string list.
-    if cfg.get('custom_imports', None):
-        from mmcv.utils import import_modules_from_strings
-        import_modules_from_strings(**cfg['custom_imports'])
-    # set cudnn_benchmark
-    if cfg.get('cudnn_benchmark', False):
-        torch.backends.cudnn.benchmark = True
-
-    # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
-        # update configs according to CLI args if args.work_dir is not None
         cfg.work_dir = args.work_dir
-    elif cfg.get('work_dir', None) is None:
-        # use config filename as default work_dir if cfg.work_dir is None
-        cfg.work_dir = osp.join('./work_dirs',
-                                osp.splitext(osp.basename(args.config))[0])
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
 
-    # create work_dir
-    cvcore.mkdir_or_exist(osp.abspath(cfg.work_dir))
-    # dump config
-    cfg.dump(osp.join(cfg.work_dir, osp.basename(args.config)))
-    # init the logger before other steps
-    timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-    log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
-
-    logger_cfg = cfg.logger
-    if 'log_file' not in logger_cfg:
-        logger_cfg['log_file'] = log_file
-    logger = Logger.init(logger_cfg)
-    # logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
-
-    # init the meta dict to record some important information such as
-    # environment info and seed, which will be logged
-    meta = dict()
-    # log env info
-    env_info_dict = collect_env()
-    env_info = '\n'.join([(f'{k}: {v}') for k, v in env_info_dict.items()])
-    dash_line = '-' * 60 + '\n'
-    logger.info('Environment info:\n' + dash_line + env_info + '\n' +
-                dash_line)
-    meta['env_info'] = env_info
-    meta['config'] = cfg.pretty_text
-    # log some basic info
-    # logger.info(f'Distributed training: {distributed}')
-    logger.info(f'Config:\n{cfg.pretty_text}')
-
-    # set random seeds
+    cfg.deterministic = args.deterministic
     if args.seed is not None:
-        logger.info(f'Set random seed to {args.seed}, '
-                    f'deterministic: {args.deterministic}')
-        set_random_seed(args.seed, deterministic=args.deterministic)
-    cfg.seed = args.seed
-    meta['seed'] = args.seed
-    meta['exp_name'] = osp.basename(args.config)
+        cfg.seed = args.seed
 
-    # detector
-    if 'vis_interval' in cfg:
-        detector = build_detector(cfg.model, dict(vis_interval=cfg.vis_interval))
-    else:
-        detector = build_detector(cfg.model)
-    detector.init_weights()
-    detector = detector.cuda()
-
-    # dataset
-    train_dataset = build_dataset(cfg.data.train)
-
-    # dataloader
-    dataloaders = [build_dataloader(cfg.dataloader.train, train_dataset)]
-
-    # optimizer
-    optimizer = build_optimizer(cfg.optimizer, detector)
-
-    # scheduler
-    scheduler = build_lr_scheduler(cfg.lr_scheduler, optimizer)
-
-    # runner
-    default_args = dict(model=detector, optimizer=optimizer,
-                        scheduler=scheduler, meta=meta, logger=logger, cfg=cfg, work_dir=cfg.work_dir)
-    runner = build_runner(cfg.runner, default_args)
-
-    if len(cfg.workflow) == 2:
-        val_dataset = copy.deepcopy(cfg.data.val)
-        val_dataset=build_dataset(val_dataset)
-        val_dataloader = build_dataloader(cfg.dataloader.val, val_dataset)
-        dataloaders.append(val_dataloader)
-
-    # hook
-    # user-defined hooks
-    if cfg.get('custom_hooks', None):
-        custom_hooks = cfg.custom_hooks
-        assert isinstance(custom_hooks, list), \
-            f'custom_hooks expect list type, but got {type(custom_hooks)}'
-        for hook_cfg in cfg.custom_hooks:
-            assert isinstance(hook_cfg, dict), \
-                'Each item in custom_hooks expects dict type, but got ' \
-                f'{type(hook_cfg)}'
-            hook_cfg = hook_cfg.copy()
-            priority = hook_cfg.pop('priority', 'NORMAL')
-            hook = build_from_cfg(hook_cfg, HOOKS)
-            runner.register_hook(hook, priority=priority)
-
-    if 'resume_from' in cfg and cfg.resume_from:
-        runner.resume_or_load(cfg.resume_from, resume=True)
-    elif 'load_from' in cfg and cfg.load_from:
-        runner.resume_or_load(cfg.load_from, resume=False)
-
-    runner.run(dataloaders, cfg.workflow)
+    trainer = DefaultTrainer(cfg)
+    trainer.run()
 
 
 if __name__ == '__main__':

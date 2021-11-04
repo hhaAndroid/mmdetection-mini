@@ -1,10 +1,6 @@
-import os
-
 # dataset settings
 dataset_type = 'CocoDataset'
-X_DATA = os.getenv('X_DATA', 'data/')
-# data_root = X_DATA + 'coco/'
-data_root = '/home/hha/dataset/project/'
+data_root = 'data/coco/'
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -36,21 +32,6 @@ test_pipeline = [
     dict(type='Collect', keys=['img', 'data_sample']),
 ]
 
-# test_pipeline = [
-#     dict(type='LoadImageFromFile'),
-#     dict(
-#         type='MultiScaleFlipAug',
-#         img_scale=(416, 416),
-#         flip=False,
-#         transforms=[
-#             dict(type='Resize', keep_ratio=True),
-#             dict(type='RandomFlip'),
-#             dict(type='Pad', size_divisor=32),
-#             dict(type='ImageToTensor', keys=['img']),
-#             dict(type='Collect', keys=['img']),
-#         ])
-# ]
-
 classes = ('out-ok', 'out-ng')
 data = dict(
     train=dict(
@@ -73,3 +54,21 @@ data = dict(
         img_prefix=data_root + 'images/',
         train_mode=False,
         pipeline=test_pipeline))
+
+
+dataloader = dict(
+    train=dict(type='build_default_dataloader',
+               sampler=dict(type="InfiniteSampler"),
+               samples_per_gpu=4,
+               workers_per_gpu=2),
+    val=dict(type='build_default_dataloader',
+             sampler=dict(type="InferenceSampler"),
+             samples_per_gpu=1,
+             workers_per_gpu=0,
+             aspect_ratio_grouping=False),
+    test=dict(type='build_default_dataloader',
+              sampler=dict(type="InferenceSampler"),
+              samples_per_gpu=1,
+              workers_per_gpu=0,
+              aspect_ratio_grouping=False),
+)

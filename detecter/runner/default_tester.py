@@ -1,83 +1,101 @@
 # Copyright (c) Open-MMLab. All rights reserved.
-import os.path as osp
-import cvcore
-from cvcore.utils import dist_comm
-from torch.nn.parallel import DistributedDataParallel
-from cvcore import Hook, get_priority, Logger
-from detecter.visualizer import WRITERS, BaseWriter
-
 import copy
-import time
 import datetime
-from cvcore import build_from_cfg, HOOKS
 from detecter.visualizer import EventWriterStorage
-from contextlib import ExitStack, contextmanager
-import torch
-from detecter.evaluation import DatasetEvaluator,inference_context,EVALUATORS
+from contextlib import ExitStack
 import torch.nn as nn
+import time
+import os.path as osp
+import torch
+
+import cvcore
+from cvcore import build_from_cfg, HOOKS, Logger
+from cvcore.utils import dist_comm
+
+from ..model import build_detector
+from ..dataset import build_dataset
+from ..dataloader import build_dataloader
+from ..utils import auto_replace_data_root, wrapper_model
+from ..utils.checkpoint import DetectionCheckpointer
+from ..evaluation import DatasetEvaluator, inference_context, EVALUATORS
+
+from cvcore import Hook, get_priority
+from ..visualizer import WRITERS, BaseWriter
 
 
-__all__ = ['SimpleTestRunner']
+__all__ = ['DefaultTester']
 
 
-def create_ddp_model(model, **kwargs):
-    """
-    Create a DistributedDataParallel model if there are >1 processes.
+class DefaultTester:
+    def __init__(self, cfg):
+        self.logger = None
+        # The order is more critical
+        self.cfg = auto_replace_data_root(cfg)
+        self.setup_cfg()
+        self.setup_logger()
 
-    Args:
-        model: a torch.nn.Module
-        kwargs: other arguments of :module:`torch.nn.parallel.DistributedDataParallel`.
-    """
-    if dist_comm.get_world_size() == 1:
-        return model
-    if "device_ids" not in kwargs:
-        kwargs["device_ids"] = [dist_comm.get_local_rank()]
-    ddp = DistributedDataParallel(model, **kwargs)
-    return ddp
-
-
-class SimpleTestRunner:
-    def __init__(self,  model,logger=None,work_dir=None,cfg=None):
-        self.cfg = cfg
-        self.model = create_ddp_model(model, broadcast_buffers=False)
-
-        # create work_dir
-        if cvcore.is_str(work_dir):
-            self.work_dir = osp.abspath(work_dir)
-            cvcore.mkdir_or_exist(self.work_dir)
-        elif work_dir is None:
-            self.work_dir = None
-        else:
-            raise TypeError('"work_dir" must be a str or None')
-
-        # dump config
-        # cfg.dump(osp.join(cfg.work_dir, osp.basename(cfg)))
-        # init the logger before other steps
-        timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
-
-        logger_cfg = cfg.logger
-        if 'log_file' not in logger_cfg:
-                logger_cfg['log_file'] = log_file
-        logger = Logger.init(logger_cfg)
-        self.logger = logger
-
-        # get model name from the model class
-        if hasattr(self.model, 'module'):
-            self._model_name = self.model.module.__class__.__name__
-        else:
-            self._model_name = self.model.__class__.__name__
+        self.detector = wrapper_model(self.build_detector())
+        self.test_dataset = self.build_test_dataset()
+        self.test_dataloader = self.build_test_dataloader()
 
         self._rank, self._world_size = cvcore.get_rank(), cvcore.get_world_size()
         self.timestamp = cvcore.get_time_str()
 
-        self._iter = 0
-
-        self.log_storage = None
         self.event_storage = None
-        self.runner_type = 'iter'
         self.evaluator = None
-        self._hooks=[]
+        self._hooks = []
+
+    def setup_cfg(self):
+        # import modules from string list.
+        if self.cfg.get('custom_imports', None):
+            from mmcv.utils import import_modules_from_strings
+            import_modules_from_strings(**self.cfg['custom_imports'])
+            # set cudnn_benchmark
+        if self.cfg.get('cudnn_benchmark', False):
+            torch.backends.cudnn.benchmark = True
+
+        if self.cfg.get('work_dir', None) is not None:
+            # use config filename as default work_dir if cfg.work_dir is None
+            self.cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(self.cfg.config))[0])
+        else:
+            self.cfg.work_dir = None
+
+    def setup_logger(self):
+        timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+        log_file = osp.join(self.cfg.work_dir, f'{timestamp}.log')
+        logger_cfg = self.cfg.logger
+        if 'log_file' not in logger_cfg:
+            logger_cfg['log_file'] = log_file
+        self.logger = Logger.init(logger_cfg)
+
+    def build_detector(self, detector=None, skip_ckpt=False):
+        if detector is not None:
+            if not skip_ckpt:
+                checkpointer = DetectionCheckpointer(detector)
+                checkpointer.load(self.cfg.checkpoint)
+            return detector
+
+        self.cfg.model.pretrained = None
+        self.cfg.model.train_cfg = None
+
+        if 'vis_interval' in self.cfg:
+            detector = build_detector(self.cfg.model, dict(vis_interval=self.cfg.vis_interval))
+        else:
+            detector = build_detector(self.cfg.model)
+
+        checkpointer = DetectionCheckpointer(detector)
+        checkpointer.load(self.cfg.checkpoint)
+        return detector
+
+    def build_test_dataset(self, dataset=None):
+        if dataset is not None:
+            return dataset
+        return build_dataset(self.cfg.data.test)
+
+    def build_test_dataloader(self, dataloader=None):
+        if dataloader is not None:
+            return dataloader
+        return build_dataloader(self.cfg.dataloader.test, self.test_dataset)
 
     def register_hook(self, hook, priority='NORMAL'):
         """Register a hook into the hook list.
@@ -133,14 +151,15 @@ class SimpleTestRunner:
         for hook in self._hooks:
             getattr(hook, fn_name)(self)
 
-    def run(self,dataloader):
+    def run(self):
         cp_evaluator_cfg = copy.deepcopy(self.cfg.evaluator)
-        cp_evaluator_cfg['dataloader'] = dataloader
+        cp_evaluator_cfg['dataloader'] = self.test_dataloader
 
         evaluator = build_from_cfg(cp_evaluator_cfg, EVALUATORS)
         assert isinstance(evaluator, DatasetEvaluator)
 
-        self.logger.info("Start inference on {} batches".format(len(dataloader)))
+        self.logger.info("Start inference on {} batches".format(len(self.test_dataloader)))
+
         writers = self.cfg.writer
         if not isinstance(writers, list):
             writers = [writers]
@@ -156,11 +175,10 @@ class SimpleTestRunner:
 
         with EventWriterStorage(writers_obj, 0) as self.event_storage:
             self.call_hook('before_run')
-            results=self.inference_on_dataset(dataloader,evaluator)
+            results = self.inference_on_dataset(self.test_dataloader, evaluator)
             return results
 
-
-    def inference_on_dataset(self,dataloader,evaluator):
+    def inference_on_dataset(self, dataloader, evaluator):
         """
         Run model on the data_loader and evaluate the metrics with evaluator.
         Also benchmark the inference speed of `model.__call__` accurately.
@@ -193,11 +211,11 @@ class SimpleTestRunner:
         total_compute_time = 0
         total_eval_time = 0
         eval_log_interv = 50
-        self.val_iter=0
+        self.val_iter = 0
 
         with ExitStack() as stack:
-            if isinstance(self.model, nn.Module):
-                stack.enter_context(inference_context(self.model))
+            if isinstance(self.detector, nn.Module):
+                stack.enter_context(inference_context(self.detector))
             stack.enter_context(torch.no_grad())
 
             start_data_time = time.perf_counter()
@@ -211,7 +229,7 @@ class SimpleTestRunner:
                     total_eval_time = 0
 
                 start_compute_time = time.perf_counter()
-                outputs = self.model(inputs)
+                outputs = self.detector(inputs)
                 if torch.cuda.is_available():
                     torch.cuda.synchronize()
                 total_compute_time += time.perf_counter() - start_compute_time
@@ -238,11 +256,10 @@ class SimpleTestRunner:
                     )
                 start_data_time = time.perf_counter()
 
-                self.event_storage.iter +=1
-                self.val_iter +=1
+                self.event_storage.iter += 1
+                self.val_iter += 1
 
                 self.call_hook('after_iter')
-
 
         # Measure the time only for this worker (before the synchronization barrier)
         total_time = time.perf_counter() - start_time
@@ -265,8 +282,9 @@ class SimpleTestRunner:
         # Replace it by an empty dict instead to make it easier for downstream code to handle
         if results is None:
             results = {}
-        return results
 
+        self.logger.info(results)
+        return results
 
 
 

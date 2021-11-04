@@ -2,7 +2,7 @@ log_level = 'INFO'
 vis_interval = dict(train=10, val=20)
 
 logger = dict(type='PyLogging', log_level='info')
-writer = [dict(type='WandbWriter', init_kwargs=dict(project='demo', entity="huanghaian"))]
+# writer = [dict(type='WandbWriter', init_kwargs=dict(project='demo', entity="huanghaian"))]
 
 custom_hooks = [
     dict(type='DefaultLoggerHook', priority=100, interval=50),  # LOw
