@@ -1,7 +1,5 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-from contextlib import contextmanager
 
-__all__ = ['DatasetEvaluator', 'inference_context']
+__all__ = ['DatasetEvaluator']
 
 
 class DatasetEvaluator:
@@ -54,17 +52,3 @@ class DatasetEvaluator:
         """
         pass
 
-
-@contextmanager
-def inference_context(model):
-    """
-    A context where the model is temporarily changed to eval mode,
-    and restored to previous mode afterwards.
-
-    Args:
-        model: a torch Module
-    """
-    training_mode = model.training
-    model.eval()
-    yield
-    model.train(training_mode)

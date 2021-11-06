@@ -173,21 +173,6 @@ class BaseRunner(metaclass=ABCMeta):
         if dist_comm.is_main_process():
             self.register_hook(PeriodicCheckpointer(self.checkpointer, self.cfg.checkpoint.by_epoch, self.cfg.checkpoint.period))
 
-        # # evalhook
-        # if 'evaluator' in self.cfg:
-        #     evaluator_cfg = self.cfg.evaluator.copy()
-        #     priority = 100
-        #     if 'priority' in evaluator_cfg:
-        #         priority = evaluator_cfg['priority']
-        #
-        #     def test_and_save_results():
-        #         self._last_eval_results = eval_func(self.cfg, self.model)
-        #         return self._last_eval_results
-        #
-        #     by_epoch = evaluator_cfg.get('by_epoch', True)
-        #     eval_period = evaluator_cfg.get('eval_period', 1)
-        #
-        #     self.register_hook(EvalHook(test_and_save_results, by_epoch, eval_period), priority)
 
     def register_hook(self, hook, priority='NORMAL'):
         """Register a hook into the hook list.
