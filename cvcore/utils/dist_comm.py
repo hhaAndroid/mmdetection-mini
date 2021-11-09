@@ -18,7 +18,7 @@ This variable is set when processes are spawned by `launch()` in "engine/launch.
 """
 
 __all__ = ['get_world_size', 'get_rank', 'get_local_rank', 'get_local_size', 'is_main_process', 'synchronize',
-           'all_gather', 'gather', 'shared_random_seed', 'reduce_dict']
+           'all_gather', 'gather', 'shared_random_seed', 'reduce_dict', 'master_only']
 
 
 def get_world_size() -> int:
@@ -65,6 +65,16 @@ def get_local_size() -> int:
 
 def is_main_process() -> bool:
     return get_rank() == 0
+
+
+def master_only(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        rank = get_rank()
+        if rank == 0:
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 def synchronize():

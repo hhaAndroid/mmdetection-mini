@@ -1,11 +1,11 @@
 optimizer = dict(
     type='build_default_optimizer',
-    optimizer_cfg=dict(type='SGD', lr=0.002, momentum=0.9, weight_decay=0.0001),
+    optimizer_cfg=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001),
     paramwise_cfg=None,
 )
 
 lr_scheduler = dict(type='build_default_lr_scheduler',
-                    param_steps=[0, 500],
+                    param_steps=[0, 1000],
                     by_epoch=False,
                     param_scheduler=[
                         dict(type='LinearParamScheduler', start_value=0.001),

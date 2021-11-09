@@ -47,6 +47,7 @@ model = dict(
         pixel_mean=[123.675, 116.28, 103.53],
         pixel_std=[58.395, 57.12, 57.375],
         to_rgb=True,
+        debug=False,
     ),
     # model training and testing settings
     train_cfg=dict(

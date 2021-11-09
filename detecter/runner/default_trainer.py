@@ -46,6 +46,7 @@ class DefaultTrainer:
         if self.cfg.get('work_dir', None) is None:
             # use config filename as default work_dir if cfg.work_dir is None
             self.cfg.work_dir = osp.join('./work_dirs', osp.splitext(osp.basename(self.cfg.config))[0])
+        cvcore.mkdir_or_exist(self.cfg.work_dir)
 
     def setup_logger(self):
         timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())

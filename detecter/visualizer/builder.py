@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 
-from cvcore import Registry,build_from_cfg
+from cvcore import Registry, build_from_cfg
 import torch
 from .base_writer import BaseWriter
 

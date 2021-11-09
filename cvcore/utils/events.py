@@ -1,6 +1,9 @@
+from ..utils import master_only
+
 __all__ = ['LoggerStorage', 'get_log_storage']
 
 _CURRENT_LOGGER_STORAGE_STACK = []
+
 
 def get_log_storage():
     """
@@ -14,14 +17,17 @@ def get_log_storage():
     return _CURRENT_LOGGER_STORAGE_STACK[-1]
 
 
+# TODO: 支持分布式
 class LoggerStorage:
     def __init__(self):
         self._storages = []
 
+    @master_only
     def append(self, dict_obj):
         assert isinstance(dict_obj, dict)
         self._storages.append(dict_obj)
 
+    @master_only
     def insert(self, index, dict_obj):
         assert isinstance(dict_obj, dict)
         self._storages.insert(index, dict_obj)

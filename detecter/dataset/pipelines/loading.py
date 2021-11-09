@@ -35,8 +35,7 @@ class LoadImageFromFile:
                  file_client_args=dict(backend='disk')):
         self.to_float32 = to_float32
         self.color_type = color_type
-        self.file_client_args = file_client_args.copy()
-        self.file_client = None
+        self.file_client = mmcv.FileClient(**file_client_args)
 
     def __call__(self, results):
         """Call functions to load image and get image meta information.
@@ -47,9 +46,6 @@ class LoadImageFromFile:
         Returns:
             dict: The dict contains loaded image and meta information.
         """
-
-        if self.file_client is None:
-            self.file_client = mmcv.FileClient(**self.file_client_args)
 
         if results['img_prefix'] is not None:
             filename = osp.join(results['img_prefix'],

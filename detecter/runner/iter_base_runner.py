@@ -15,6 +15,7 @@ import torch
 import torch.nn as nn
 from detecter.visualizer.builder import WRITERS
 from detecter.visualizer.base_writer import BaseWriter
+from detecter.others import build_func_storage, DefaultFuncStorage
 
 __all__ = ['IterBasedRunner']
 
@@ -121,20 +122,32 @@ class IterBasedRunner(BaseRunner):
         if len(iter_loaders) == 2:
             self.val_event_storage = EventWriterStorage(writers_obj)
 
-        with EventWriterStorage(writers_obj, self.iter+1) as self.event_storage:
+        runtime_func = self.cfg.get('runtime_func', None)
+        if runtime_func:
+            runtime_func = build_func_storage(runtime_func)
+            assert isinstance(runtime_func, DefaultFuncStorage)
+
+        with EventWriterStorage(writers_obj, self.iter + 1) as self.event_storage:
             with LoggerStorage() as self.log_storage:
-                self.call_hook('before_run')
+                if runtime_func:
+                    with runtime_func:
+                        self._run(workflow, iter_loaders, **kwargs)
+                else:
+                    self._run(workflow, iter_loaders, **kwargs)
 
-                while self.iter < self._max_iters:
-                    for i, flow in enumerate(workflow):
-                        mode, iters = flow
+    def _run(self, workflow, iter_loaders, **kwargs):
+        self.call_hook('before_run')
 
-                        iter_runner = getattr(self, mode)
-                        for _ in range(iters):
-                            if mode == 'train' and self.iter >= self._max_iters:
-                                break
-                            iter_runner(iter_loaders[i], **kwargs)
-                            self.log_storage.clear()
+        while self.iter < self._max_iters:
+            for i, flow in enumerate(workflow):
+                mode, iters = flow
 
-                time.sleep(1)  # wait for some hooks like loggers to finish
-                self.call_hook('after_run')
+                iter_runner = getattr(self, mode)
+                for _ in range(iters):
+                    if mode == 'train' and self.iter >= self._max_iters:
+                        break
+                    iter_runner(iter_loaders[i], **kwargs)
+                    self.log_storage.clear()
+
+        time.sleep(1)  # wait for some hooks like loggers to finish
+        self.call_hook('after_run')

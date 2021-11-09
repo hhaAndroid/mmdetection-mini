@@ -2,9 +2,10 @@
 import torch
 from cvcore import convert_image_to_rgb
 from detecter.visualizer import get_event_storage
+from detecter.others import get_func_storage
 
 from detecter.core import (build_prior_generator,
-                           build_assigner, build_bbox_coder, build_sampler, multiclass_nms)
+                           build_assigner, build_bbox_coder, build_sampler)
 from detecter.utils import multi_apply, images_to_levels, cat, nonzero_tuple
 
 from ..builder import HEADS, build_loss
@@ -78,9 +79,9 @@ class AnchorHead(BaseDenseHead):
                  post_processes=[dict(type='ResizeResultsToOri')],
                  train_cfg=None,
                  test_cfg=None,
-                 init_cfg=dict(type='Normal', layer='Conv2d', std=0.01),
-                 vis_interval=-1):
-        super(AnchorHead, self).__init__(init_cfg, vis_interval)
+                 debug=False,
+                 init_cfg=dict(type='Normal', layer='Conv2d', std=0.01)):
+        super(AnchorHead, self).__init__(debug, init_cfg)
         self.in_channels = in_channels
         self.num_classes = num_classes
         self.feat_channels = feat_channels
@@ -111,8 +112,6 @@ class AnchorHead(BaseDenseHead):
         self.anchor_generator = build_prior_generator(anchor_generator)
         self.num_anchors = self.anchor_generator.num_base_anchors[0]
         self._init_layers()
-        if self.train_vis_interval > 0 or self.val_vis_interval > 0:
-            self.visualizer = DetVisualizer()
 
     @torch.no_grad()
     def get_anchors(self, featmap_sizes, device='cuda'):
@@ -194,21 +193,13 @@ class AnchorHead(BaseDenseHead):
             num_total_samples=num_total_samples)
         loss = dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
 
-        if self.train_vis_interval > 0:
-            storage = get_event_storage()
-            if storage.iter % self.train_vis_interval == 0:
+        if self.debug:
+            get_func_storage().visualize_training(
+                dict(model=self,
+                     cls_scores=cls_scores,
+                     bbox_preds=bbox_preds,
+                     batched_inputs=batched_inputs))
 
-                with torch.no_grad():
-                    imgs = []
-                    data_samples = []
-                    results = self.get_bboxes(cls_scores, bbox_preds, batched_inputs, skip_post=True)
-                    for (input, result) in zip(batched_inputs, results):
-                        imgs.append(input['img'])
-                        data_sample = input["data_sample"]
-                        data_sample.pred_instances = result.to('cpu')
-                        data_samples.append(data_sample)
-
-                    self._visualize_training(imgs, data_samples)
         return loss
 
     def get_targets(self,
@@ -566,11 +557,3 @@ class AnchorHead(BaseDenseHead):
         pred_result.scores = scores_all[keep]
         pred_result.labels = class_idxs_all[keep]
         return pred_result
-
-    def _visualize_training(self, images, data_samples):
-        storage = get_event_storage()
-        for (img, data_sample) in zip(images, data_samples):
-            vis_img = convert_image_to_rgb(img.permute(1, 2, 0), "RGB")
-            vis_name = "TRAIN:GT--Predicted"
-            storage.add_image(vis_name, vis_img, data_sample)
-            break  # only visualize one image in a batch

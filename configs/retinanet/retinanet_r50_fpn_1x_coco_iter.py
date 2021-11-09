@@ -5,3 +5,4 @@ _base_ = [
     '../_base_/default_runtime.py'
 ]
 
+# runtime_func = dict(type='VisFuncStorage', train_vis_interval=-1, val_vis_interval=-1)
