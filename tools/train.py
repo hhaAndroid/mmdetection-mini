@@ -6,7 +6,10 @@ from loguru import logger
 from cvcore import launch, DictAction, Config
 from detecter.runner import DefaultTrainer
 
-os.environ.pop('https_proxy')
+try:
+    os.environ.pop('https_proxy')
+except:
+    pass
 
 
 def parse_args():
