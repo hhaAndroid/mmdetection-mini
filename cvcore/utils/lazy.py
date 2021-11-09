@@ -1,19 +1,19 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
-import ast
-import builtins
-import importlib
-import inspect
-import logging
-import os
-import uuid
-from collections import abc
-from contextlib import contextmanager
-from copy import deepcopy
-from typing import List, Tuple, Union
-import cloudpickle
-import yaml
-from omegaconf import DictConfig, ListConfig, OmegaConf
-from .misc import _convert_target_to_string
+# import ast
+# import builtins
+# import importlib
+# import inspect
+# import logging
+# import os
+# import uuid
+# from collections import abc
+# from contextlib import contextmanager
+# from copy import deepcopy
+# from typing import List, Tuple, Union
+# import cloudpickle
+# import yaml
+# from omegaconf import DictConfig, ListConfig, OmegaConf
+# from .misc import _convert_target_to_string
 
 
 __all__ = ["LazyCall", "LazyConfig"]
