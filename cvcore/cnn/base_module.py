@@ -94,8 +94,8 @@ class BaseModule(nn.Module, metaclass=ABCMeta):
 
         # Get the initialized logger, if not exist,
         # create a logger named `mmcv`
-        logger_names = list(logger_initialized.keys())
-        logger_name = logger_names[0] if logger_names else 'mmcv'
+        # logger_names = list(logger_initialized.keys())
+        # logger_name = logger_names[0] if logger_names else 'mmcv'
 
         from .weight_init import initialize, update_init_info
         module_name = self.__class__.__name__
