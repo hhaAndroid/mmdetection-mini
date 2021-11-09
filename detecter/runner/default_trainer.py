@@ -24,6 +24,7 @@ class DefaultTrainer:
         self.setup_cfg()
         self.setup_logger()
         self.setup_seed()
+        self.setup_envs()
 
         self.detector = wrapper_model(self.build_detector())
         self.train_dataset = self.build_train_dataset()
