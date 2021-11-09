@@ -8,7 +8,7 @@ from logging import FileHandler
 import torch.nn as nn
 
 from mmcv.runner.dist_utils import master_only
-from mmcv.utils.logging import get_logger, logger_initialized, print_log
+# from mmcv.utils.logging import get_logger, logger_initialized, print_log
 
 __all__ = ['BaseModule', 'Sequential', 'ModuleList']
 
@@ -101,9 +101,9 @@ class BaseModule(nn.Module, metaclass=ABCMeta):
         module_name = self.__class__.__name__
         if not self._is_init:
             if self.init_cfg:
-                print_log(
-                    f'initialize {module_name} with init_cfg {self.init_cfg}',
-                    logger=logger_name)
+                # print_log(
+                #     f'initialize {module_name} with init_cfg {self.init_cfg}',
+                #     logger=logger_name)
                 initialize(self, self.init_cfg)
                 if isinstance(self.init_cfg, dict):
                     # prevent the parameters of
@@ -129,7 +129,7 @@ class BaseModule(nn.Module, metaclass=ABCMeta):
                           f'been called more than once.')
 
         if is_top_level_module:
-            self._dump_init_info(logger_name)
+            # self._dump_init_info(logger_name)
 
             for sub_module in self.modules():
                 del sub_module._params_init_info
