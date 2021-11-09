@@ -2,7 +2,7 @@
 dataset_type = 'CocoDataset'
 data_root = 'data/coco/'
 
-use_ceph = False
+use_ceph = True
 
 if use_ceph:
     file_client_args = dict(

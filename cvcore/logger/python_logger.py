@@ -55,22 +55,21 @@ class PyLogging(BaseLogger):
         self.logger = logging.getLogger(name)
 
         rank = dist_comm.get_rank()
-        log_formatter = logging.Formatter(log_format)
         # only rank 0 will add a FileHandler
         if rank == 0 and log_file is not None:
+            log_formatter = logging.Formatter(log_format)
             file_handler = logging.FileHandler(log_file, file_mode)
             file_handler.setFormatter(log_formatter)
             file_handler.setLevel(log_level)
             self.logger.addHandler(file_handler)
 
         # disp
-        disp_stream_handler = logging.StreamHandler(stream=sys.stdout)
-        disp_formatter = DISP_FORMATTER[disp_format](log_format)
-        disp_stream_handler.setFormatter(disp_formatter)
-        disp_stream_handler.setLevel(log_level)
-        self.logger.addHandler(disp_stream_handler)
-
         if rank == 0:
+            disp_stream_handler = logging.StreamHandler(stream=sys.stdout)
+            disp_formatter = DISP_FORMATTER[disp_format](log_format)
+            disp_stream_handler.setFormatter(disp_formatter)
+            disp_stream_handler.setLevel(log_level)
+            self.logger.addHandler(disp_stream_handler)
             self.logger.setLevel(log_level)
         else:
             self.logger.setLevel(logging.ERROR)
