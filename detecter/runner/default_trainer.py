@@ -4,6 +4,7 @@ import torch
 
 import cvcore
 from cvcore import build_from_cfg, HOOKS, Logger
+from cvcore.utils import dist_comm
 
 from ..solver import build_optimizer, build_lr_scheduler
 from ..model import build_detector
@@ -81,8 +82,11 @@ class DefaultTrainer:
         meta['env_info'] = env_info
         meta['config'] = self.cfg.pretty_text
         # log some basic info
-        # logger.info(f'Distributed training: {distributed}')
         self.logger.info(f'Config:\n{self.cfg.pretty_text}')
+
+        is_distributed = dist_comm.get_world_size() > 1
+        self.logger.info(f'Distributed training: {is_distributed}, '
+                         f'world size: {dist_comm.get_world_size()}')
 
         if self.cfg.get('seed', None) is not None:
             meta['seed'] = self.cfg.seed
