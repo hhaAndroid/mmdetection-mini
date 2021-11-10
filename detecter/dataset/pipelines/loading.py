@@ -35,6 +35,7 @@ class LoadImageFromFile:
                  file_client_args=dict(backend='disk')):
         self.to_float32 = to_float32
         self.color_type = color_type
+        self.file_client_args = file_client_args
         self.file_client = mmcv.FileClient(**file_client_args)
 
     def __call__(self, results):

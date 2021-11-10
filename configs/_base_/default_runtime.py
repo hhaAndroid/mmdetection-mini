@@ -1,6 +1,6 @@
 log_level = 'INFO'
 
-logger = dict(type='PyLogging', log_level='info')
+logger = dict(type='PyLogging', log_level='debug')
 writer = [dict(type='LocalWriter', show=True)]
 # writer = [dict(type='WandbWriter', init_kwargs=dict(project='demo', entity="huanghaian"))]
 

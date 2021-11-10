@@ -11,7 +11,7 @@ from ..model import build_detector
 from ..dataset import build_dataset
 from ..dataloader import build_dataloader
 from .builder import build_runner
-from ..utils import collect_env, set_random_seed, auto_replace_data_root, wrapper_model
+from ..utils import collect_env, set_random_seed, auto_replace_data_root, wrapper_model, init_random_seed
 
 __all__ = ['DefaultTrainer']
 
@@ -59,10 +59,12 @@ class DefaultTrainer:
         self.logger = Logger.init(logger_cfg)
 
     def setup_seed(self):
-        if self.cfg.get('seed', None) is not None:
-            self.logger.info(f'Set random seed to {self.cfg.seed}, '
-                             f'deterministic: {self.cfg.deterministic}')
-            set_random_seed(self.cfg.seed, deterministic=self.cfg.deterministic)
+        seed = init_random_seed(self.cfg.get('seed', None))
+        self.cfg.seed = seed
+
+        self.logger.warn(f'Set random seed to {seed}, '
+                         f'deterministic: {self.cfg.deterministic}')
+        set_random_seed(seed, deterministic=self.cfg.deterministic)
 
     def setup_envs(self):
         # create work_dir
@@ -77,12 +79,12 @@ class DefaultTrainer:
         env_info_dict = collect_env()
         env_info = '\n'.join([(f'{k}: {v}') for k, v in env_info_dict.items()])
         dash_line = '-' * 60 + '\n'
-        self.logger.info('Environment info:\n' + dash_line + env_info + '\n' +
+        self.logger.debug('Environment info:\n' + dash_line + env_info + '\n' +
                          dash_line)
         meta['env_info'] = env_info
         meta['config'] = self.cfg.pretty_text
         # log some basic info
-        self.logger.info(f'Config:\n{self.cfg.pretty_text}')
+        self.logger.debug(f'Config:\n{self.cfg.pretty_text}')
 
         is_distributed = dist_comm.get_world_size() > 1
         self.logger.info(f'Distributed training: {is_distributed}, '
@@ -96,11 +98,7 @@ class DefaultTrainer:
     def build_detector(self, detector=None):
         if detector is not None:
             return detector
-
-        if 'vis_interval' in self.cfg:
-            detector = build_detector(self.cfg.model, dict(vis_interval=self.cfg.vis_interval))
-        else:
-            detector = build_detector(self.cfg.model)
+        detector = build_detector(self.cfg.model)
         detector.init_weights()
         return detector
 

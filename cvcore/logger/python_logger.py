@@ -7,7 +7,7 @@ import sys
 
 __all__ = ['PyLogging']
 
-DEFAULT_LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+DEFAULT_LOG_FORMAT = '%(asctime)s - %(message)s'
 
 
 class _ColorfulFormatter(logging.Formatter):
@@ -42,6 +42,20 @@ LOG_LEVEL_DICT = {
     'error': logging.ERROR,
     'critical': logging.CRITICAL
 }
+
+
+def _find_caller():
+    """
+    Returns:
+        str: module name of the caller
+        tuple: a hashable key to be used to identify different callers
+    """
+    frame = sys._getframe(2)
+    frame = frame.f_back
+    frame = frame.f_back
+    mod_name = frame.f_globals["__name__"]
+    f_lineno = frame.f_lineno
+    return mod_name, f_lineno
 
 
 @LOGGERS.register_module()
@@ -86,16 +100,31 @@ class PyLogging(BaseLogger):
             self.logger.setLevel(logging.ERROR)
 
     def debug(self, msg, *args, **kwargs):
-        self.logger.debug(msg)
+        filename, lineno = _find_caller()
+        prefix = '[{}, {}] - '.format(filename, lineno)
+        self.logger.debug(prefix+msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):
-        self.logger.info(msg)
+        filename, lineno = _find_caller()
+        prefix = '[{}, {}] - '.format(filename, lineno)
+        self.logger.info(prefix+msg, *args, **kwargs)
 
     def warning(self, msg, *args, **kwargs):
-        self.logger.warning(msg)
+        filename, lineno = _find_caller()
+        prefix = '[{}, {}] - '.format(filename, lineno)
+        self.logger.warning(prefix+msg, *args, **kwargs)
 
     def warn(self, msg, *args, **kwargs):
-        self.logger.warn(msg)
+        filename, lineno = _find_caller()
+        prefix = '[{}, {}] - '.format(filename, lineno)
+        self.logger.warn(prefix+msg, *args, **kwargs)
+
+    def critical(self, msg, *args, **kwargs):
+        filename, lineno = _find_caller()
+        prefix = '[{}, {}] - '.format(filename, lineno)
+        self.logger.critical(prefix+msg, *args, **kwargs)
 
     def error(self, msg, *args, **kwargs):
-        self.logger.error(msg)
+        filename, lineno = _find_caller()
+        prefix = '[{}, {}] - '.format(filename, lineno)
+        self.logger.error(prefix+msg, *args, **kwargs)

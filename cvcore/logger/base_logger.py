@@ -22,6 +22,10 @@ class BaseLogger(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def critical(self, msg, *args, **kwargs):
+        pass
+
+    @abstractmethod
     def error(self, msg, *args, **kwargs):
         pass
 

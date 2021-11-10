@@ -10,10 +10,11 @@ from typing import List
 import os
 from cvcore.utils import dist_comm
 from torch.nn.parallel import DistributedDataParallel
+import torch.distributed as dist
 
 
 __all__ = ['multi_apply', 'unmap', 'flip_tensor', 'images_to_levels', 'set_random_seed', 'flatten_results_dict', 'cat',
-           'nonzero_tuple', 'auto_replace_data_root', 'wrapper_model']
+           'nonzero_tuple', 'auto_replace_data_root', 'wrapper_model', 'init_random_seed']
 
 
 def nonzero_tuple(x):
@@ -27,6 +28,38 @@ def nonzero_tuple(x):
         return x.nonzero().unbind(1)
     else:
         return x.nonzero(as_tuple=True)
+
+
+def init_random_seed(seed=None, device='cuda'):
+    """Initialize random seed.
+
+    If the seed is not set, the seed will be automatically randomized,
+    and then broadcast to all processes to prevent some potential bugs.
+
+    Args:
+        seed (int, Optional): The seed. Default to None.
+        device (str): The device where the seed will be put on.
+            Default to 'cuda'.
+
+    Returns:
+        int: Seed to be used.
+    """
+    if seed is not None:
+        return seed
+
+    # Make sure all ranks share the same random seed to prevent
+    # some potential bugs. Please refer to
+    # https://github.com/open-mmlab/mmdetection/issues/6339
+    seed = np.random.randint(2**31)
+    if dist_comm.get_world_size() == 1:
+        return seed
+
+    if dist_comm.get_rank() == 0:
+        random_num = torch.tensor(seed, dtype=torch.int32, device=device)
+    else:
+        random_num = torch.tensor(0, dtype=torch.int32, device=device)
+    dist.broadcast(random_num, src=0)
+    return random_num.item()
 
 
 def set_random_seed(seed, deterministic=False):

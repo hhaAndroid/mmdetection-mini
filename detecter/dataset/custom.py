@@ -2,14 +2,62 @@
 import os.path as osp
 import warnings
 import copy
+import itertools
 
 import numpy as np
 from torch.utils.data import Dataset
+from tabulate import tabulate
 
+from cvcore import Logger
 from .builder import DATASETS
 from .pipelines import Compose
 
 __all__ = ['CustomDataset']
+
+
+def print_instances_class_histogram(dataset_dicts, class_names):
+    """
+    Args:
+        dataset_dicts (list[dict]): list of dataset dicts.
+        class_names (list[str]): list of class names (zero-indexed).
+    """
+    num_classes = len(class_names)
+    hist_bins = np.arange(num_classes + 1)
+    histogram = np.zeros((num_classes,), dtype=np.int)
+    for entry in dataset_dicts:
+        classes = entry['ann_info']['labels']
+        if len(classes):
+            assert classes.min() >= 0, f"Got an invalid category_id={classes.min()}"
+            assert (
+                classes.max() < num_classes
+            ), f"Got an invalid category_id={classes.max()} for a dataset of {num_classes} classes"
+        histogram += np.histogram(classes, bins=hist_bins)[0]
+
+    N_COLS = min(6, len(class_names) * 2)
+
+    def short_name(x):
+        # make long class names shorter. useful for lvis
+        if len(x) > 13:
+            return x[:11] + ".."
+        return x
+
+    data = list(
+        itertools.chain(*[[short_name(class_names[i]), int(v)] for i, v in enumerate(histogram)])
+    )
+    total_num_instances = sum(data[1::2])
+    data.extend([None] * (N_COLS - (len(data) % N_COLS)))
+    if num_classes > 1:
+        data.extend(["total", total_num_instances])
+    data = itertools.zip_longest(*[data[i::N_COLS] for i in range(N_COLS)])
+    table = tabulate(
+        data,
+        headers=["category", "#instances"] * (N_COLS // 2),
+        tablefmt="pipe",
+        numalign="left",
+        stralign="center",
+    )
+    Logger.info("Distribution of instances among all {} categories:\n".format(num_classes))
+    Logger.info('\n'+table)
 
 
 @DATASETS.register_module()
@@ -48,12 +96,26 @@ class CustomDataset(Dataset):
 
         # filter images too small and containing no annotations
         if self.train_mode:
+            num_before = len(self.data_infos)
             valid_inds = self._filter_imgs()
             self.data_infos = [self.data_infos[i] for i in valid_inds]
+            num_after = len(self.data_infos)
+            Logger.warn(
+                "Removed {} images with no usable annotations. {} images left.".format(
+                    num_before - num_after, num_after
+                )
+            )
 
         assert len(self.data_infos) > 0, 'dataset is empty'
         # processing pipeline
         self.pipeline = Compose(pipeline)
+
+        has_ann = "ann_info" in self.data_infos[0]
+        if has_ann:
+            print_instances_class_histogram(self.data_infos, self.CLASSES)
+
+        mode = "training" if self.train_mode else "inference"
+        Logger.critical(f"Pipelines used in {mode}: {self.pipeline}")
 
     def __len__(self):
         """Total number of samples of data."""

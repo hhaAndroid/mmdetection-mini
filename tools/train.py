@@ -82,6 +82,7 @@ def main(args):
 
 if __name__ == '__main__':
     args = parse_args()
+    print("Command Line Args:", args)
     launch(
         main,
         args.num_gpus,

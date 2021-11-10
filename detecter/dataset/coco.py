@@ -1,5 +1,6 @@
 import numpy as np
 from pycocotools.coco import COCO
+from cvcore import Logger
 
 from .builder import DATASETS
 from .custom import CustomDataset
@@ -59,6 +60,8 @@ class CocoDataset(CustomDataset):
         assert len(set(total_ann_ids)) == len(
             total_ann_ids), f"Annotation ids in '{ann_file}' are not unique!"
         del total_ann_ids
+
+        Logger.warn("Loaded {} images in COCO format from {}".format(len(self.img_ids), ann_file))
         return data_infos
 
     def _filter_imgs(self, min_size=32):

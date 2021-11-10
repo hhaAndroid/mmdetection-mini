@@ -36,27 +36,32 @@ class Logger:
     @classmethod
     @check_logger
     def debug(cls, msg, *args, **kwargs):
-        Logger.logger.debug(msg)
+        Logger.logger.debug(msg, *args, **kwargs)
 
     @classmethod
     @check_logger
     def info(cls, msg, *args, **kwargs):
-        Logger.logger.info(msg)
+        Logger.logger.info(msg, *args, **kwargs)
 
     @classmethod
     @check_logger
     def warning(cls, msg, *args, **kwargs):
-        Logger.logger.warning(msg)
+        Logger.logger.warning(msg, *args, **kwargs)
 
     @classmethod
     @check_logger
     def warn(cls, msg, *args, **kwargs):
-        Logger.logger.warn(msg)
+        Logger.logger.warn(msg, *args, **kwargs)
+
+    @classmethod
+    @check_logger
+    def critical(cls, msg, *args, **kwargs):
+        Logger.logger.critical(msg, *args, **kwargs)
 
     @classmethod
     @check_logger
     def error(cls, msg, *args, **kwargs):
-        Logger.logger.error(msg)
+        Logger.logger.error(msg, *args, **kwargs)
 
 
 

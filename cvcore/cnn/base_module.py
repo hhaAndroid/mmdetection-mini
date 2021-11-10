@@ -45,12 +45,6 @@ class BaseModule(nn.Module, metaclass=ABCMeta):
 
         self.init_cfg = copy.deepcopy(init_cfg)
 
-        # Backward compatibility in derived classes
-        # if pretrained is not None:
-        #     warnings.warn('DeprecationWarning: pretrained is a deprecated \
-        #         key, please consider using init_cfg')
-        #     self.init_cfg = dict(type='Pretrained', checkpoint=pretrained)
-
     @property
     def is_init(self):
         return self._is_init
@@ -133,36 +127,6 @@ class BaseModule(nn.Module, metaclass=ABCMeta):
 
             for sub_module in self.modules():
                 del sub_module._params_init_info
-
-    @master_only
-    def _dump_init_info(self, logger_name):
-        """Dump the initialization information to a file named
-        `initialization.log.json` in workdir.
-
-        Args:
-            logger_name (str): The name of logger.
-        """
-
-        logger = get_logger(logger_name)
-
-        with_file_handler = False
-        # dump the information to the logger file if there is a `FileHandler`
-        for handler in logger.handlers:
-            if isinstance(handler, FileHandler):
-                handler.stream.write(
-                    'Name of parameter - Initialization information\n')
-                for name, param in self.named_parameters():
-                    handler.stream.write(
-                        f'\n{name} - {param.shape}: '
-                        f"\n{self._params_init_info[param]['init_info']} \n")
-                handler.stream.flush()
-                with_file_handler = True
-        if not with_file_handler:
-            for name, param in self.named_parameters():
-                print_log(
-                    f'\n{name} - {param.shape}: '
-                    f"\n{self._params_init_info[param]['init_info']} \n ",
-                    logger=logger_name)
 
     def __repr__(self):
         s = super().__repr__()
