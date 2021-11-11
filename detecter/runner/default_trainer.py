@@ -96,10 +96,9 @@ class DefaultTrainer:
         self.meta = meta
 
     def build_detector(self, detector=None):
-        if detector is not None:
-            return detector
-        detector = build_detector(self.cfg.model)
-        detector.init_weights()
+        if detector is None:
+            detector = build_detector(self.cfg.model)
+            detector.init_weights()
         if self.cfg.traing_mode == 'cuda':
             detector = detector.cuda()
         else:
