@@ -8,7 +8,6 @@ from cvcore.utils import dist_comm
 from torch.nn.parallel import DistributedDataParallel
 from cvcore import HOOKS, Hook, get_priority
 
-# from .log_buffer import LogBuffer
 from ..utils.checkpoint import DetectionCheckpointer, PeriodicCheckpointer
 import weakref
 
@@ -167,12 +166,10 @@ class BaseRunner(metaclass=ABCMeta):
     def run(self, data_loaders, workflow, **kwargs):
         pass
 
-
     def _register_default_hook(self):
         # ckpt hook
         if dist_comm.is_main_process():
             self.register_hook(PeriodicCheckpointer(self.checkpointer, self.cfg.checkpoint.by_epoch, self.cfg.checkpoint.period))
-
 
     def register_hook(self, hook, priority='NORMAL'):
         """Register a hook into the hook list.

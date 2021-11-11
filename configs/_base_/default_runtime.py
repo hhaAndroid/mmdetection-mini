@@ -1,3 +1,4 @@
+traing_mode = 'cuda'  # cuda cpu
 log_level = 'INFO'
 
 logger = dict(type='PyLogging', log_level='debug')

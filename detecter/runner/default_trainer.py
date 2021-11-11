@@ -80,7 +80,7 @@ class DefaultTrainer:
         env_info = '\n'.join([(f'{k}: {v}') for k, v in env_info_dict.items()])
         dash_line = '-' * 60 + '\n'
         self.logger.debug('Environment info:\n' + dash_line + env_info + '\n' +
-                         dash_line)
+                          dash_line)
         meta['env_info'] = env_info
         meta['config'] = self.cfg.pretty_text
         # log some basic info
@@ -100,6 +100,10 @@ class DefaultTrainer:
             return detector
         detector = build_detector(self.cfg.model)
         detector.init_weights()
+        if self.cfg.traing_mode == 'cuda':
+            detector = detector.cuda()
+        else:
+            self.logger.critical('-----cpu training mode-----')
         return detector
 
     def build_train_dataset(self, dataset=None):
