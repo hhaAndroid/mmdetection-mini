@@ -10,5 +10,5 @@ custom_hooks = [
 ]
 
 evaluator = dict(type='COCOEvaluator')
-checkpoint = dict(by_epoch=False, period=200)
-workflow = [('train', 200), ('val', 1)]
+checkpoint = dict(by_epoch=False, period=5000)
+workflow = [('train', 5000), ('val', 1)]
