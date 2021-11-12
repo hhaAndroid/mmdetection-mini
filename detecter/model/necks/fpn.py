@@ -74,7 +74,7 @@ class FPN(BaseModule):
                  act_cfg=None,
                  upsample_cfg=dict(mode='nearest'),
                  init_cfg=dict(
-                     type='Xavier', layer='Conv2d', distribution='uniform')):
+                     type='Caffe2Xavier', layer='Conv2d')):
         super(FPN, self).__init__(init_cfg)
         assert isinstance(in_channels, list)
         self.in_channels = in_channels

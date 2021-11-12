@@ -157,7 +157,7 @@ class ConvModule(nn.Module):
             act_cfg_ = act_cfg.copy()
             # nn.Tanh has no 'inplace' argument
             if act_cfg_['type'] not in [
-                    'Tanh', 'PReLU', 'Sigmoid', 'HSigmoid', 'Swish'
+                'Tanh', 'PReLU', 'Sigmoid', 'HSigmoid', 'Swish'
             ]:
                 act_cfg_.setdefault('inplace', inplace)
             self.activate = build_activation_layer(act_cfg_)
@@ -183,13 +183,18 @@ class ConvModule(nn.Module):
         # Note: For PyTorch's conv layers, they will be overwritten by our
         #    initialization implementation using default ``kaiming_init``.
         if not hasattr(self.conv, 'init_weights'):
-            if self.with_activation and self.act_cfg['type'] == 'LeakyReLU':
-                nonlinearity = 'leaky_relu'
-                a = self.act_cfg.get('negative_slope', 0.01)
-            else:
-                nonlinearity = 'relu'
-                a = 0
-            kaiming_init(self.conv, a=a, nonlinearity=nonlinearity)
+            # 比较卷积不同初始化方法
+            # TODO mmdet 修改了
+            mmdet_style = False
+            if mmdet_style:
+                if self.with_activation and self.act_cfg['type'] == 'LeakyReLU':
+                    nonlinearity = 'leaky_relu'
+                    a = self.act_cfg.get('negative_slope', 0.01)
+                else:
+                    nonlinearity = 'relu'
+                    a = 0
+                kaiming_init(self.conv, a=a, nonlinearity=nonlinearity)
+
         if self.with_norm:
             constant_init(self.norm, 1, bias=0)
 
