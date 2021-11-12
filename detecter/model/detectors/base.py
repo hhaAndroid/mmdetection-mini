@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from abc import ABCMeta, abstractmethod
 from cvcore.cnn import BaseModule
+from cvcore import digit_version
 import torch
 from collections import OrderedDict
 import torch.distributed as dist
@@ -19,9 +20,12 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
         pixel_std = comm_cfg['pixel_std']
         self.to_rgb = comm_cfg['to_rgb']
         self.debug = comm_cfg['debug']
-
-        self.register_buffer("pixel_mean", torch.tensor(pixel_mean).view(-1, 1, 1), False)
-        self.register_buffer("pixel_std", torch.tensor(pixel_std).view(-1, 1, 1), False)
+        if digit_version(torch.__version__) >= digit_version('1.6.0'):
+            self.register_buffer("pixel_mean", torch.tensor(pixel_mean).view(-1, 1, 1), False)
+            self.register_buffer("pixel_std", torch.tensor(pixel_std).view(-1, 1, 1), False)
+        else:
+            self.register_buffer("pixel_mean", torch.tensor(pixel_mean).view(-1, 1, 1))
+            self.register_buffer("pixel_std", torch.tensor(pixel_std).view(-1, 1, 1))
 
     @property
     def device(self):
