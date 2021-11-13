@@ -1,7 +1,5 @@
 import torch
-import os
-# from tools.darknet.yolov5_download import attempt_download
-# from utils.google_utils import attempt_download
+# from utils.downloads import attempt_download
 
 
 # 注意本程序无法运行！！！

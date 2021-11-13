@@ -38,26 +38,38 @@ class YOLOV5Backbone(nn.Module):
 
         model = []
 
-        focal = vn_layer.Focus(input_channel, make_div8_fun(64), k=3)
+        # focal = vn_layer.Focus(input_channel, make_div8_fun(64), k=3)
+        focal = vn_layer.Conv(input_channel, make_div8_fun(64), k=6, s=2, p=2)
         model.append(focal)
+
         conv1 = vn_layer.Conv(make_div8_fun(64), make_div8_fun(128), k=3, s=2)
         model.append(conv1)
         bsp1 = vn_layer.C3(make_div8_fun(128), make_div8_fun(128), make_round_fun(3))
         model.append(bsp1)
         conv2 = vn_layer.Conv(make_div8_fun(128), make_div8_fun(256), k=3, s=2)
         model.append(conv2)
-        bsp2 = vn_layer.C3(make_div8_fun(256), make_div8_fun(256), make_round_fun(9))
+
+        # bsp2 = vn_layer.C3(make_div8_fun(256), make_div8_fun(256), make_round_fun(9))
+        bsp2 = vn_layer.C3(make_div8_fun(256), make_div8_fun(256), make_round_fun(6))
         model.append(bsp2)  # 第一个输出层
+
         conv3 = vn_layer.Conv(make_div8_fun(256), make_div8_fun(512), k=3, s=2)
         model.append(conv3)
         bsp3 = vn_layer.C3(make_div8_fun(512), make_div8_fun(512), make_round_fun(9))
         model.append(bsp3)  # 第二个输出层
+
         conv4 = vn_layer.Conv(make_div8_fun(512), make_div8_fun(1024), k=3, s=2)
         model.append(conv4)
-        spp1 = vn_layer.SPP(make_div8_fun(1024), make_div8_fun(1024))
-        model.append(spp1)
-        bsp4 = vn_layer.C3(make_div8_fun(1024), make_div8_fun(1024), make_round_fun(3), shortcut=False)
-        model.append(bsp4)  # 第三个输出层
+
+        # spp1 = vn_layer.SPP(make_div8_fun(1024), make_div8_fun(1024))
+        # model.append(spp1)
+        # bsp4 = vn_layer.C3(make_div8_fun(1024), make_div8_fun(1024), make_round_fun(3), shortcut=False)
+        # model.append(bsp4)  # 第三个输出层
+
+        bsp4 = vn_layer.C3(make_div8_fun(1024), make_div8_fun(1024), make_round_fun(3))
+        model.append(bsp4)
+        spp1 = vn_layer.SPPF(make_div8_fun(1024), make_div8_fun(1024))
+        model.append(spp1) # 第三个输出层
         self.backbone = nn.Sequential(*model)
         # self.init_weights()
 
