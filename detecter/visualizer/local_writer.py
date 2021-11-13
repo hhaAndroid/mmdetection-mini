@@ -31,11 +31,16 @@ class LocalWriter(BaseWriter):
         return self
 
     def init(self, runner, **kwargs):
+
+        self.visualizer = DetVisualizer()
+
         if self.work_dir is None:
+            if runner.work_dir is None:
+                return
+
             self.work_dir = os.path.join(runner.work_dir, self.default_name)
         cvcore.mkdir_or_exist(self.work_dir)
 
-        self.visualizer = DetVisualizer()
 
     # 原则上 data_sample 里面也有每张图片相关的meta信息，例如 filename，可以用于此处文件保存
     @torch.no_grad()

@@ -70,7 +70,7 @@ class YOLOV5Backbone(nn.Module):
     #         elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
     #             constant_init(m, 1)
 
-    def forward(self, x):
+    def forward(self, x, batched_inputs=None):
         # np.save('image.npy', x.detach().cpu().numpy())
         out = []
         for i, m in enumerate(self.backbone):

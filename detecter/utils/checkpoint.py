@@ -254,7 +254,8 @@ class Checkpointer:
             :func:`torch.nn.Module.load_state_dict`, but with extra support
             for ``incorrect_shapes``.
         """
-        checkpoint_state_dict = checkpoint.pop("model")
+        # TODO YOLOV5
+        checkpoint_state_dict = checkpoint.pop("model").pop("state_dict")
         self._convert_ndarray_to_tensor(checkpoint_state_dict)
 
         # if the state_dict comes from a model that was wrapped in a

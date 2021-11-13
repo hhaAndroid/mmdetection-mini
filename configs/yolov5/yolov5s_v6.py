@@ -1,12 +1,39 @@
 # custom_imports = dict(imports=['tools/misc/custom_optimizer.py', 'tools/misc/one_cycle_lr_update.py'])
 
 _base_ = [
-    '../_base_/default_runtime.py'
+    '../_base_/default_runtime.py',
+    '../_base_/datasets/coco_detection.py'
 ]
+
+detect_mode=False
+
+if detect_mode:
+    test_cfg=dict(
+        agnostic=False,
+        multi_label=False,
+        min_bbox_size=0,
+        conf_thr=0.25,
+        nms=dict(type='nms', iou_threshold=0.45),
+        max_per_img=300)
+else:
+    test_cfg=dict(
+        agnostic=False,  # 是否区分类别进行 nms，False 表示要区分
+        multi_label=True,  # 是否考虑多标签， 单张图检测是为 False，test 时候为 True，可以提高 1 个点的 mAP
+        min_bbox_size=0,
+        conf_thr=0.001,
+        nms=dict(type='nms', iou_threshold=0.65),
+        max_per_img=300)
 
 # model settings
 model = dict(
-    type='YOLOV5',
+    type='SingleStageDetector',
+    # common settings
+    comm_cfg=dict(
+        pixel_mean=[0, 0, 0],
+        pixel_std=[255., 255., 255.],
+        to_rgb=True,
+        debug=False,
+    ),
     backbone=dict(type='YOLOV5Backbone', depth_multiple=0.33, width_multiple=0.5),
     neck=None,
     bbox_head=dict(
@@ -20,45 +47,17 @@ model = dict(
                         [(30, 61), (62, 45), (59, 119)],
                         [(10, 13), (16, 30), (33, 23)]],
             strides=[32, 16, 8]),
-        bbox_coder=dict(type='YOLOV5BBoxCoder'),
-        featmap_strides=[32, 16, 8],
-        loss_cls=dict(
-            type='CrossEntropyLoss',
-            use_sigmoid=True,
-            loss_weight=1.0,
-            reduction='sum'),
-        loss_conf=dict(
-            type='CrossEntropyLoss',
-            use_sigmoid=True,
-            loss_weight=1.0,
-            reduction='sum'),
-        loss_xy=dict(
-            type='CrossEntropyLoss',
-            use_sigmoid=True,
-            loss_weight=2.0,
-            reduction='sum'),
-        loss_wh=dict(type='MSELoss', loss_weight=2.0, reduction='sum')
+        featmap_strides=[32, 16, 8]
     ),
-    test_cfg=dict(
-        use_v3=False,  # 是否使用 mmdet v3 原本的后处理策略
-        score_thr=0.05,  # 仅仅当 use_v3 为 True 才有效
-        nms_pre=1000,  # 仅仅当 use_v3 为 True 才有效
-        agnostic=False,  # 是否区分类别进行 nms，False 表示要区分
-        multi_label=True,  # 是否考虑多标签， 单张图检测是为 False，test 时候为 True，可以提高 1 个点的 mAP
-        min_bbox_size=0,
-        # detect: conf_thr=0.25 iou_threshold=0.45
-        # test: conf_thr=0.001 iou_threshold=0.65
-        conf_thr=0.001,
-        nms=dict(type='nms', iou_threshold=0.65),
-        max_per_img=300)
+    test_cfg=test_cfg
 )
 
 img_norm_cfg = dict(mean=[0., 0., 0.], std=[255., 255., 255.], to_rgb=True)
 
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'
-# data_root = '/home/PJLAB/huanghaian/dataset/coco/'
-data_root = 'data/coco/'
+data_root = '/home/hha/dataset/coco/'
+
 
 train_pipeline = [
     # dict(type='Normalize', **img_norm_cfg),
@@ -67,19 +66,30 @@ train_pipeline = [
          meta_keys=('img_norm_cfg',)),
 ]
 
-test_pipeline = [
-    dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Yolov5Resize', img_scale=(640, 640)),
-    dict(type='LetterResize', img_scale=(640, 640), scaleup=False, auto=False),
-    dict(type='RandomFlip'),
-    dict(type='Pad', size_divisor=32),
-    dict(type='DefaultFormatBundle'),
-    # 如果不是 debug 模式，可以选择不加载标注
-    dict(type='Collect', keys=['img', 'data_sample'], meta_keys=('filename', 'ori_filename', 'ori_shape',
-                                                                 'img_shape', 'pad_shape', 'scale_factor', 'flip',
-                                                                 'flip_direction', 'image_id', 'pad_param')),
-]
+
+if not detect_mode:
+    test_pipeline = [
+        dict(type='LoadImageFromFile'),
+        dict(type='LoadAnnotations', with_bbox=True),
+        dict(type='Yolov5Resize', img_scale=640),
+        dict(type='LetterResize', img_scale=(640, 640), scaleup=False, auto=False),
+        dict(type='RandomFlip'),
+        dict(type='Pad', size_divisor=32),
+        dict(type='DefaultFormatBundle'),
+        # 如果不是 debug 模式，可以选择不加载标注
+        dict(type='Collect', keys=['img', 'data_sample'], meta_keys=('filename', 'ori_filename', 'ori_shape',
+                                                                     'img_shape', 'pad_shape', 'scale_factor', 'flip',
+                                                                     'flip_direction', 'image_id', 'pad_param')),
+    ]
+else:
+    test_pipeline = [
+        dict(type='LoadImageFromFile'),
+        dict(type='LetterResize', img_scale=(640, 640), scaleup=True, auto=True),
+        dict(type='DefaultFormatBundle'),
+        dict(type='Collect', keys=['img'], meta_keys=('filename','ori_shape',
+                                                      'img_shape', 'pad_shape',
+                                                      'scale_factor','pad_param')),
+    ]
 
 
 # test_pipeline = [
@@ -111,16 +121,18 @@ data = dict(
     workers_per_gpu=4,
     train=dict(
         type=dataset_type,
-        ann_file=data_root + 'annotations/instances_val2017.json',
-        img_prefix=data_root + 'val2017/',
+        ann_file=data_root + 'annotations/instances_train2017.json',
+        img_prefix=data_root + 'train2017/',
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
+        pad=0.5,
         ann_file=data_root + 'annotations/instances_val2017.json',
         img_prefix=data_root + 'val2017/',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
+        pad=0.5,
         ann_file=data_root + 'annotations/instances_val2017.json',
         img_prefix=data_root + 'val2017/',
         pipeline=test_pipeline))
@@ -134,7 +146,7 @@ optimizer = dict(constructor='CustomOptimizer', type='SGD', lr=0.01, momentum=0.
 optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
-lr_config = dict(policy='OneCycle', repeat_num=repeat_num, max_epoch=max_epoch)
+# lr_config = dict(policy='OneCycle', repeat_num=repeat_num, max_epoch=max_epoch)
 runner = dict(type='EpochBasedRunner', max_epochs=max_epoch)
 
 log_config = dict(interval=30)

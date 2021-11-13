@@ -65,10 +65,11 @@ def inference_detector(model, img):
 def show_bbox(img, results):
     instances = results[0]
     instance = instances.to('cpu')
-    pred_boxes = instance.pred_boxes.tensor.detach()
+    pred_boxes = instance.bboxes.tensor.detach()
+    print(pred_boxes)
     pred_scores = instance.scores
     dets = torch.cat([pred_boxes, pred_scores[:, None]], -1).numpy()
-    result_img = mmcv.imshow_det_bboxes(img, dets, instance.pred_classes, score_thr=0.3, show=False, thickness=4)
+    result_img = mmcv.imshow_det_bboxes(img, dets, instance.labels, score_thr=0, show=False, thickness=4)
     cv2.namedWindow('bbox', 0)
     cv2.imshow('bbox', result_img)
     cv2.waitKey(0)
@@ -76,9 +77,9 @@ def show_bbox(img, results):
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('config', help='Config file')
-    parser.add_argument('checkpoint', help='Checkpoint file')
-    parser.add_argument('--img', default='/home/PJLAB/huanghaian/dataset/project/test_img/2021_03_10_18_20_11-1.jpg',
+    parser.add_argument('--config', default='../configs/yolov5/yolov5s_v6.py',help='Config file')
+    parser.add_argument('--checkpoint', default='../yolov5s_mm_new.pth',help='Checkpoint file')
+    parser.add_argument('--img', default='zidane.jpg',
                         help='Image file')
     parser.add_argument(
         '--device', default='cuda:0', help='Device used for inference')
@@ -94,7 +95,6 @@ def main(args):
     model = init_detector(args.config, args.checkpoint, device=args.device)
     # test a single image
     result = inference_detector(model, args.img)
-    print(result)
     show_bbox(args.img, result)
 
 

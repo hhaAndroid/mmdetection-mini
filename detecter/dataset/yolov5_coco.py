@@ -42,6 +42,7 @@ class YOLOV5CocoDataset(CocoDataset):
 
             self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int) * stride
 
+
     def _calc_batch_shape(self):
         batch_shape = []
         for data_info in self.data_infos:

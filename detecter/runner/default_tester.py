@@ -60,32 +60,36 @@ class DefaultTester:
         else:
             self.cfg.work_dir = None
 
+        self.work_dir=self.cfg.work_dir
+
     def setup_logger(self):
-        timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-        log_file = osp.join(self.cfg.work_dir, f'{timestamp}.log')
         logger_cfg = self.cfg.logger
-        if 'log_file' not in logger_cfg:
-            logger_cfg['log_file'] = log_file
+        timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+        if self.cfg.work_dir:
+            log_file = osp.join(self.cfg.work_dir, f'{timestamp}.log')
+            if 'log_file' not in logger_cfg:
+                logger_cfg['log_file'] = log_file
         self.logger = Logger.init(logger_cfg)
 
+
     def build_detector(self, detector=None, skip_ckpt=False):
-        if detector is not None:
-            if not skip_ckpt:
-                checkpointer = DetectionCheckpointer(detector)
-                checkpointer.load(self.cfg.checkpoint)
-            return detector
-
-        self.cfg.model.pretrained = None
-        self.cfg.model.train_cfg = None
-
-        if 'vis_interval' in self.cfg:
-            detector = build_detector(self.cfg.model, dict(vis_interval=self.cfg.vis_interval))
-        else:
+        if detector is None:
+            self.cfg.model.pretrained = None
+            self.cfg.model.train_cfg = None
             detector = build_detector(self.cfg.model)
 
-        checkpointer = DetectionCheckpointer(detector)
-        checkpointer.load(self.cfg.checkpoint)
+
+        if not skip_ckpt:
+            checkpointer = DetectionCheckpointer(detector)
+            checkpointer.load(self.cfg.checkpoint)
+
+        if self.cfg.traing_mode == 'cuda':
+            detector = detector.cuda()
+        else:
+            self.logger.critical('-----cpu training mode-----')
+
         return detector
+
 
     def build_test_dataset(self, dataset=None):
         if dataset is not None:
@@ -283,7 +287,7 @@ class DefaultTester:
         if results is None:
             results = {}
 
-        self.logger.info(results)
+        # self.logger.info(results)
         return results
 
 

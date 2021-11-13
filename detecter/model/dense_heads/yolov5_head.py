@@ -4,13 +4,12 @@ import math
 
 import torch
 import torch.nn as nn
-from mmcv.ops import batched_nms
+
 from mmcv.runner import get_dist_info
-from mmcv.runner import force_fp32
 
-from mmdet.core import (multiclass_nms)
+from detecter.core.structures import InstanceData, Boxes
 
-from .yolo_head import YOLOV3Head
+from .anchor_head import AnchorHead
 from ..builder import HEADS
 from ..utils import brick as vn_layer
 
@@ -35,7 +34,7 @@ def make_round(depth_multiple=1.0):
 
 
 @HEADS.register_module()
-class YOLOV5Head(YOLOV3Head):
+class YOLOV5Head(AnchorHead):
 
     def __init__(self,
                  num_classes,
@@ -47,36 +46,27 @@ class YOLOV5Head(YOLOV3Head):
                                  [(30, 61), (62, 45), (59, 119)],
                                  [(10, 13), (16, 30), (33, 23)]],
                      strides=[32, 16, 8]),
-                 bbox_coder=dict(type='YOLOBBoxCoder'),
+                 bbox_coder=dict(type='YOLOV5BBoxCoder'),
                  featmap_strides=[32, 16, 8],
-                 one_hot_smoother=0.,
-                 conv_cfg=None,
-                 norm_cfg=dict(type='BN', requires_grad=True),
-                 act_cfg=dict(type='LeakyReLU', negative_slope=0.1),
-                 loss_cls=dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=True,
-                     loss_weight=1.0),
-                 loss_conf=dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=True,
-                     loss_weight=1.0),
-                 loss_xy=dict(
-                     type='CrossEntropyLoss',
-                     use_sigmoid=True,
-                     loss_weight=1.0),
-                 loss_wh=dict(type='MSELoss', loss_weight=1.0),
-                 train_cfg=None,
-                 test_cfg=None,
-                 init_cfg=None):
-        super(YOLOV5Head, self).__init__(num_classes, in_channels, out_channels, anchor_generator, bbox_coder,
-                                         featmap_strides, one_hot_smoother,
-                                         conv_cfg, norm_cfg, act_cfg, loss_cls, loss_conf, loss_xy, loss_wh, train_cfg,
-                                         test_cfg, init_cfg)
+                 **kwargs):
+
+        self.featmap_strides=featmap_strides
+        self.out_channels=out_channels
+
+        super(YOLOV5Head, self).__init__(num_classes,in_channels,out_channels,anchor_generator,bbox_coder,**kwargs)
         self.loss_fun = ComputeLoss(self, self.anchor_generator)
 
-    # 为了不传入新的参数，默认将self.out_channels=[depth_multiple,width_multiple]
 
+
+    @property
+    def num_attrib(self):
+        """int: number of attributes in pred_map, bboxes (4) +
+        objectness (1) + num_classes"""
+
+        return 5 + self.num_classes
+
+
+    # 为了不传入新的参数，默认将self.out_channels=[depth_multiple,width_multiple]
     def _init_layers(self):
         model = []
 
@@ -125,8 +115,8 @@ class YOLOV5Head(YOLOV3Head):
             nn.Conv2d(make_div8_fun(1024), (5 + self.num_classes) * self.num_anchors, 1),
         )
 
-    def forward(self, feats):
-        large_feat, inter_feat, small_feat = feats
+    def forward_layer(self, features, batched_inputs=None):
+        large_feat, inter_feat, small_feat = features
 
         small_feat = self.det[0](small_feat)
         x = self.det[1](small_feat)
@@ -183,32 +173,15 @@ class YOLOV5Head(YOLOV3Head):
         loss = self.loss_fun(pred_maps, gt_bboxes, gt_labels, img_metas)
         return loss
 
-    @force_fp32(apply_to=('pred_maps',))
+
     def get_bboxes(self,
                    pred_maps,
-                   img_metas,
-                   cfg=None,
-                   rescale=False,
-                   with_nms=True):
-        """Transform network output for a batch into bbox predictions.
-        Args:
-            pred_maps (list[Tensor]): Raw predictions for a batch of images.
-            img_metas (list[dict]): Meta information of each image, e.g.,
-                image size, scaling factor, etc.
-            cfg (mmcv.Config | None): Test / postprocessing configuration,
-                if None, test_cfg would be used. Default: None.
-            rescale (bool): If True, return boxes in original image space.
-                Default: False.
-            with_nms (bool): If True, do nms before return boxes.
-                Default: True.
-        Returns:
-            list[tuple[Tensor, Tensor]]: Each item in result_list is 2-tuple.
-                The first item is an (n, 5) tensor, where 5 represent
-                (tl_x, tl_y, br_x, br_y, score) and the score between 0 and 1.
-                The shape of the second tensor in the tuple is (n,), and
-                each element represents the class label of the corresponding
-                box.
-        """
+                   batched_inputs,
+                   skip_post=False,
+                   **kwargs):
+
+        img_metas = [x["img_metas"] for x in batched_inputs]
+
         result_list = []
         num_levels = len(pred_maps)
         for img_id in range(len(img_metas)):
@@ -221,176 +194,16 @@ class YOLOV5Head(YOLOV3Head):
             else:
                 pad_param = None
             proposals = self._get_bboxes_single(pred_maps_list, scale_factor,
-                                                cfg, rescale, with_nms, pad_param)
+                                                self.test_cfg, pad_param)
             result_list.append(proposals)
         return result_list
 
+
     def _get_bboxes_single(self,
-                           pred_maps_list,
-                           scale_factor,
-                           cfg,
-                           rescale=False,
-                           with_nms=True,
-                           pad_param=None):
-        cfg = self.test_cfg if cfg is None else cfg
-        if cfg.use_v3:
-            return self._get_bboxes_single_v3(pred_maps_list, scale_factor, cfg, rescale, with_nms, pad_param)
-        else:
-            return self._get_bboxes_single_v5(pred_maps_list, scale_factor, cfg, rescale, with_nms, pad_param)
-
-    def _get_bboxes_single_v3(self,
                               pred_maps_list,
                               scale_factor,
                               cfg,
-                              rescale=False,
-                              with_nms=True,
                               pad_param=None):
-        """Transform outputs for a single batch item into bbox predictions.
-        Args:
-            pred_maps_list (list[Tensor]): Prediction maps for different scales
-                of each single image in the batch.
-            scale_factor (ndarray): Scale factor of the image arrange as
-                (w_scale, h_scale, w_scale, h_scale).
-            cfg (mmcv.Config | None): Test / postprocessing configuration,
-                if None, test_cfg would be used.
-            rescale (bool): If True, return boxes in original image space.
-                Default: False.
-            with_nms (bool): If True, do nms before return boxes.
-                Default: True.
-        Returns:
-            tuple(Tensor):
-                det_bboxes (Tensor): BBox predictions in shape (n, 5), where
-                    the first 4 columns are bounding box positions
-                    (tl_x, tl_y, br_x, br_y) and the 5-th column is a score
-                    between 0 and 1.
-                det_labels (Tensor): A (n,) tensor where each item is the
-                    predicted class label of the corresponding box.
-        """
-        cfg = self.test_cfg if cfg is None else cfg
-        assert len(pred_maps_list) == self.num_levels
-        nms_pre = cfg.nms_pre
-        conf_thr = cfg.get('conf_thr', -1)
-
-        multi_lvl_bboxes = []
-        multi_lvl_cls_scores = []
-        multi_lvl_conf_scores = []
-        num_levels = len(pred_maps_list)
-        featmap_sizes = [
-            pred_maps_list[i].shape[-2:] for i in range(num_levels)
-        ]
-        multi_lvl_anchors = self.anchor_generator.grid_anchors(
-            featmap_sizes, pred_maps_list[0][0].device)
-        for i in range(self.num_levels):
-            # get some key info for current scale
-            pred_map = pred_maps_list[i]
-            stride = self.featmap_strides[i]
-
-            # (h, w, num_anchors*num_attrib) -> (h*w*num_anchors, num_attrib)
-            pred_map = pred_map.permute(1, 2, 0).reshape(-1, self.num_attrib)
-
-            pred_map[..., :4] = torch.sigmoid(pred_map[..., :4])
-            bbox_pred = self.bbox_coder.decode(multi_lvl_anchors[i],
-                                               pred_map[..., :4], stride)
-            # conf and cls
-            conf_pred = torch.sigmoid(pred_map[..., 4]).view(-1)
-            cls_pred = torch.sigmoid(pred_map[..., 5:]).view(
-                -1, self.num_classes)  # Cls pred one-hot.
-
-            # Filtering out all predictions with conf < conf_thr
-            if conf_thr > 0:
-                conf_inds = conf_pred.ge(conf_thr).nonzero(
-                    as_tuple=False).squeeze(1)
-                bbox_pred = bbox_pred[conf_inds, :]
-                cls_pred = cls_pred[conf_inds, :]
-                conf_pred = conf_pred[conf_inds]
-
-            # Get top-k prediction
-            if 0 < nms_pre < conf_pred.size(0):
-                _, topk_inds = conf_pred.topk(nms_pre)
-                bbox_pred = bbox_pred[topk_inds, :]
-                cls_pred = cls_pred[topk_inds, :]
-                conf_pred = conf_pred[topk_inds]
-
-            multi_lvl_bboxes.append(bbox_pred)
-            multi_lvl_cls_scores.append(cls_pred)
-            multi_lvl_conf_scores.append(conf_pred)
-
-        return self._bbox_post_process(multi_lvl_cls_scores, multi_lvl_bboxes,
-                                       scale_factor, cfg, rescale, with_nms,
-                                       multi_lvl_conf_scores, pad_param)
-
-    def _bbox_post_process(self,
-                           mlvl_scores,
-                           mlvl_bboxes,
-                           scale_factor,
-                           cfg,
-                           rescale=False,
-                           with_nms=True,
-                           mlvl_score_factor=None,
-                           pad_param=None,
-                           **kwargs):
-        mlvl_bboxes = torch.cat(mlvl_bboxes)
-        if rescale:
-            if pad_param is not None:
-                mlvl_bboxes -= mlvl_bboxes.new_tensor(
-                    [pad_param[2], pad_param[0], pad_param[2], pad_param[0]])
-            mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
-        mlvl_scores = torch.cat(mlvl_scores)
-
-        if mlvl_score_factor is not None:
-            mlvl_score_factor = torch.cat(mlvl_score_factor)
-
-        # Add a dummy background class to the backend when using sigmoid
-        # remind that we set FG labels to [0, num_class-1] since mmdet v2.0
-        # BG cat_id: num_class
-        padding = mlvl_scores.new_zeros(mlvl_scores.shape[0], 1)
-        mlvl_scores = torch.cat([mlvl_scores, padding], dim=1)
-
-        if with_nms:
-            det_bboxes, det_labels = multiclass_nms(
-                mlvl_bboxes,
-                mlvl_scores,
-                cfg.score_thr,
-                cfg.nms,
-                cfg.max_per_img,
-                score_factors=mlvl_score_factor)
-            return det_bboxes, det_labels
-        else:
-            if mlvl_score_factor is not None:
-                return mlvl_bboxes, mlvl_scores, mlvl_score_factor
-            else:
-                return mlvl_bboxes, mlvl_scores
-
-    def _get_bboxes_single_v5(self,
-                              pred_maps_list,
-                              scale_factor,
-                              cfg,
-                              rescale=False,
-                              with_nms=True,
-                              pad_param=None):
-        """Transform outputs for a single batch item into bbox predictions.
-        Args:
-            pred_maps_list (list[Tensor]): Prediction maps for different scales
-                of each single image in the batch.
-            scale_factor (ndarray): Scale factor of the image arrange as
-                (w_scale, h_scale, w_scale, h_scale).
-            cfg (mmcv.Config | None): Test / postprocessing configuration,
-                if None, test_cfg would be used.
-            rescale (bool): If True, return boxes in original image space.
-                Default: False.
-            with_nms (bool): If True, do nms before return boxes.
-                Default: True.
-        Returns:
-            tuple(Tensor):
-                det_bboxes (Tensor): BBox predictions in shape (n, 5), where
-                    the first 4 columns are bounding box positions
-                    (tl_x, tl_y, br_x, br_y) and the 5-th column is a score
-                    between 0 and 1.
-                det_labels (Tensor): A (n,) tensor where each item is the
-                    predicted class label of the corresponding box.
-        """
-        cfg = self.test_cfg if cfg is None else cfg
-        assert len(pred_maps_list) == self.num_levels
 
         multi_pred_map = []
         num_levels = len(pred_maps_list)
@@ -399,7 +212,8 @@ class YOLOV5Head(YOLOV3Head):
         ]
         multi_lvl_anchors = self.anchor_generator.grid_anchors(
             featmap_sizes, pred_maps_list[0][0].device)
-        for i in range(self.num_levels):
+
+        for i in range(num_levels):
             # get some key info for current scale
             pred_map = pred_maps_list[i]
             stride = self.featmap_strides[i]
@@ -444,28 +258,31 @@ class YOLOV5Head(YOLOV3Head):
             mlvl_pred_map = mlvl_pred_map[mlvl_pred_map[:, 4].argsort(descending=True)[:max_pre_nms]]
 
         mlvl_bboxes = mlvl_pred_map[:, :4]
-        if rescale:
-            if pad_param is not None:
-                mlvl_bboxes -= mlvl_bboxes.new_tensor(
-                    [pad_param[2], pad_param[0], pad_param[2], pad_param[0]])
-            mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
 
-        use_torchvision = False
-        if use_torchvision:
-            c = mlvl_pred_map[:, 5:6] * 4096  # classes
-            boxes, scores = mlvl_pred_map[:, :4] + c, mlvl_pred_map[:, 4]  # boxes (offset by class), scores
-            import torchvision
-            i = torchvision.ops.nms(boxes, scores, 0.65)  # NMS
-            if i.shape[0] > 300:  # limit detections
-                i = i[:300]
-            det_bboxes = mlvl_pred_map[:, :5][i]
-            det_label = mlvl_pred_map[:, 5][i]
-            return det_bboxes, det_label
-        else:
-            mlvl_scores = mlvl_pred_map[:, 4]
-            mlvl_labels = mlvl_pred_map[:, 5]
-            det_bboxes, keep = batched_nms(mlvl_bboxes, mlvl_scores.contiguous(), mlvl_labels, cfg.nms, cfg.agnostic)
-            return det_bboxes, mlvl_labels[keep]
+        if pad_param is not None:
+            mlvl_bboxes -= mlvl_bboxes.new_tensor(
+                    [pad_param[2], pad_param[0], pad_param[2], pad_param[0]])
+        mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
+
+
+        c = mlvl_pred_map[:, 5:6] * 4096  # classes
+        boxes, scores = mlvl_pred_map[:, :4] + c, mlvl_pred_map[:, 4]  # boxes (offset by class), scores
+        import torchvision
+        i = torchvision.ops.nms(boxes, scores, cfg.nms.iou_threshold)  # NMS
+        if i.shape[0] > 300:  # limit detections
+            i = i[:300]
+
+        det_bboxes = mlvl_pred_map[:, :5][i]
+        det_label = mlvl_pred_map[:, 5][i]
+
+
+        pred_result = InstanceData()
+        pred_result.bboxes = Boxes(det_bboxes[:,:4])
+        pred_result.scores = det_bboxes[:, 4]
+        pred_result.labels = det_label
+
+        return pred_result
+
 
 
 class ComputeLoss:

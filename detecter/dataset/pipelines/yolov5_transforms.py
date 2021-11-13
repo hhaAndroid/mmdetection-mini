@@ -17,11 +17,16 @@ class Yolov5Resize:
         for key in results.get('img_fields', ['img']):
             img = results[key]
             h0, w0 = img.shape[:2]  # orig hw
-            r = self.img_size / max(h0, w0)  # ratio
+            r = self.img_scale / max(h0, w0)  # ratio
             if r != 1:  # if sizes are not equal
                 img = cv2.resize(img, (int(w0 * r), int(h0 * r)),
                                  interpolation=cv2.INTER_AREA if r < 1 else cv2.INTER_LINEAR)
+
+            scale_factor = np.array([r, r, r, r], dtype=np.float32)
+            results['scale_factor'] = scale_factor
             results[key] = img
+            results['img_shape'] = img.shape
+
         return results
 
 
@@ -52,9 +57,9 @@ class LetterResize(object):
         for key in results.get('img_fields', ['img']):
             img = results[key]
 
-            if 'batch_shape' in results:
-                batch_shape = results['results']
-                self.image_size_hw = batch_shape[::-1]
+            if 'batch_shape' in results['img_info']:
+                batch_shape = results['img_info']['batch_shape']
+                self.image_size_hw = batch_shape
 
             shape = img.shape[:2]  # current shape [height, width]
             if isinstance(self.image_size_hw, int):
@@ -86,7 +91,11 @@ class LetterResize(object):
                 img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
             results['img_shape'] = img.shape
             scale_factor = np.array([ratio[0], ratio[1], ratio[0], ratio[1]], dtype=np.float32)
-            results['scale_factor'] = scale_factor
+
+            if 'scale_factor' in results:
+                results['scale_factor'] *= scale_factor
+            else:
+                results['scale_factor'] = scale_factor
 
             # padding
             top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
