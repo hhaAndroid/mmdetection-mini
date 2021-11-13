@@ -92,28 +92,6 @@ else:
     ]
 
 
-# test_pipeline = [
-#     dict(type='LoadImageFromFile'),
-#     dict(
-#         type='MultiScaleFlipAug',
-#         img_scale=(640, 640),
-#         flip=False,
-#         transforms=[
-#             # dict(type='ShapeLetterResize', img_scale=(640, 640), scaleup=True, auto=False),  # test
-#             dict(type='ShapeLetterResize', img_scale=(640, 640), scaleup=False, auto=False, with_yolov5=True),
-#             # test，和原始v5完全一致的写法
-#             # dict(type='LetterResize', img_scale=(640, 640), scaleup=True, auto=True),  # detect
-#             dict(type='RandomFlip'),
-#             dict(type='Normalize', **img_norm_cfg),
-#             dict(type='Pad', size_divisor=32),
-#             dict(type='DefaultFormatBundle'),
-#             dict(type='Collect', keys=['img'],
-#                  meta_keys=('filename', 'ori_filename', 'ori_shape',
-#                             'img_shape', 'pad_shape', 'scale_factor', 'flip',
-#                             'flip_direction', 'img_norm_cfg', 'pad_param'))
-#         ])
-# ]
-
 max_epoch = 300
 
 data = dict(
