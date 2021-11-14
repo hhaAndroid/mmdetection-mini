@@ -55,14 +55,14 @@ model = dict(
 
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'
-data_root = '/home/hha/dataset/coco/'
+data_root = '/home/hha/dataset/subsetcoco/'
 
 
 train_pipeline = [
     # dict(type='Normalize', **img_norm_cfg),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'],
-         meta_keys=('img_norm_cfg',)),
+    dict(type='Collect', keys=['img', 'data_sample'],
+         meta_keys=('filename', 'ori_filename','img_shape', 'image_id')),
 ]
 
 
@@ -91,11 +91,8 @@ else:
     ]
 
 
-max_epoch = 300
 
 data = dict(
-    samples_per_gpu=8,  # total=64 8gpu
-    workers_per_gpu=4,
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
@@ -115,17 +112,37 @@ data = dict(
         pipeline=test_pipeline))
 
 
-evaluation = dict(interval=5, metric='bbox')
-checkpoint_config = dict(interval=5)
+dataloader = dict(
+    train=dict(
+        sampler=dict(type="EpochBaseSampler"))
+)
+
 
 # optimizer
-optimizer = dict(constructor='CustomOptimizer', type='SGD', lr=0.01, momentum=0.937, nesterov=True)
-optimizer_config = dict(grad_clip=dict(max_norm=35, norm_type=2))
+optimizer = dict(
+    type='build_default_optimizer',
+    optimizer_cfg=dict(type='SGD', lr=0.01, momentum=0.937, nesterov=True, weight_decay=0.0001),
+    paramwise_cfg=None,
+)
+
+
+lr_scheduler = dict(type='build_default_lr_scheduler',
+                    param_steps=[0, 1000],
+                    by_epoch=False,
+                    param_scheduler=[
+                        dict(type='LinearParamScheduler', start_value=0.001),
+                        dict(type='StepParamScheduler',
+                             step=[8, 11], by_epoch=True)])
+
+runner = dict(type='EpochBasedRunner', max_epochs=300)
+
+checkpoint = dict(by_epoch=True, period=1)
+workflow = [('train', 1), ('val', 1)]
+
+
 
 # learning policy
 # lr_config = dict(policy='OneCycle', repeat_num=repeat_num, max_epoch=max_epoch)
-runner = dict(type='EpochBasedRunner', max_epochs=max_epoch)
 
-log_config = dict(interval=30)
 
-custom_hooks = [dict(type='EMAHook', priority=49)]
+# custom_hooks = [dict(type='EMAHook', priority=49)]

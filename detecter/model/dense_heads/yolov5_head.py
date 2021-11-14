@@ -166,11 +166,17 @@ class YOLOV5Head(AnchorHead):
 
     def loss(self,
              pred_maps,
-             gt_bboxes,
-             gt_labels,
-             img_metas,
-             gt_bboxes_ignore=None):
-        loss = self.loss_fun(pred_maps, gt_bboxes, gt_labels, img_metas)
+             batched_inputs,
+             **kwargs):
+
+        device = pred_maps[0].device
+
+        gt_instances = [data['data_sample'].gt_instances.to(device) for data in batched_inputs]
+        gt_bboxes_list = [instance.bboxes.tensor for instance in gt_instances]
+        gt_labels_list = [instance.labels for instance in gt_instances]
+        img_metas = [x["img_metas"] for x in batched_inputs]
+
+        loss = self.loss_fun(pred_maps, gt_bboxes_list, gt_labels_list, img_metas)
         return loss
 
 

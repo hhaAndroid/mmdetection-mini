@@ -78,7 +78,7 @@ class BaseVisualizer:
         cv2.namedWindow(winname, 0)
         cv2.imshow(winname, self.get_image() if drawed_image is None else drawed_image)
         cv2.waitKey(wait_time)
-        cv2.destroyWindow(winname)
+        # cv2.destroyWindow(winname)
 
     # -------------基础可视化接口-------------
     def draw_bbox(self, bbox, alpha=0.8, edge_color="g", line_style="-", line_width=1, is_filling=True):

@@ -272,6 +272,7 @@ class YOLOV5CocoDataset(CocoDataset):
         self.hyp = {'fl_gamma': 0.0, 'hsv_h': 0.015, 'hsv_s': 0.7, 'hsv_v': 0.4, 'degrees': 0.0, 'translate': 0.1,
                     'scale': 0.5, 'shear': 0.0, 'perspective': 0.0, 'flipud': 0.0, 'fliplr': 0.5, 'mosaic': 1.0,
                     'mixup': 0.0,'copy_paste':0.0}
+        self.albumentations=Albumentations()
 
         # test 开启
         self.with_rectangular = with_rectangular
@@ -359,17 +360,13 @@ class YOLOV5CocoDataset(CocoDataset):
         # if nl:
         #     labels_out[:, 1:] = torch.from_numpy(labels)
 
-        # Convert
-        img = img.transpose((2, 0, 1))[::-1]  # HWC to CHW, BGR to RGB
-        img = np.ascontiguousarray(img)
-
         return img, labels
 
 
     def _load_image(self, index):
         # loads 1 image from dataset, returns img, original hw, resized hw
         path = osp.join(self.img_prefix,
-                        self.data_infos[index]['filename'])
+                        self.data_infos[index]['img_info']['filename'])
         img = cv2.imread(path)  # BGR
         assert img is not None, 'Image Not Found ' + path
         h0, w0 = img.shape[:2]  # orig hw
@@ -415,7 +412,7 @@ class YOLOV5CocoDataset(CocoDataset):
             bboxes = ann_info['bboxes'].copy()
             labels = ann_info['labels'].copy()
 
-            # 归一化 xyxy
+            #对 bbox 进行处理
             bboxes[:, 0::2] *= w / w0
             bboxes[:, 1::2] *= h / h0
             bboxes[:, 0::2] += padw
@@ -425,8 +422,8 @@ class YOLOV5CocoDataset(CocoDataset):
 
             # Labels  segments
             # labels, segments = self.labels[index].copy(), self.segments[index].copy()
-            if labels.size:
-                labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
+            # if labels.size:
+            #     labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
                 # segments = [xyn2xy(x, w, h, padw, padh) for x in segments]
             labels4.append(labels)
             segments4.extend([])
@@ -457,8 +454,18 @@ class YOLOV5CocoDataset(CocoDataset):
             return self.prepare_img(idx)
         else:
             img, labels=self._train(idx)
-            results = {'img': np.ascontiguousarray(img), 'gt_bboxes': labels[:, 1:].astype(np.float),
+            # label 是归一化的 cxcywh 坐标，需要转化为 xyxy
+            labels[:, 1:] = xywhn2xyxy(labels[:, 1:], img.shape[0], img.shape[1])
+
+            results = {'img': img, 'gt_bboxes': labels[:, 1:].astype(np.float),
                        'gt_labels': labels[:, 0].astype(np.int)}
+
+            path = osp.join(self.img_prefix,
+                            self.data_infos[idx]['img_info']['filename'])
+            results['filename'] = path
+            results['ori_filename'] = self.data_infos[idx]['img_info']['filename']
+            results['img_shape'] = img.shape
+            results['image_id'] = self.data_infos[idx]['img_info']['image_id']
 
             return self.pipeline(results)
 

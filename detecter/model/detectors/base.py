@@ -51,6 +51,11 @@ class BaseDetector(BaseModule, metaclass=ABCMeta):
 
     def forward(self, batched_inputs):
         images = self.preprocess_image(batched_inputs)
+
+        batch_input_shape=images.tensor.shape[2:]
+        for x in batched_inputs:
+            x["img_metas"]['batch_input_shape']=batch_input_shape
+
         features = self.extract_feat(images.tensor)
         return features
 

@@ -53,6 +53,7 @@ class LetterResize(object):
         self.scaleup = scaleup
         self.backend = backend
 
+    # 暂时没有对 bbox 进行处理
     def __call__(self, results):
         for key in results.get('img_fields', ['img']):
             img = results[key]
