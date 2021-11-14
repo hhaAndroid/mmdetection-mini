@@ -52,7 +52,6 @@ model = dict(
     test_cfg=test_cfg
 )
 
-img_norm_cfg = dict(mean=[0., 0., 0.], std=[255., 255., 255.], to_rgb=True)
 
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'

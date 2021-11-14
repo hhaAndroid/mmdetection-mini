@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = '/home/PJLAB/huanghaian/dataset/subsetcoco/'
+data_root = '/home/hha/dataset/subsetcoco/'
 
 use_ceph = False
 

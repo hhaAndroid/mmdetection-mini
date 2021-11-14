@@ -45,6 +45,8 @@ class IterBasedRunner(BaseRunner):
 
         self.event_storage.iter = self._iter
 
+
+    @torch.no_grad()
     def val(self, dataloader, **kwargs):
         self.dataloader = dataloader
         cp_evaluator_cfg = copy.deepcopy(self.cfg.evaluator)

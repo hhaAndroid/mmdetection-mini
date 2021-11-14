@@ -39,3 +39,7 @@ class AspectRatioGroupedDataset(IterableDataset):
             if len(bucket) == self.batch_size:
                 yield bucket[:]
                 del bucket[:]
+
+    # 仅仅对于 epoch base 有效
+    def __len__(self):
+        return len(self.dataset)
