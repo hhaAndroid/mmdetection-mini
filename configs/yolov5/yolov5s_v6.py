@@ -120,9 +120,9 @@ dataloader = dict(
 
 # optimizer
 optimizer = dict(
-    type='build_default_optimizer',
-    optimizer_cfg=dict(type='SGD', lr=0.01, momentum=0.937, nesterov=True, weight_decay=0.0001),
-    paramwise_cfg=None,
+    type='build_yolov5_optimizer',
+    optimizer_cfg=dict(type='SGD', lr=0.01, momentum=0.937, nesterov=True),
+    weight_decay=0.0005
 )
 
 
@@ -130,9 +130,8 @@ lr_scheduler = dict(type='build_default_lr_scheduler',
                     param_steps=[0, 1000],
                     by_epoch=False,
                     param_scheduler=[
-                        dict(type='LinearParamScheduler', start_value=0.001),
-                        dict(type='StepParamScheduler',
-                             step=[8, 11], by_epoch=True)])
+                        dict(type='Yolov5WramUpParamScheduler'),
+                        dict(type='Yolov5OneCycleParamScheduler', by_epoch=True)])
 
 runner = dict(type='EpochBasedRunner', max_epochs=300)
 

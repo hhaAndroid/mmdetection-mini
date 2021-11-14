@@ -93,19 +93,23 @@ class LRScheduler:
                 if scheduler.end == -1: scheduler.end=runner.max_epochs
 
                 if scheduler.begin <= runner.epoch <= scheduler.end:
-                    values = [scheduler.step(runner, base_lr) for base_lr in self.base_lrs]
+                    values = [scheduler.step(runner, base_lr, index) for index,base_lr in enumerate(self.base_lrs)]
                     break
 
             else:
                 if scheduler.end == -1: scheduler.end = runner.max_iters
 
                 if scheduler.begin <= runner.iter <= scheduler.end:
-                    values = [scheduler.step(runner, base_lr) for base_lr in self.base_lrs]
+                    values = [scheduler.step(runner, base_lr, index) for index,base_lr in enumerate(self.base_lrs)]
                     break
 
         assert values is not None
         for i, data in enumerate(zip(self.optimizer.param_groups, values)):
             param_group, lr = data
-            param_group['lr'] = lr
+
+            if isinstance(lr,dict):
+                param_group.update(lr)
+            else:
+                param_group['lr'] = lr
 
         self._last_lr = [group['lr'] for group in self.optimizer.param_groups]

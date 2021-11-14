@@ -2,7 +2,8 @@ import cvcore
 from .builder import PARAM_SCHEDULERS
 
 __all__ = ['ParamScheduler', 'LambdaParamScheduler', 'ConstantParamScheduler',
-           'StepParamScheduler', 'LinearParamScheduler']
+           'StepParamScheduler', 'LinearParamScheduler',
+           'Yolov5WramUpParamScheduler', 'Yolov5OneCycleParamScheduler']
 
 
 class ParamScheduler:
@@ -11,7 +12,7 @@ class ParamScheduler:
         self.begin = begin
         self.end = end
 
-    def step(self, runner, base_lr):
+    def step(self, runner, base_lr, index):
         raise NotImplementedError("Param schedulers must override get_lr")
 
 
@@ -22,7 +23,7 @@ class LambdaParamScheduler(ParamScheduler):
         assert scheduler_fun is not None
         self.scheduler_fun = scheduler_fun
 
-    def step(self, runner, base_lr):
+    def step(self, runner, base_lr, index):
         progress = runner.epoch if self.by_epoch else runner.iter
         return base_lr * self.scheduler_fun(progress)
 
@@ -37,7 +38,7 @@ class ConstantParamScheduler(ParamScheduler):
         super(ConstantParamScheduler, self).__init__(**kwargs)
         self._value = value
 
-    def step(self, runner, base_lr):
+    def step(self, runner, base_lr, index):
         return base_lr * self._value
 
 
@@ -68,7 +69,7 @@ class StepParamScheduler(ParamScheduler):
         self.gamma = gamma
         self.min_lr = min_lr
 
-    def step(self, runner, base_lr):
+    def step(self, runner, base_lr, index):
         # progress 这个参数应该是在外面计算好传入，而不是在每个类调用时候判断
         progress = runner.epoch if self.by_epoch else runner.iter
 
@@ -96,10 +97,51 @@ class LinearParamScheduler(ParamScheduler):
         self._start_value = start_value
         self._end_value = end_value
 
-    def step(self, runner, base_lr):
+    def step(self, runner, base_lr, index):
         progress = runner.epoch if self.by_epoch else runner.iter
         assert self.begin <= progress <= self.end
         where = (progress - self.begin) / (self.end - self.begin)
         # interpolate between start and end values
         return base_lr * (self._end_value * where + self._start_value * (1 - where))
+
+import math
+import numpy as np
+
+def one_cycle(y1=0.0, y2=1.0, steps=100):
+    # lambda function for sinusoidal ramp from y1 to y2
+    return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
+
+
+@PARAM_SCHEDULERS.register_module()
+class Yolov5WramUpParamScheduler(ParamScheduler):
+    def __init__(self, by_epoch, begin, end):
+        super().__init__(by_epoch, begin, end)
+        self.total_iters=end
+        self.momentum = 0.937
+        self.warmup_bias_lr = 0.1
+        self.warmup_momentum = 0.8
+
+
+    def step(self, runner, base_lr, index):
+        xi = [0, self.total_iters]
+        one_cycle_fun=one_cycle(1, 0.2, runner.max_epochs)
+
+        cur_epoch=runner.epoch
+        cur_iters=runner.iter
+
+        # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
+        x= {'lr': np.interp(cur_iters, xi,
+                            [self.warmup_bias_lr if index == 2 else 0.0, base_lr * one_cycle_fun(cur_epoch)])}
+        if 'momentum' in x:
+            x['momentum'] = np.interp(cur_iters, xi, [self.warmup_momentum, self.momentum])
+
+        return x
+
+
+
+@PARAM_SCHEDULERS.register_module()
+class Yolov5OneCycleParamScheduler(ParamScheduler):
+    def step(self, runner, base_lr,index):
+        one_cycle_fun = one_cycle(1, 0.2, runner.max_epochs)
+        return base_lr * one_cycle_fun(runner.epoch)
 
