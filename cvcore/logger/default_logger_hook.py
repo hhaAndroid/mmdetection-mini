@@ -7,7 +7,7 @@ from collections import Counter
 from . import Logger
 from ..utils import AvgBuffer, dist_comm
 
-__all__ = ['DefaultLoggerHook', 'get_best_param_group_id']
+__all__ = ['DefaultLoggerHook', 'get_best_param_group_id', 'Yolov5LoggerHook']
 
 
 def get_best_param_group_id(optimizer):
@@ -119,3 +119,14 @@ class DefaultLoggerHook(Hook):
                     val = f'{val:.4f}'
                 log_items.append(f'{name}: {val}')
         return ', '.join(log_items)
+
+
+
+@HOOKS.register_module()
+class Yolov5LoggerHook(DefaultLoggerHook):
+    def append_lr(self, runner):
+        optimizer=runner.optimizer
+        lr = [x['lr'] for x in optimizer.param_groups]
+        momentum = [x['momentum'] for x in optimizer.param_groups]
+        runner.log_storage.append({'lr': lr,'momentum': momentum})
+

@@ -131,9 +131,8 @@ class Yolov5WramUpParamScheduler(ParamScheduler):
 
         # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
         x= {'lr': np.interp(cur_iters, xi,
-                            [self.warmup_bias_lr if index == 2 else 0.0, base_lr * one_cycle_fun(cur_epoch)])}
-        if 'momentum' in x:
-            x['momentum'] = np.interp(cur_iters, xi, [self.warmup_momentum, self.momentum])
+                            [self.warmup_bias_lr if index == 2 else 0.0, base_lr * one_cycle_fun(cur_epoch)]),
+            'momentum': np.interp(cur_iters, xi, [self.warmup_momentum, self.momentum])}
 
         return x
 

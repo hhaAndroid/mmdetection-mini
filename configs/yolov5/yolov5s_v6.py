@@ -55,7 +55,7 @@ model = dict(
 
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'
-data_root = '/home/hha/dataset/subsetcoco/'
+data_root = '/home/hha/dataset/subsetcoco200/'
 
 
 train_pipeline = [
@@ -127,18 +127,22 @@ optimizer = dict(
 
 
 lr_scheduler = dict(type='build_default_lr_scheduler',
-                    param_steps=[0, 1000],
+                    param_steps=[0, 50],
                     by_epoch=False,
                     param_scheduler=[
                         dict(type='Yolov5WramUpParamScheduler'),
-                        dict(type='Yolov5OneCycleParamScheduler', by_epoch=True)])
+                        dict(type='Yolov5OneCycleParamScheduler', begin=0, by_epoch=True)])
 
 runner = dict(type='EpochBasedRunner', max_epochs=300)
 
-checkpoint = dict(by_epoch=True, period=1)
-workflow = [('train', 1), ('val', 1)]
+checkpoint = dict(by_epoch=True, period=50)
+workflow = [('train', 1)]
 
 
+
+custom_hooks = [
+    dict(type='Yolov5LoggerHook', priority=100, interval=1),  # L0w
+]
 
 # learning policy
 # lr_config = dict(policy='OneCycle', repeat_num=repeat_num, max_epoch=max_epoch)
