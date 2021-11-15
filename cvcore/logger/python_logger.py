@@ -21,8 +21,6 @@ class _ColorfulFormatter(logging.Formatter):
             color_log = colored(log, "yellow", attrs=["blink"])
         elif record.levelno == logging.ERROR:
             color_log = colored(log, "red", attrs=["blink"])
-        elif record.levelno == logging.CRITICAL:
-            color_log = colored(log, "red", attrs=["blink"])
         elif record.levelno == logging.INFO:
             color_log = colored(log, "green", attrs=["blink"])
         else:
@@ -39,8 +37,7 @@ LOG_LEVEL_DICT = {
     'debug': logging.DEBUG,
     'info': logging.INFO,
     'warning': logging.WARNING,
-    'error': logging.ERROR,
-    'critical': logging.CRITICAL
+    'error': logging.ERROR
 }
 
 
@@ -118,11 +115,6 @@ class PyLogging(BaseLogger):
         filename, lineno = _find_caller()
         prefix = '[{}, {}] - '.format(filename, lineno)
         self.logger.warn(prefix+msg, *args, **kwargs)
-
-    def critical(self, msg, *args, **kwargs):
-        filename, lineno = _find_caller()
-        prefix = '[{}, {}] - '.format(filename, lineno)
-        self.logger.critical(prefix+msg, *args, **kwargs)
 
     def error(self, msg, *args, **kwargs):
         filename, lineno = _find_caller()

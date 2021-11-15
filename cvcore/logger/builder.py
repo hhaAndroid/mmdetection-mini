@@ -55,11 +55,6 @@ class Logger:
 
     @classmethod
     @check_logger
-    def critical(cls, msg, *args, **kwargs):
-        Logger.logger.critical(msg, *args, **kwargs)
-
-    @classmethod
-    @check_logger
     def error(cls, msg, *args, **kwargs):
         Logger.logger.error(msg, *args, **kwargs)
 

@@ -115,7 +115,7 @@ class CustomDataset(Dataset):
             print_instances_class_histogram(self.data_infos, self.CLASSES)
 
         mode = "training" if self.train_mode else "inference"
-        Logger.critical(f"Pipelines used in {mode}: {self.pipeline}")
+        Logger.debug(f"Pipelines used in {mode}: {self.pipeline}")
 
     def __len__(self):
         """Total number of samples of data."""

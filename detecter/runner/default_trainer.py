@@ -102,7 +102,7 @@ class DefaultTrainer:
         if self.cfg.traing_mode == 'cuda':
             detector = detector.cuda()
         else:
-            self.logger.critical('-----cpu training mode-----')
+            self.logger.info('-----cpu training mode-----')
         return detector
 
     def build_train_dataset(self, dataset=None):
