@@ -31,7 +31,7 @@ def get_best_param_group_id(optimizer):
 
 def _get_max_memory(runner):
     if dist_comm.get_world_size() > 1:
-        device = runner.module.model.device
+        device = runner.model.module.device
     else:
         device = runner.model.device
     if device == 'cpu':
