@@ -6,7 +6,7 @@ writer = [dict(type='LocalWriter', show=True)]
 # writer = [dict(type='WandbWriter', init_kwargs=dict(project='demo', entity="huanghaian"))]
 
 custom_hooks = [
-    dict(type='DefaultLoggerHook', priority=100, interval=1),  # L0w
+    dict(type='DefaultLoggerHook', priority=100, interval=50),  # L0w
 ]
 
 evaluator = dict(type='COCOEvaluator')

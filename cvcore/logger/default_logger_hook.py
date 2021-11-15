@@ -5,7 +5,7 @@ import torch
 import torch.distributed as dist
 from collections import Counter
 from . import Logger
-from ..utils import AvgBuffer
+from ..utils import AvgBuffer, dist_comm
 
 __all__ = ['DefaultLoggerHook', 'get_best_param_group_id']
 
@@ -30,7 +30,10 @@ def get_best_param_group_id(optimizer):
 
 
 def _get_max_memory(runner):
-    device = runner.model.device
+    if dist_comm.get_world_size() > 1:
+        device = runner.module.model.device
+    else:
+        device = runner.model.device
     if device == 'cpu':
         return 0
     # 打印从程序开始跑后的峰值内存，不可能会下降

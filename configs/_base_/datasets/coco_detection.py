@@ -1,6 +1,6 @@
 # dataset settings
 dataset_type = 'CocoDataset'
-data_root = '/home/hha/dataset/subsetcoco/'
+data_root = 'data/coco/'
 
 use_ceph = False
 
@@ -17,7 +17,7 @@ else:
 train_pipeline = [
     dict(type='LoadImageFromFile', file_client_args=file_client_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', img_scale=(600, 600), keep_ratio=True),
+    dict(type='Resize', img_scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip', flip_ratio=0.5),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
@@ -27,7 +27,7 @@ train_pipeline = [
 val_pipeline = [
     dict(type='LoadImageFromFile', file_client_args=file_client_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', img_scale=(600, 600), keep_ratio=True),
+    dict(type='Resize', img_scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip'),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
@@ -38,7 +38,7 @@ val_pipeline = [
 test_pipeline = [
     dict(type='LoadImageFromFile', file_client_args=file_client_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Resize', img_scale=(600, 600), keep_ratio=True),
+    dict(type='Resize', img_scale=(1333, 800), keep_ratio=True),
     dict(type='RandomFlip'),
     dict(type='Pad', size_divisor=32),
     dict(type='DefaultFormatBundle'),
