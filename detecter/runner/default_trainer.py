@@ -11,7 +11,7 @@ from ..model import build_detector
 from ..dataset import build_dataset
 from ..dataloader import build_dataloader
 from .builder import build_runner
-from ..utils import collect_env, set_random_seed, auto_replace_data_root, wrapper_model, init_random_seed
+from ..utils import collect_env, set_random_seed, auto_replace_data_root, init_random_seed
 
 __all__ = ['DefaultTrainer']
 
@@ -27,7 +27,7 @@ class DefaultTrainer:
         self.setup_seed()
         self.setup_envs()
 
-        self.detector = wrapper_model(self.build_detector())
+        self.detector = self.build_detector()
         self.train_dataset = self.build_train_dataset()
         self.train_dataloader = self.build_train_dataloader()
         self.optimizer = self.build_optimizer()
