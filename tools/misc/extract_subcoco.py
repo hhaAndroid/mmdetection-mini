@@ -12,10 +12,10 @@ def parse_args():
     parser.add_argument('--root', default='/home/hha/dataset/coco', help='root path')
     parser.add_argument(
         '--output-dir',
-        default='/home/hha/dataset//subsetcoco1',
+        default='/home/hha/dataset/subsetcoco200',
         type=str,
         help='save root dir')
-    parser.add_argument('--num-img', default=1, help='num of extract image')
+    parser.add_argument('--num-img', default=200, help='num of extract image')
     args = parser.parse_args()
     return args
 
@@ -23,8 +23,11 @@ def parse_args():
 def _process_data(args, type):
     if type == 'train':
         ann_file_name = 'annotations/instances_train2017.json'
+        yolov5_label_name='train2017.txt'
     else:
         ann_file_name = 'annotations/instances_val2017.json'
+        yolov5_label_name = 'val2017.txt'
+    yolov5_label_name=osp.join(args.output_dir, yolov5_label_name)
     ann_path = osp.join(args.root, ann_file_name)
     json_data = mmcv.load(ann_path)
 
@@ -36,6 +39,8 @@ def _process_data(args, type):
 
     # shuffle
     np.random.shuffle(images)
+
+    label_file=open(yolov5_label_name,'w')
 
     progress_bar = mmcv.ProgressBar(args.num_img)
     for i in range(args.num_img):
@@ -52,9 +57,13 @@ def _process_data(args, type):
         if osp.exists(stuff_image_path):
             shutil.copy(stuff_image_path, osp.join(args.output_dir, 'stuffthingmaps', type + '2017'))
 
+        image_path = osp.join('./'+type + '2017', file_name)
+        label_file.write(image_path+'\n')
+
         progress_bar.update()
 
     mmcv.dump(new_json_data, osp.join(args.output_dir, ann_file_name))
+    label_file.close()
 
 
 def _make_dir(output_dir):
