@@ -29,6 +29,8 @@ class EpochBasedRunner(BaseRunner):
     """
 
     def run(self, data_loaders, workflow, **kwargs):
+        self.runner_type = 'epoch'
+
         assert isinstance(data_loaders, list)
         assert mmcv.is_list_of(workflow, tuple)
         assert len(data_loaders) == len(workflow)

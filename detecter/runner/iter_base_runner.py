@@ -98,6 +98,8 @@ class IterBasedRunner(BaseRunner):
     def run(self, data_loaders, workflow, max_iters=None, **kwargs):
         """Start running.
         """
+        self.runner_type = 'iter'
+
         assert self._max_iters is not None, (
             'max_iters must be specified during instantiation')
         self.logger.warn(f'Start running, host: {cvcore.get_host_info()}, work_dir: {self.work_dir}')

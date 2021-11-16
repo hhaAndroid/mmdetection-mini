@@ -86,7 +86,7 @@ class DefaultLoggerHook(Hook):
         if runner.runner_type == 'iter':
             runner.log_storage.insert(0, {'Iter': f'[{runner.iter}][{runner.max_iters}]'})
         else:
-            runner.log_storage.insert(0, {'Epoch': f'[{runner.epoch}][{runner.iter}/{runner.max_iters}]'})
+            runner.log_storage.insert(0, {'Epoch': f'[{runner.epoch}/{runner.iter}][{runner.max_epochs}/{runner.max_iters}]'})
 
     def append_lr(self, runner):
         _best_param_group_id = get_best_param_group_id(runner.optimizer)
