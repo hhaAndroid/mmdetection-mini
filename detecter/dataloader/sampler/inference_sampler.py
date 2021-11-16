@@ -14,7 +14,7 @@ class InferenceSampler(Sampler):
     this sampler produces different number of samples on different workers.
     """
 
-    def __init__(self, data_source):
+    def __init__(self, data_source, **kwargs):
         """
         Args:
             size (int): the total number of data of the underlying dataset to sample from

@@ -1,14 +1,12 @@
-# custom_imports = dict(imports=['tools/misc/custom_optimizer.py', 'tools/misc/one_cycle_lr_update.py'])
-
 _base_ = [
     '../_base_/default_runtime.py',
     '../_base_/datasets/coco_detection.py'
 ]
 
-detect_mode=False
+detect_mode = True
 
 if detect_mode:
-    test_cfg=dict(
+    test_cfg = dict(
         agnostic=False,
         multi_label=False,
         min_bbox_size=0,
@@ -16,7 +14,7 @@ if detect_mode:
         nms=dict(type='nms', iou_threshold=0.45),
         max_per_img=300)
 else:
-    test_cfg=dict(
+    test_cfg = dict(
         agnostic=False,  # 是否区分类别进行 nms，False 表示要区分
         multi_label=True,  # 是否考虑多标签， 单张图检测是为 False，test 时候为 True，可以提高 1 个点的 mAP
         min_bbox_size=0,
@@ -52,19 +50,15 @@ model = dict(
     test_cfg=test_cfg
 )
 
-
 # dataset settings
 dataset_type = 'YOLOV5CocoDataset'
-data_root = '/home/hha/dataset/subsetcoco200/'
-
+data_root = 'data/coco/'
 
 train_pipeline = [
-    # dict(type='Normalize', **img_norm_cfg),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'data_sample'],
-         meta_keys=('filename', 'ori_filename','img_shape', 'image_id')),
+         meta_keys=('filename', 'ori_filename', 'img_shape', 'image_id')),
 ]
-
 
 if not detect_mode:
     test_pipeline = [
@@ -85,38 +79,39 @@ else:
         dict(type='LoadImageFromFile'),
         dict(type='LetterResize', img_scale=(640, 640), scaleup=True, auto=True),
         dict(type='DefaultFormatBundle'),
-        dict(type='Collect', keys=['img'], meta_keys=('filename','ori_shape',
+        dict(type='Collect', keys=['img'], meta_keys=('filename', 'ori_shape',
                                                       'img_shape', 'pad_shape',
-                                                      'scale_factor','pad_param')),
+                                                      'scale_factor', 'pad_param')),
     ]
 
-
+use_ceph = False
 
 data = dict(
     train=dict(
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_train2017.json',
         img_prefix=data_root + 'train2017/',
-        pipeline=train_pipeline),
+        pipeline=train_pipeline,
+        use_ceph=use_ceph),
     val=dict(
         type=dataset_type,
         pad=0.5,
         ann_file=data_root + 'annotations/instances_val2017.json',
         img_prefix=data_root + 'val2017/',
-        pipeline=test_pipeline),
+        pipeline=test_pipeline,
+        use_ceph=use_ceph),
     test=dict(
         type=dataset_type,
         pad=0.5,
         ann_file=data_root + 'annotations/instances_val2017.json',
         img_prefix=data_root + 'val2017/',
-        pipeline=test_pipeline))
+        pipeline=test_pipeline,
+        use_ceph=use_ceph))
 
-
-dataloader = dict(
-    train=dict(
-        sampler=dict(type="EpochBaseSampler"))
-)
-
+dataloader = dict(train=dict(sampler=dict(type="EpochBaseSampler"),
+                             aspect_ratio_grouping=False,
+                             samples_per_gpu=16,
+                             workers_per_gpu=4))
 
 # optimizer
 optimizer = dict(
@@ -125,9 +120,8 @@ optimizer = dict(
     weight_decay=0.0005
 )
 
-
 lr_scheduler = dict(type='build_default_lr_scheduler',
-                    param_steps=[0, 50],
+                    param_steps=[0, 1000],
                     by_epoch=False,
                     param_scheduler=[
                         dict(type='Yolov5WramUpParamScheduler'),
@@ -135,17 +129,10 @@ lr_scheduler = dict(type='build_default_lr_scheduler',
 
 runner = dict(type='EpochBasedRunner', max_epochs=300)
 
-checkpoint = dict(by_epoch=True, period=50)
-workflow = [('train', 1)]
-
-
+checkpoint = dict(by_epoch=True, period=10, max_to_keep=2)
+workflow = [('train', 10), ('val', 1)]
 
 custom_hooks = [
-    dict(type='Yolov5LoggerHook', priority=100, interval=1),  # L0w
+    dict(type='ExpMomentumEMAHook', priority=49),
+    dict(type='Yolov5LoggerHook', priority=100, interval=50),  # Low
 ]
-
-# learning policy
-# lr_config = dict(policy='OneCycle', repeat_num=repeat_num, max_epoch=max_epoch)
-
-
-# custom_hooks = [dict(type='EMAHook', priority=49)]

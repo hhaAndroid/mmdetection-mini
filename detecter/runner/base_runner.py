@@ -168,8 +168,9 @@ class BaseRunner(metaclass=ABCMeta):
 
     def _register_default_hook(self):
         # ckpt hook
+        # TODO: 是否要同步下权重，否则会出现不同卡上面权重有细微差异
         if dist_comm.is_main_process():
-            self.register_hook(PeriodicCheckpointer(self.checkpointer, self.cfg.checkpoint.by_epoch, self.cfg.checkpoint.period))
+            self.register_hook(PeriodicCheckpointer(self.checkpointer, **self.cfg.checkpoint))
 
     def register_hook(self, hook, priority='NORMAL'):
         """Register a hook into the hook list.

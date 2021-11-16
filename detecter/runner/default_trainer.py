@@ -113,7 +113,9 @@ class DefaultTrainer:
     def build_train_dataloader(self, dataloader=None):
         if dataloader is not None:
             return dataloader
-        return build_dataloader(self.cfg.dataloader.train, self.train_dataset)
+        return build_dataloader(self.cfg.dataloader.train,
+                                self.train_dataset,
+                                default_args={'seed': self.cfg.seed})
 
     def build_val_dataset(self, dataset=None):
         if dataset is not None:

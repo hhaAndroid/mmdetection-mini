@@ -370,7 +370,7 @@ class ComputeLoss:
         lobj *= self.hyp['obj']
         lcls *= self.hyp['cls']
         bs = tobj.shape[0]  # batch size
-        loss = lbox + lobj + lcls
+        # loss = lbox + lobj + lcls
         # print(loss.item(), lbox.item(), lobj.item(), lcls.item())
         _, world_size = get_dist_info()
         return dict(

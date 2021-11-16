@@ -1,14 +1,16 @@
 from cvcore.utils import dist_comm
 import numpy as np
 import random
+import torch
 from functools import partial
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import BatchSampler
 import copy
 import operator
+import warnings
 
 from ..dataset.dataset_wrappers import AspectRatioGroupedDataset
-from cvcore import build_from_cfg
+from cvcore import build_from_cfg, digit_version
 from .collate import trivial_batch_collator
 from .builder import DATALOADER, SAMPLER
 
@@ -24,21 +26,28 @@ def worker_init_fn(worker_id, num_workers, rank, seed):
 
 
 @DATALOADER.register_module()
-def build_default_dataloader(dataset, samples_per_gpu, workers_per_gpu, sampler, batch_sampler=None,
-                             collate=trivial_batch_collator, aspect_ratio_grouping=True, drop_last=True):
+def build_default_dataloader(dataset, samples_per_gpu, workers_per_gpu, sampler, seed=None, batch_sampler=None,
+                             collate=trivial_batch_collator, aspect_ratio_grouping=True, drop_last=True,
+                             persistent_workers=True):
     if aspect_ratio_grouping is True:
         assert batch_sampler is None
 
     assert isinstance(sampler, dict)
     cp_sampler = copy.deepcopy(sampler)
     cp_sampler['data_source'] = dataset
+    cp_sampler['seed'] = seed
     sampler = build_from_cfg(cp_sampler, SAMPLER)
-
-    seed = None
 
     init_fn = partial(
         worker_init_fn, num_workers=workers_per_gpu, rank=dist_comm.get_rank(),
         seed=seed) if seed is not None else None
+
+    kwargs = {}
+    if digit_version(torch.__version__) >= digit_version('1.7.0'):
+        kwargs['persistent_workers'] = persistent_workers
+    elif persistent_workers is True:
+        warnings.warn('persistent_workers is invalid because your pytorch '
+                      'version is lower than 1.7.0')
 
     if aspect_ratio_grouping:
         data_loader = DataLoader(
@@ -47,7 +56,8 @@ def build_default_dataloader(dataset, samples_per_gpu, workers_per_gpu, sampler,
             num_workers=workers_per_gpu,
             collate_fn=operator.itemgetter(0),
             pin_memory=False,
-            worker_init_fn=init_fn)
+            worker_init_fn=init_fn,
+            **kwargs)
         return AspectRatioGroupedDataset(data_loader, samples_per_gpu)
     else:
         if batch_sampler is None:
@@ -63,4 +73,5 @@ def build_default_dataloader(dataset, samples_per_gpu, workers_per_gpu, sampler,
             batch_sampler=batch_sampler,
             collate_fn=collate,
             worker_init_fn=init_fn,
+            **kwargs,
         )

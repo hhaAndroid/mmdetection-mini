@@ -18,8 +18,7 @@ from detecter.visualizer.builder import WRITERS
 from detecter.visualizer.base_writer import BaseWriter
 from detecter.others import build_func_storage, DefaultFuncStorage
 
-
-__all__=['EpochBasedRunner']
+__all__ = ['EpochBasedRunner']
 
 
 @RUNNERS.register_module()
@@ -28,6 +27,7 @@ class EpochBasedRunner(BaseRunner):
 
     This runner train models epoch by epoch.
     """
+
     def run(self, data_loaders, workflow, **kwargs):
         assert isinstance(data_loaders, list)
         assert mmcv.is_list_of(workflow, tuple)
@@ -69,7 +69,6 @@ class EpochBasedRunner(BaseRunner):
             runtime_func = build_func_storage(runtime_func)
             assert isinstance(runtime_func, DefaultFuncStorage)
 
-
         with EventWriterStorage(writers_obj, self.iter + 1) as self.event_storage:
             with LoggerStorage() as self.log_storage:
                 if runtime_func:
@@ -77,7 +76,6 @@ class EpochBasedRunner(BaseRunner):
                         self._run(workflow, data_loaders, **kwargs)
                 else:
                     self._run(workflow, data_loaders, **kwargs)
-
 
     def _run(self, workflow, data_loaders, **kwargs):
         self.call_hook('before_run')
@@ -104,10 +102,18 @@ class EpochBasedRunner(BaseRunner):
         time.sleep(1)  # wait for some hooks like loggers to finish
         self.call_hook('after_run')
 
-
     def train(self, data_loader, **kwargs):
         self.model.train()
         self.data_loader = data_loader
+
+        # 避免每个epoch输出的随机性固定
+        if hasattr(self.data_loader.sampler, 'set_epoch'):
+            # in case the data loader uses `SequentialSampler` in Pytorch
+            self.data_loader.sampler.set_epoch(self._epoch)
+        elif hasattr(self.data_loader.batch_sampler.sampler, 'set_epoch'):
+            # batch sampler in pytorch warps the sampler as its attributes.
+            self.data_loader.batch_sampler.sampler.set_epoch(self._epoch)
+
         self._max_iters = self._max_epochs * len(self.data_loader)
         self.call_hook('before_train_epoch')
         time.sleep(2)  # Prevent possible deadlock during epoch transition
@@ -129,7 +135,6 @@ class EpochBasedRunner(BaseRunner):
 
         self.call_hook('after_train_epoch')
         self._epoch += 1
-
 
     @torch.no_grad()
     def val(self, dataloader, **kwargs):

@@ -5,11 +5,10 @@ import cv2
 import torch
 import math
 import os.path as osp
-
+import mmcv
 
 from .builder import DATASETS
 from .coco import CocoDataset
-
 
 __all__ = ['YOLOV5CocoDataset']
 
@@ -54,6 +53,7 @@ def bbox_ioa(box1, box2, eps=1E-7):
 
     # Intersection over box2 area
     return inter_area / box2_area
+
 
 def copy_paste(im, labels, segments, p=0.5):
     # Implement Copy-Paste augmentation https://arxiv.org/abs/2012.07177, labels as nx5 np.array(cls, xyxy)
@@ -259,20 +259,29 @@ def xyxy2xywhn(x, w=640, h=640, clip=False, eps=0.0):
     return y
 
 
-
 @DATASETS.register_module()
 class YOLOV5CocoDataset(CocoDataset):
     def __init__(self,
-                 *args, with_rectangular=True, img_size=640, batch_size=1, stride=32, pad=0.0, **kwargs):
+                 *args, with_rectangular=True, img_size=640, batch_size=1, stride=32, pad=0.0, use_ceph=False, **kwargs):
         super(CocoDataset, self).__init__(*args, **kwargs)
 
-        self.img_size=img_size
+        self.img_size = img_size
         self.indices = range(len(self))
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.hyp = {'fl_gamma': 0.0, 'hsv_h': 0.015, 'hsv_s': 0.7, 'hsv_v': 0.4, 'degrees': 0.0, 'translate': 0.1,
                     'scale': 0.5, 'shear': 0.0, 'perspective': 0.0, 'flipud': 0.0, 'fliplr': 0.5, 'mosaic': 1.0,
-                    'mixup': 0.0,'copy_paste':0.0}
-        self.albumentations=Albumentations()
+                    'mixup': 0.0, 'copy_paste': 0.0}
+        self.albumentations = Albumentations()
+
+        self.use_ceph = use_ceph
+        if self.use_ceph:
+            file_client_args = dict(
+                backend='petrel',
+                path_mapping=dict({
+                    'data/': 's3://openmmlab/datasets/detection/',
+                    '.data/': 's3://openmmlab/datasets/detection/'
+                }))
+            self.file_client = mmcv.FileClient(**file_client_args)
 
         # test 开启
         self.with_rectangular = with_rectangular
@@ -304,14 +313,12 @@ class YOLOV5CocoDataset(CocoDataset):
 
             self.batch_shapes = np.ceil(np.array(shapes) * img_size / stride + pad).astype(np.int) * stride
 
-
     def _calc_batch_shape(self):
         batch_shape = []
         for data_info in self.data_infos:
             img_info = data_info['img_info']
             batch_shape.append((img_info['width'], img_info['height']))
         return batch_shape
-
 
     def prepare_img(self, idx):
         """Get training data and annotations after pipeline.
@@ -330,15 +337,13 @@ class YOLOV5CocoDataset(CocoDataset):
         self.pre_pipeline(results)
         return self.pipeline(results)
 
-
-    def _train(self,idx):
+    def _train(self, idx):
         # 要提前加载label
-        img, labels= self._load_mosaic(idx)
+        img, labels = self._load_mosaic(idx)
 
         nl = len(labels)  # number of labels
         if nl:
             labels[:, 1:5] = xyxy2xywhn(labels[:, 1:5], w=img.shape[1], h=img.shape[0], clip=True, eps=1E-3)
-
 
         # Albumentations
         img, labels = self.albumentations(img, labels)
@@ -362,19 +367,23 @@ class YOLOV5CocoDataset(CocoDataset):
 
         return img, labels
 
-
     def _load_image(self, index):
         # loads 1 image from dataset, returns img, original hw, resized hw
         path = osp.join(self.img_prefix,
                         self.data_infos[index]['img_info']['filename'])
-        img = cv2.imread(path)  # BGR
+
+        if self.use_ceph:
+            img_bytes = self.file_client.get(path)
+            img = mmcv.imfrombytes(img_bytes)
+        else:
+            img = cv2.imread(path)  # BGR
+
         assert img is not None, 'Image Not Found ' + path
         h0, w0 = img.shape[:2]  # orig hw
         r = self.img_size / max(h0, w0)  # ratio
         if r != 1:  # if sizes are not equal
             img = cv2.resize(img, (int(w0 * r), int(h0 * r)), interpolation=cv2.INTER_LINEAR)
         return img, (h0, w0), img.shape[:2]  # img, hw_original, hw_resized
-
 
     def _load_mosaic(self, index):
         # YOLOv5 4-mosaic loader. Loads 1 image + 3 random images into a 4-image mosaic
@@ -408,11 +417,11 @@ class YOLOV5CocoDataset(CocoDataset):
             padh = y1a - y1b
 
             # 读取 label
-            ann_info=self.data_infos[index]['ann_info']
+            ann_info = self.data_infos[index]['ann_info']
             bboxes = ann_info['bboxes'].copy()
             labels = ann_info['labels'].copy()
 
-            #对 bbox 进行处理
+            # 对 bbox 进行处理
             bboxes[:, 0::2] *= w / w0
             bboxes[:, 1::2] *= h / h0
             bboxes[:, 0::2] += padw
@@ -424,7 +433,7 @@ class YOLOV5CocoDataset(CocoDataset):
             # labels, segments = self.labels[index].copy(), self.segments[index].copy()
             # if labels.size:
             #     labels[:, 1:] = xywhn2xyxy(labels[:, 1:], w, h, padw, padh)  # normalized xywh to pixel xyxy format
-                # segments = [xyn2xy(x, w, h, padw, padh) for x in segments]
+            # segments = [xyn2xy(x, w, h, padw, padh) for x in segments]
             labels4.append(labels)
             segments4.extend([])
 
@@ -448,12 +457,11 @@ class YOLOV5CocoDataset(CocoDataset):
 
         return img4, labels4
 
-
     def __getitem__(self, idx):
         if not self.train_mode:
             return self.prepare_img(idx)
         else:
-            img, labels=self._train(idx)
+            img, labels = self._train(idx)
             # label 是归一化的 cxcywh 坐标，需要转化为 xyxy
             labels[:, 1:] = xywhn2xyxy(labels[:, 1:], img.shape[0], img.shape[1])
 
@@ -468,5 +476,3 @@ class YOLOV5CocoDataset(CocoDataset):
             results['image_id'] = self.data_infos[idx]['img_info']['image_id']
 
             return self.pipeline(results)
-
-

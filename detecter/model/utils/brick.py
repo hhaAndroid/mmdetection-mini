@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import warnings
+from cvcore import digit_version
 
 
 class Conv2dBatchLeaky(nn.Module):
@@ -236,8 +236,10 @@ class Conv(nn.Module):
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p), groups=g, bias=False)
         # note: momentum and eps
         self.bn = nn.BatchNorm2d(c2, momentum=0.03, eps=0.001)
-        self.act = nn.SiLU(inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
-        # self.act = SiLU(inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        if digit_version(torch.__version__) >= digit_version('1.7.0'):
+            self.act = nn.SiLU(inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        else:
+            self.act = SiLU(inplace=True) if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
 
     def forward(self, x):
         return self.act(self.bn(self.conv(x)))
