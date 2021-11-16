@@ -3,7 +3,7 @@ _base_ = [
     '../_base_/datasets/coco_detection.py'
 ]
 
-detect_mode = True
+detect_mode = False
 
 if detect_mode:
     test_cfg = dict(
@@ -111,7 +111,7 @@ data = dict(
 dataloader = dict(train=dict(sampler=dict(type="EpochBaseSampler"),
                              aspect_ratio_grouping=False,
                              samples_per_gpu=16,
-                             workers_per_gpu=4))
+                             workers_per_gpu=2))
 
 # optimizer
 optimizer = dict(
