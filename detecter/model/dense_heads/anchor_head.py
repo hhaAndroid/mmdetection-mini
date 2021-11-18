@@ -136,6 +136,32 @@ class AnchorHead(BaseDenseHead):
         """
         pass
 
+    def _ema_update(self, name: str, value: float, initial_value: float, momentum: float = 0.9):
+        """
+        Apply EMA update to `self.name` using `value`.
+
+        This is mainly used for loss normalizer. In Detectron1, loss is normalized by number
+        of foreground samples in the batch. When batch size is 1 per GPU, #foreground has a
+        large variance and using it lead to lower performance. Therefore we maintain an EMA of
+        #foreground to stabilize the normalizer.
+
+        Args:
+            name: name of the normalizer
+            value: the new value to update
+            initial_value: the initial value to start with
+            momentum: momentum of EMA
+
+        Returns:
+            float: the updated EMA value
+        """
+        if hasattr(self, name):
+            old = getattr(self, name)
+        else:
+            old = initial_value
+        new = old * momentum + value * (1 - momentum)
+        setattr(self, name, new)
+        return new
+
     # ----------------loss----------------------
     def loss(self,
              cls_scores,
@@ -181,6 +207,8 @@ class AnchorHead(BaseDenseHead):
         num_total_samples = (
             num_total_pos + num_total_neg if self.sampling else num_total_pos)
 
+        normalizer = self._ema_update("loss_normalizer", max(num_total_samples, 1), 100)
+
         losses_cls, losses_bbox = multi_apply(
             self._loss_single,
             cls_scores,
@@ -190,7 +218,7 @@ class AnchorHead(BaseDenseHead):
             label_weights_list,
             bbox_targets_list,
             bbox_weights_list,
-            num_total_samples=num_total_samples)
+            num_total_samples=normalizer)
         loss = dict(loss_cls=losses_cls, loss_bbox=losses_bbox)
 
         if self.debug:
