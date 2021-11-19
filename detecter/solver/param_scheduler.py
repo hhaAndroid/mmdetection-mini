@@ -104,8 +104,10 @@ class LinearParamScheduler(ParamScheduler):
         # interpolate between start and end values
         return base_lr * (self._end_value * where + self._start_value * (1 - where))
 
+
 import math
 import numpy as np
+
 
 def one_cycle(y1=0.0, y2=1.0, steps=100):
     # lambda function for sinusoidal ramp from y1 to y2
@@ -116,31 +118,28 @@ def one_cycle(y1=0.0, y2=1.0, steps=100):
 class Yolov5WramUpParamScheduler(ParamScheduler):
     def __init__(self, by_epoch, begin, end):
         super().__init__(by_epoch, begin, end)
-        self.total_iters=end
+        self.total_iters = end
         self.momentum = 0.937
         self.warmup_bias_lr = 0.1
         self.warmup_momentum = 0.8
 
-
     def step(self, runner, base_lr, index):
         xi = [0, self.total_iters]
-        one_cycle_fun=one_cycle(1, 0.2, runner.max_epochs)
+        one_cycle_fun = one_cycle(1, 0.1, runner.max_epochs)
 
-        cur_epoch=runner.epoch
-        cur_iters=runner.iter
+        cur_epoch = runner.epoch
+        cur_iters = runner.iter
 
         # bias lr falls from 0.1 to lr0, all other lrs rise from 0.0 to lr0
-        x= {'lr': np.interp(cur_iters, xi,
-                            [self.warmup_bias_lr if index == 2 else 0.0, base_lr * one_cycle_fun(cur_epoch)]),
-            'momentum': np.interp(cur_iters, xi, [self.warmup_momentum, self.momentum])}
+        x = {'lr': np.interp(cur_iters, xi,
+                             [self.warmup_bias_lr if index == 2 else 0.0, base_lr * one_cycle_fun(cur_epoch)]),
+             'momentum': np.interp(cur_iters, xi, [self.warmup_momentum, self.momentum])}
 
         return x
 
 
-
 @PARAM_SCHEDULERS.register_module()
 class Yolov5OneCycleParamScheduler(ParamScheduler):
-    def step(self, runner, base_lr,index):
-        one_cycle_fun = one_cycle(1, 0.2, runner.max_epochs)
+    def step(self, runner, base_lr, index):
+        one_cycle_fun = one_cycle(1, 0.1, runner.max_epochs)
         return base_lr * one_cycle_fun(runner.epoch)
-

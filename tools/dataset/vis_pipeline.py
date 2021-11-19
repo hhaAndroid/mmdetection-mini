@@ -27,12 +27,14 @@ def parse_args():
     return args
 
 
-def _recursion_dict_to_list(results, output_keys):
-    output_keys.append(list(results.keys()))
+def _recursion_dict_to_list(results, output_dict):
     for key, value in results.items():
         if isinstance(value, dict):
-            _recursion_dict_to_list(value, output_keys)
-    return output_keys
+            output_dict[key] = {}
+            _recursion_dict_to_list(value, output_dict[key])
+        else:
+            output_dict[key] = 0
+    return output_dict
 
 
 def main():
@@ -50,12 +52,12 @@ def main():
 
         for i, t in enumerate(self.pipeline.transforms):
             print('===================')
-            output_keys_pre = []
+            output_keys_pre = {}
             _recursion_dict_to_list(results, output_keys_pre)
             print('pre', output_keys_pre)
             results = t(results)
 
-            output_keys_post = []
+            output_keys_post = {}
             _recursion_dict_to_list(results, output_keys_post)
             print('post', output_keys_post)
 
