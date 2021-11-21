@@ -46,7 +46,7 @@ class DemoDataset(Dataset):
         return torch.ones((10, 10, 1))
 
     def __len__(self):
-        return 200
+        return 5000
 
 
 class DispLRHook(Hook):
@@ -54,20 +54,26 @@ class DispLRHook(Hook):
         self.history = []
 
     def after_train_iter(self, runner):
-        _best_param_group_id = get_best_param_group_id(runner.optimizer)
-        lr = runner.optimizer.param_groups[_best_param_group_id]["lr"]
-        self.history.append(lr)
-        Logger.info(f'{runner.iter}={lr}')
+        # _best_param_group_id = get_best_param_group_id(runner.optimizer)
+        # lr = runner.optimizer.param_groups[_best_param_group_id]["lr"]
+        lr=[x['lr'] for x in runner.optimizer.param_groups]
+
+        Logger.info(f'epoch={runner.epoch},iter={runner.iter},lr={lr}')
+        # self.history.append(lr)
+        # Logger.info(f'{runner.iter}={lr}')
 
     def after_run(self, runner):
-        plt.plot(self.history)
-        plt.show()
+        pass
+        # plt.plot(self.history)
+        # plt.show()
 
 
 @logger.catch
 def main():
     args = parse_args()
     cfg = Config.fromfile(args.config)
+    cfg.checkpoint.period=100000
+
 
     detector = DemoModel()
     optimizer = build_optimizer(cfg.optimizer, detector)
@@ -78,11 +84,11 @@ def main():
     cp_train_cfg['aspect_ratio_grouping'] = False
     train_dataloader = build_dataloader(cp_train_cfg, DemoDataset())
 
-    default_args = dict(model=detector, dataloader=train_dataloader, optimizer=optimizer,
+    default_args = dict(model=detector, optimizer=optimizer,
                         scheduler=scheduler, logger=Logger.init(),cfg=cfg)
     runner = build_runner(cfg.runner, default_args)
     runner.register_hook(DispLRHook(), 100)
-    runner.run()
+    runner.run([train_dataloader], [('train',1)])
 
 
 if __name__ == '__main__':

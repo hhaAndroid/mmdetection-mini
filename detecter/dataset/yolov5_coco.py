@@ -259,6 +259,14 @@ def xyxy2xywhn(x, w=640, h=640, clip=False, eps=0.0):
     return y
 
 
+def mixup(im, labels, im2, labels2):
+    # Applies MixUp augmentation https://arxiv.org/pdf/1710.09412.pdf
+    r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
+    im = (im * r + im2 * (1 - r)).astype(np.uint8)
+    labels = np.concatenate((labels, labels2), 0)
+    return im, labels
+
+
 @DATASETS.register_module()
 class YOLOV5CocoDataset(CocoDataset):
     def __init__(self,
@@ -268,9 +276,9 @@ class YOLOV5CocoDataset(CocoDataset):
         self.img_size = img_size
         self.indices = range(len(self))
         self.mosaic_border = [-img_size // 2, -img_size // 2]
-        self.hyp = {'fl_gamma': 0.0, 'hsv_h': 0.015, 'hsv_s': 0.7, 'hsv_v': 0.4, 'degrees': 0.0, 'translate': 0.1,
-                    'scale': 0.5, 'shear': 0.0, 'perspective': 0.0, 'flipud': 0.0, 'fliplr': 0.5, 'mosaic': 1.0,
-                    'mixup': 0.0, 'copy_paste': 0.0}
+        self.hyp = {'hsv_h': 0.015, 'hsv_s': 0.7, 'hsv_v': 0.4, 'degrees': 0.0, 'translate': 0.1,
+                    'scale': 0.9, 'shear': 0.0, 'perspective': 0.0, 'flipud': 0.0, 'fliplr': 0.5, 'mosaic': 1.0,
+                    'mixup': 0.1, 'copy_paste': 0.1}
         self.albumentations = Albumentations()
 
         self.use_ceph = use_ceph
@@ -340,6 +348,11 @@ class YOLOV5CocoDataset(CocoDataset):
     def _train(self, idx):
         # 要提前加载label
         img, labels = self._load_mosaic(idx)
+
+        # MixUp augmentation
+        if random.random() < self.hyp['mixup']:
+            img, labels = mixup(img, labels, *self._load_mosaic(self, random.randint(0,len(self) - 1)))
+
 
         nl = len(labels)  # number of labels
         if nl:

@@ -109,9 +109,10 @@ import math
 import numpy as np
 
 
-def one_cycle(y1=0.0, y2=1.0, steps=100):
+def one_cycle(y1=0.0, y2=1.0, steps=100,lrf=0.1, epochs=300):
     # lambda function for sinusoidal ramp from y1 to y2
-    return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
+    return lambda x: (1 - x / (epochs - 1)) * (1.0 - lrf) + lrf
+    # return lambda x: ((1 - math.cos(x * math.pi / steps)) / 2) * (y2 - y1) + y1
 
 
 @PARAM_SCHEDULERS.register_module()
@@ -122,10 +123,11 @@ class Yolov5WramUpParamScheduler(ParamScheduler):
         self.momentum = 0.937
         self.warmup_bias_lr = 0.1
         self.warmup_momentum = 0.8
+        self.lrf=0.1
 
     def step(self, runner, base_lr, index):
         xi = [0, self.total_iters]
-        one_cycle_fun = one_cycle(1, 0.1, runner.max_epochs)
+        one_cycle_fun = one_cycle(lrf=self.lrf, epochs=runner.max_epochs)
 
         cur_epoch = runner.epoch
         cur_iters = runner.iter
@@ -141,5 +143,5 @@ class Yolov5WramUpParamScheduler(ParamScheduler):
 @PARAM_SCHEDULERS.register_module()
 class Yolov5OneCycleParamScheduler(ParamScheduler):
     def step(self, runner, base_lr, index):
-        one_cycle_fun = one_cycle(1, 0.1, runner.max_epochs)
+        one_cycle_fun = one_cycle(lrf=0.1, epochs=runner.max_epochs)
         return base_lr * one_cycle_fun(runner.epoch)

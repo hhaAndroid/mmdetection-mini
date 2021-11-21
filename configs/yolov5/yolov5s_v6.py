@@ -3,6 +3,20 @@ _base_ = [
     '../_base_/datasets/coco_detection.py'
 ]
 
+use_ceph = False
+
+if use_ceph:
+    file_client_args = dict(
+        backend='petrel',
+        path_mapping=dict({
+            './data/': 's3://openmmlab/datasets/detection/',
+            'data/': 's3://openmmlab/datasets/detection/'
+        }))
+else:
+    file_client_args = dict(backend='disk')
+
+
+
 detect_mode = False
 
 if detect_mode:
@@ -62,7 +76,7 @@ train_pipeline = [
 
 if not detect_mode:
     test_pipeline = [
-        dict(type='LoadImageFromFile'),
+        dict(type='LoadImageFromFile',file_client_args=file_client_args),
         dict(type='LoadAnnotations', with_bbox=True),
         dict(type='Yolov5Resize', img_scale=640),
         dict(type='LetterResize', img_scale=(640, 640), scaleup=False, auto=False),
@@ -76,7 +90,7 @@ if not detect_mode:
     ]
 else:
     test_pipeline = [
-        dict(type='LoadImageFromFile'),
+        dict(type='LoadImageFromFile',file_client_args=file_client_args),
         dict(type='LetterResize', img_scale=(640, 640), scaleup=True, auto=True),
         dict(type='DefaultFormatBundle'),
         dict(type='Collect', keys=['img'], meta_keys=('filename', 'ori_shape',
@@ -84,7 +98,6 @@ else:
                                                       'scale_factor', 'pad_param')),
     ]
 
-use_ceph = False
 
 data = dict(
     train=dict(
@@ -112,7 +125,7 @@ data = dict(
 dataloader = dict(train=dict(sampler=dict(type="EpochBaseSampler"),
                              aspect_ratio_grouping=False,
                              samples_per_gpu=16,
-                             workers_per_gpu=2))
+                             workers_per_gpu=4))
 
 # optimizer
 optimizer = dict(
