@@ -351,7 +351,7 @@ class YOLOV5CocoDataset(CocoDataset):
 
         # MixUp augmentation
         if random.random() < self.hyp['mixup']:
-            img, labels = mixup(img, labels, *self._load_mosaic(self, random.randint(0,len(self) - 1)))
+            img, labels = mixup(img, labels, *self._load_mosaic(random.randint(0,len(self) - 1)))
 
 
         nl = len(labels)  # number of labels
